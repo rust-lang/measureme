@@ -1,3 +1,5 @@
+use std::path::Path;
+
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub struct Addr(pub u32);
 
@@ -8,6 +10,8 @@ impl Addr {
 }
 
 pub trait SerializationSink {
+    fn from_path(path: &Path) -> Self;
+
     fn write_atomic<W>(&self, num_bytes: usize, write: W) -> Addr
     where
         W: FnOnce(&mut [u8]);
@@ -35,6 +39,10 @@ pub mod test {
     }
 
     impl SerializationSink for TestSink {
+        fn from_path(path: &Path) -> Self {
+            unimplemented!()
+        }
+
         fn write_atomic<W>(&self, num_bytes: usize, write: W) -> Addr
         where
             W: FnOnce(&mut [u8]),
