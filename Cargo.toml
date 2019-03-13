@@ -1,0 +1,7 @@
+[package]
+name = "measureme"
+version = "0.1.0"
+authors = ["Wesley Wiser <wwiser@gmail.com>", "Michael Woerister <michaelwoerister@posteo>"]
+edition = "2018"
+
+[dependencies]
