@@ -3,6 +3,8 @@ name = "measureme"
 version = "0.1.0"
 authors = ["Wesley Wiser <wwiser@gmail.com>", "Michael Woerister <michaelwoerister@posteo>"]
 edition = "2018"
+description = "Support crate for rustc's self-profiling feature"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 byteorder = "1.3"
