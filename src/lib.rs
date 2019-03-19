@@ -1,6 +1,16 @@
+mod event;
+mod mmap_serialization_sink;
+mod profiler;
+mod profiling_data;
+mod raw_event;
 mod serialization;
 mod stringtable;
 
+pub use crate::event::Event;
+pub use crate::mmap_serialization_sink::MmapSerializationSink;
+pub use crate::profiler::Profiler;
+pub use crate::profiling_data::ProfilingData;
+pub use crate::raw_event::{RawEvent, TimestampKind};
 pub use crate::serialization::{Addr, SerializationSink};
 pub use crate::stringtable::{
     SerializableString, StringId, StringRef, StringTable, StringTableBuilder,

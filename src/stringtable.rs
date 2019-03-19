@@ -21,7 +21,15 @@ use std::sync::Arc;
 
 /// A `StringId` is used to identify a string in the `StringTable`.
 #[derive(Clone, Copy, Eq, PartialEq, Debug, Hash)]
+#[repr(C)]
 pub struct StringId(u32);
+
+impl StringId {
+    #[inline]
+    pub fn reserved(id: u32) -> StringId {
+        StringId(id)
+    }
+}
 
 // Tags for the binary encoding of strings
 
@@ -56,6 +64,7 @@ pub trait SerializableString {
 //
 // in the string table.
 impl SerializableString for str {
+    #[inline]
     fn serialized_size(&self) -> usize {
         1 + // tag
         2 + // len
@@ -63,6 +72,7 @@ impl SerializableString for str {
         1 // terminator
     }
 
+    #[inline]
     fn serialize(&self, bytes: &mut [u8]) {
         assert!(self.len() <= std::u16::MAX as usize);
         let last_byte_index = bytes.len() - 1;
@@ -80,10 +90,12 @@ pub enum StringComponent<'s> {
 }
 
 impl<'a> SerializableString for [StringComponent<'a>] {
+    #[inline]
     fn serialized_size(&self) -> usize {
         unimplemented!()
     }
 
+    #[inline]
     fn serialize(&self, _bytes: &mut [u8]) {
         unimplemented!()
     }
@@ -112,6 +124,7 @@ impl<S: SerializationSink> StringTableBuilder<S> {
         }
     }
 
+    #[inline]
     pub fn alloc_with_reserved_id<STR: SerializableString + ?Sized>(
         &self,
         id: StringId,
@@ -122,6 +135,7 @@ impl<S: SerializationSink> StringTableBuilder<S> {
         id
     }
 
+    #[inline]
     pub fn alloc<STR: SerializableString + ?Sized>(&self, s: &STR) -> StringId {
         let id = StringId(self.id_counter.fetch_add(1, Ordering::SeqCst));
         debug_assert!(id.0 > MAX_PRE_RESERVED_STRING_ID);
@@ -129,6 +143,7 @@ impl<S: SerializationSink> StringTableBuilder<S> {
         id
     }
 
+    #[inline]
     fn alloc_unchecked<STR: SerializableString + ?Sized>(&self, id: StringId, s: &STR) {
         let size_in_bytes = s.serialized_size();
         let addr = self.data_sink.write_atomic(size_in_bytes, |mem| {
@@ -223,6 +238,7 @@ impl<'data> StringTable<'data> {
         StringTable { string_data, index }
     }
 
+    #[inline]
     pub fn get(&self, id: StringId) -> StringRef {
         StringRef { id, table: self }
     }
