@@ -1,4 +1,5 @@
 mod event;
+mod file_serialization_sink;
 mod mmap_serialization_sink;
 mod profiler;
 mod profiling_data;
@@ -7,6 +8,7 @@ mod serialization;
 mod stringtable;
 
 pub use crate::event::Event;
+pub use crate::file_serialization_sink::FileSerializationSink;
 pub use crate::mmap_serialization_sink::MmapSerializationSink;
 pub use crate::profiler::Profiler;
 pub use crate::profiling_data::ProfilingData;
