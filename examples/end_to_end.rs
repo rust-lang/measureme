@@ -1,4 +1,4 @@
-use measureme::{MmapSerializationSink, Profiler, ProfilingData, StringId, TimestampKind};
+use measureme::{FileSerializationSink, Profiler, ProfilingData, StringId, TimestampKind};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -6,7 +6,7 @@ const PROFILE_FILENAME_STEM: &str = "testprofile";
 
 // Generate some profiling data. This is the part that would run in rustc.
 fn generate_profiling_data() {
-    let profiler = Arc::new(Profiler::<MmapSerializationSink>::new(Path::new(
+    let profiler = Arc::new(Profiler::<FileSerializationSink>::new(Path::new(
         PROFILE_FILENAME_STEM,
     )));
 
