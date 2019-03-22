@@ -39,7 +39,7 @@ pub mod test {
     }
 
     impl SerializationSink for TestSink {
-        fn from_path(path: &Path) -> Self {
+        fn from_path(_path: &Path) -> Self {
             unimplemented!()
         }
 
