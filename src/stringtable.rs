@@ -157,7 +157,7 @@ impl<S: SerializationSink> StringTableBuilder<S> {
 #[derive(Copy, Clone)]
 pub struct StringRef<'st> {
     id: StringId,
-    table: &'st StringTable<'st>,
+    table: &'st StringTable,
 }
 
 impl<'st> StringRef<'st> {
@@ -223,14 +223,14 @@ impl<'st> StringRef<'st> {
 }
 
 /// Read-only version of the string table
-pub struct StringTable<'data> {
+pub struct StringTable {
     // TODO: Replace with something lazy
-    string_data: &'data [u8],
+    string_data: Vec<u8>,
     index: FxHashMap<StringId, Addr>,
 }
 
-impl<'data> StringTable<'data> {
-    pub fn new(string_data: &'data [u8], index_data: &[u8]) -> StringTable<'data> {
+impl<'data> StringTable {
+    pub fn new(string_data: Vec<u8>, index_data: Vec<u8>) -> StringTable {
         assert!(index_data.len() % 8 == 0);
 
         let index: FxHashMap<_, _> = index_data.chunks(8).map(deserialize_index_entry).collect();
@@ -278,7 +278,7 @@ mod test {
         let data_bytes = Arc::try_unwrap(data_sink).unwrap().into_bytes();
         let index_bytes = Arc::try_unwrap(index_sink).unwrap().into_bytes();
 
-        let string_table = StringTable::new(&data_bytes, &index_bytes);
+        let string_table = StringTable::new(data_bytes, index_bytes);
 
         for (&id, &expected_string) in string_ids.iter().zip(expected_strings.iter()) {
             let str_ref = string_table.get(id);

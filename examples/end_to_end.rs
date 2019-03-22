@@ -49,7 +49,9 @@ fn generate_profiling_data() {
 fn process_profiling_data() {
     let profiling_data = ProfilingData::new(Path::new(PROFILE_FILENAME_STEM));
 
-    profiling_data.iter_events(|_event| {});
+    for event in profiling_data.iter() {
+        println!("{:?}", event);
+    }
 }
 
 fn main() {
