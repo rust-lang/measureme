@@ -1,9 +1,25 @@
 use crate::raw_event::{RawEvent, Timestamp, TimestampKind};
 use crate::serialization::SerializationSink;
 use crate::stringtable::{SerializableString, StringId, StringTableBuilder};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
+
+pub struct ProfilerFiles {
+    pub events_file: PathBuf,
+    pub string_data_file: PathBuf,
+    pub string_index_file: PathBuf,
+}
+
+impl ProfilerFiles {
+    pub fn new(path_stem: &Path) -> ProfilerFiles {
+        ProfilerFiles {
+            events_file: path_stem.with_extension("events"),
+            string_data_file: path_stem.with_extension("string_data"),
+            string_index_file: path_stem.with_extension("string_index"),
+        }
+    }
+}
 
 pub struct Profiler<S: SerializationSink> {
     event_sink: Arc<S>,
@@ -13,10 +29,11 @@ pub struct Profiler<S: SerializationSink> {
 
 impl<S: SerializationSink> Profiler<S> {
     pub fn new(path_stem: &Path) -> Profiler<S> {
-        let event_sink = Arc::new(S::from_path(&path_stem.with_extension("events")));
+        let paths = ProfilerFiles::new(path_stem);
+        let event_sink = Arc::new(S::from_path(&paths.events_file));
         let string_table = StringTableBuilder::new(
-            Arc::new(S::from_path(&path_stem.with_extension("string_data"))),
-            Arc::new(S::from_path(&path_stem.with_extension("string_index"))),
+            Arc::new(S::from_path(&paths.string_data_file)),
+            Arc::new(S::from_path(&paths.string_index_file)),
         );
 
         Profiler {
