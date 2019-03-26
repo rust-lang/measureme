@@ -41,3 +41,14 @@ pub struct RawEvent {
     pub thread_id: u64,
     pub timestamp: Timestamp,
 }
+
+impl Default for RawEvent {
+    fn default() -> Self {
+        RawEvent {
+            event_kind: StringId::reserved(0),
+            id: StringId::reserved(0),
+            thread_id: 0,
+            timestamp: Timestamp::new(0, TimestampKind::Instant),
+        }
+    }
+}
