@@ -10,7 +10,12 @@ pub struct FileSerializationSink {
 
 impl SerializationSink for FileSerializationSink {
     fn from_path(path: &Path) -> Self {
+        // TODO: This is very crude error handling.
+        //       https://github.com/rust-lang/measureme/issues/9
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+
         let file = fs::File::create(path).expect("couldn't open file: {}");
+
         FileSerializationSink {
             data: Mutex::new((BufWriter::new(file), 0)),
         }
@@ -18,7 +23,8 @@ impl SerializationSink for FileSerializationSink {
 
     #[inline]
     fn write_atomic<W>(&self, num_bytes: usize, write: W) -> Addr
-        where W: FnOnce(&mut [u8]),
+    where
+        W: FnOnce(&mut [u8]),
     {
         let mut buffer = vec![0; num_bytes];
         write(buffer.as_mut_slice());
