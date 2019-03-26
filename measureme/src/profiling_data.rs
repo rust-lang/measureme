@@ -53,8 +53,13 @@ impl<'a> Iterator for ProfilerEventIterator<'a> {
 
         let raw_event_bytes = &self.data.event_data[raw_idx..raw_idx_end];
 
-        let raw_event = unsafe {
-            &*(raw_event_bytes.as_ptr()  as *const RawEvent)
+        let mut raw_event = RawEvent::default();
+        unsafe {
+            let raw_event = std::slice::from_raw_parts_mut(
+                &mut raw_event as *mut RawEvent as *mut u8,
+                std::mem::size_of::<RawEvent>()
+            );
+            raw_event.copy_from_slice(raw_event_bytes);
         };
 
         let string_table = &self.data.string_table;
