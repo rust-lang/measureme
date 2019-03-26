@@ -1,4 +1,4 @@
-# measureme
+# measureme [![Build Status](https://travis-ci.com/rust-lang/measureme.svg?branch=master)](https://travis-ci.com/rust-lang/measureme)
 Support crate for rustc's self-profiling feature
 
 This crate is maintained by the Rust compiler team and in particular by the
