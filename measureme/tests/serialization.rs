@@ -5,12 +5,22 @@ use measureme::{
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
 use std::default::Default;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::SystemTime;
 
+fn mk_filestem(file_name_stem: &str) -> PathBuf {
+    let mut path = PathBuf::new();
+
+    path.push("test-tmp");
+    path.push("end_to_end_serialization");
+    path.push(file_name_stem);
+
+    path
+}
+
 // Generate some profiling data. This is the part that would run in rustc.
-fn generate_profiling_data<S: SerializationSink>(filestem: &str) -> Vec<Event> {
+fn generate_profiling_data<S: SerializationSink>(filestem: &Path) -> Vec<Event> {
     let profiler = Arc::new(Profiler::<S>::new(Path::new(filestem)));
 
     let event_id_reserved = StringId::reserved(42);
@@ -74,8 +84,8 @@ fn generate_profiling_data<S: SerializationSink>(filestem: &str) -> Vec<Event> {
 
 // Process some profiling data. This is the part that would run in a
 // post processing tool.
-fn process_profiling_data(filestem: &str, expected_events: &[Event]) {
-    let profiling_data = ProfilingData::new(Path::new(filestem));
+fn process_profiling_data(filestem: &Path, expected_events: &[Event]) {
+    let profiling_data = ProfilingData::new(filestem);
 
     let mut count = 0;
 
@@ -95,9 +105,10 @@ fn process_profiling_data(filestem: &str, expected_events: &[Event]) {
 
 #[test]
 fn test_file_serialization_sink() {
-    let expected_events =
-        generate_profiling_data::<FileSerializationSink>("file_serialization_sink_test");
-    process_profiling_data("file_serialization_sink_test", &expected_events);
+    let filestem = mk_filestem("file_serialization_sink_test");
+
+    let expected_events = generate_profiling_data::<FileSerializationSink>(&filestem);
+    process_profiling_data(&filestem, &expected_events);
 }
 
 // #[test]
