@@ -1,17 +1,18 @@
 use crate::serialization::{Addr, SerializationSink};
 use std::fs;
-use std::io::Write;
+use std::io::{BufWriter, Write};
 use std::path::Path;
 use std::sync::Mutex;
 
 pub struct FileSerializationSink {
-    data: Mutex<(fs::File, u32)>,
+    data: Mutex<(BufWriter<fs::File>, u32)>,
 }
 
 impl SerializationSink for FileSerializationSink {
     fn from_path(path: &Path) -> Self {
+        let file = fs::File::create(path).expect("couldn't open file: {}");
         FileSerializationSink {
-            data: Mutex::new((fs::File::create(path).expect("couldn't open file: {}"), 0)),
+            data: Mutex::new((BufWriter::new(file), 0)),
         }
     }
 
@@ -23,8 +24,8 @@ impl SerializationSink for FileSerializationSink {
         write(buffer.as_mut_slice());
 
         let mut data = self.data.lock().expect("couldn't acquire lock");
-        let mut file = &data.0;
         let curr_addr = data.1;
+        let file = &mut data.0;
 
         file.write_all(&buffer).expect("failed to write buffer");
 
