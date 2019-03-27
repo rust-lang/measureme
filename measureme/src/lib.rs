@@ -7,6 +7,8 @@ mod raw_event;
 mod serialization;
 mod stringtable;
 
+pub mod testing_common;
+
 pub use crate::event::Event;
 pub use crate::file_serialization_sink::FileSerializationSink;
 pub use crate::mmap_serialization_sink::MmapSerializationSink;
