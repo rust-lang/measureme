@@ -9,4 +9,5 @@ pub struct Event<'a> {
     pub additional_data: &'a [Cow<'a, str>],
     pub timestamp: SystemTime,
     pub timestamp_kind: TimestampKind,
+    pub thread_id: u64,
 }

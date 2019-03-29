@@ -73,6 +73,7 @@ impl<'a> Iterator for ProfilerEventIterator<'a> {
             additional_data: &[],
             timestamp: timestamp,
             timestamp_kind: raw_event.timestamp.kind(),
+            thread_id: raw_event.thread_id,
         })
     }
 }

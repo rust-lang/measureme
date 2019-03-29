@@ -60,6 +60,7 @@ fn generate_profiling_data<S: SerializationSink>(filestem: &Path) -> Vec<Event> 
                 additional_data: &[],
                 timestamp: SystemTime::UNIX_EPOCH, // We can't test this anyway,
                 timestamp_kind: TimestampKind::Start,
+                thread_id,
             });
         }
 
@@ -72,6 +73,7 @@ fn generate_profiling_data<S: SerializationSink>(filestem: &Path) -> Vec<Event> 
                 additional_data: &[],
                 timestamp: SystemTime::UNIX_EPOCH, // We can't test this anyway,
                 timestamp_kind: TimestampKind::End,
+                thread_id,
             });
         }
     }
