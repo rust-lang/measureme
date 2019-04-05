@@ -7,6 +7,9 @@ mod raw_event;
 mod serialization;
 mod stringtable;
 
+#[cfg(unix)]
+mod async_mmap_serialization_sink;
+
 pub mod testing_common;
 
 pub use crate::event::Event;
@@ -19,3 +22,6 @@ pub use crate::serialization::{Addr, SerializationSink};
 pub use crate::stringtable::{
     SerializableString, StringId, StringRef, StringTable, StringTableBuilder,
 };
+
+#[cfg(unix)]
+pub use crate::async_mmap_serialization_sink::AsyncMmapSerializationSink;
