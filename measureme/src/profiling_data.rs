@@ -1,5 +1,5 @@
 use crate::event::Event;
-use crate::{ProfilerFiles, RawEvent, StringTable};
+use crate::{ProfilerFiles, RawEvent, StringTable, TimestampKind};
 use std::fs;
 use std::mem;
 use std::path::Path;
@@ -27,16 +27,26 @@ impl ProfilingData {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = Event<'_>> {
-        ProfilerEventIterator {
-            data: self,
-            curr_event_idx: 0,
-        }
+        ProfilerEventIterator::new(&self)
+    }
+
+    pub fn iter_matching_events(&self) -> impl Iterator<Item = MatchingEvent<'_>> {
+        MatchingEventsIterator::new(ProfilerEventIterator::new(&self))
     }
 }
 
 struct ProfilerEventIterator<'a> {
     data: &'a ProfilingData,
     curr_event_idx: usize,
+}
+
+impl<'a> ProfilerEventIterator<'a> {
+    pub fn new(data: &'a ProfilingData) -> ProfilerEventIterator<'a> {
+        ProfilerEventIterator {
+            data,
+            curr_event_idx: 0,
+        }
+    }
 }
 
 impl<'a> Iterator for ProfilerEventIterator<'a> {
@@ -75,5 +85,62 @@ impl<'a> Iterator for ProfilerEventIterator<'a> {
             timestamp_kind: raw_event.timestamp.kind(),
             thread_id: raw_event.thread_id,
         })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum MatchingEvent<'a> {
+    StartStop(Event<'a>, Event<'a>),
+    Instant(Event<'a>),
+}
+
+struct MatchingEventsIterator<'a> {
+    events: ProfilerEventIterator<'a>,
+    thread_stacks: Vec<Vec<Event<'a>>>,
+}
+
+impl<'a> MatchingEventsIterator<'a> {
+    pub fn new(events: ProfilerEventIterator<'a>) -> MatchingEventsIterator<'a> {
+        MatchingEventsIterator {
+            events,
+            thread_stacks: vec![],
+        }
+    }
+}
+
+impl<'a> Iterator for MatchingEventsIterator<'a> {
+    type Item = MatchingEvent<'a>;
+
+    fn next(&mut self) -> Option<MatchingEvent<'a>> {
+        while let Some(event) = self.events.next() {
+            match event.timestamp_kind {
+                TimestampKind::Start => {
+                    let thread_id = event.thread_id as usize;
+                    if thread_id >= self.thread_stacks.len() {
+                        let growth_size = (thread_id + 1) - self.thread_stacks.len();
+                        self.thread_stacks.append(
+                            &mut vec![vec![]; growth_size]
+                        )
+                    }
+
+                    self.thread_stacks[thread_id].push(event);
+                },
+                TimestampKind::Instant => {
+                    return Some(MatchingEvent::Instant(event));
+                },
+                TimestampKind::End => {
+                    let thread_id = event.thread_id as usize;
+                    let previous_event = self.thread_stacks[thread_id].pop().expect("no previous event");
+                    if previous_event.event_kind != event.event_kind ||
+                        previous_event.label != event.label {
+                        panic!("previous event on thread wasn't the start event");
+                    }
+
+                    return Some(MatchingEvent::StartStop(previous_event, event));
+                }
+            }
+        }
+
+        None
     }
 }
