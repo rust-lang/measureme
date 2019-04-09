@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::path::Path;
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
@@ -9,8 +10,8 @@ impl Addr {
     }
 }
 
-pub trait SerializationSink {
-    fn from_path(path: &Path) -> Self;
+pub trait SerializationSink: Sized {
+    fn from_path(path: &Path) -> Result<Self, Box<dyn Error>>;
 
     fn write_atomic<W>(&self, num_bytes: usize, write: W) -> Addr
     where
@@ -39,7 +40,7 @@ pub mod test {
     }
 
     impl SerializationSink for TestSink {
-        fn from_path(_path: &Path) -> Self {
+        fn from_path(_path: &Path) -> Result<Self, Box<dyn Error>> {
             unimplemented!()
         }
 

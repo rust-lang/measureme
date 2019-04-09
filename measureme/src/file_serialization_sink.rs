@@ -1,4 +1,5 @@
 use crate::serialization::{Addr, SerializationSink};
+use std::error::Error;
 use std::fs;
 use std::io::{BufWriter, Write};
 use std::path::Path;
@@ -9,16 +10,14 @@ pub struct FileSerializationSink {
 }
 
 impl SerializationSink for FileSerializationSink {
-    fn from_path(path: &Path) -> Self {
-        // TODO: This is very crude error handling.
-        //       https://github.com/rust-lang/measureme/issues/9
-        fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fn from_path(path: &Path) -> Result<Self, Box<dyn Error>> {
+        fs::create_dir_all(path.parent().unwrap())?;
 
-        let file = fs::File::create(path).expect("couldn't open file: {}");
+        let file = fs::File::create(path)?;
 
-        FileSerializationSink {
+        Ok(FileSerializationSink {
             data: Mutex::new((BufWriter::new(file), 0)),
-        }
+        })
     }
 
     #[inline]
