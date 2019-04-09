@@ -1,5 +1,6 @@
 use crate::serialization::{Addr, SerializationSink};
 use memmap::{MmapMut};
+use std::error::Error;
 use std::io::{Write, BufWriter};
 use std::fs::{File};
 use std::path::{Path, PathBuf};
@@ -12,17 +13,17 @@ pub struct MmapSerializationSink {
 }
 
 impl SerializationSink for MmapSerializationSink {
-    fn from_path(path: &Path) -> Self {
+    fn from_path(path: &Path) -> Result<Self, Box<dyn Error>> {
         // Lazily allocate 1 GB :O
         let file_size = 1 << 30;
 
-        let mapped_file = MmapMut::map_anon(file_size).unwrap();
+        let mapped_file = MmapMut::map_anon(file_size)?;
 
-        MmapSerializationSink {
+        Ok(MmapSerializationSink {
             mapped_file,
             current_pos: AtomicUsize::new(0),
             path: path.to_path_buf(),
-        }
+        })
     }
 
     #[inline]

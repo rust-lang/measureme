@@ -1,6 +1,7 @@
 use crate::raw_event::{RawEvent, Timestamp, TimestampKind};
 use crate::serialization::SerializationSink;
 use crate::stringtable::{SerializableString, StringId, StringTableBuilder};
+use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
@@ -28,19 +29,19 @@ pub struct Profiler<S: SerializationSink> {
 }
 
 impl<S: SerializationSink> Profiler<S> {
-    pub fn new(path_stem: &Path) -> Profiler<S> {
+    pub fn new(path_stem: &Path) -> Result<Profiler<S>, Box<dyn Error>> {
         let paths = ProfilerFiles::new(path_stem);
-        let event_sink = Arc::new(S::from_path(&paths.events_file));
+        let event_sink = Arc::new(S::from_path(&paths.events_file)?);
         let string_table = StringTableBuilder::new(
-            Arc::new(S::from_path(&paths.string_data_file)),
-            Arc::new(S::from_path(&paths.string_index_file)),
+            Arc::new(S::from_path(&paths.string_data_file)?),
+            Arc::new(S::from_path(&paths.string_index_file)?),
         );
 
-        Profiler {
+        Ok(Profiler {
             event_sink,
             string_table,
             start_time: Instant::now(),
-        }
+        })
     }
 
     #[inline(always)]

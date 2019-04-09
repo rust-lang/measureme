@@ -22,7 +22,7 @@ fn mk_filestem(file_name_stem: &str) -> PathBuf {
 
 // Generate some profiling data. This is the part that would run in rustc.
 fn generate_profiling_data<S: SerializationSink>(filestem: &Path) -> Vec<Event> {
-    let profiler = Arc::new(Profiler::<S>::new(Path::new(filestem)));
+    let profiler = Arc::new(Profiler::<S>::new(Path::new(filestem)).unwrap());
 
     let event_id_reserved = StringId::reserved(42);
 
