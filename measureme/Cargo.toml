@@ -1,10 +1,13 @@
 [package]
 name = "measureme"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Wesley Wiser <wwiser@gmail.com>", "Michael Woerister <michaelwoerister@posteo>"]
 edition = "2018"
 description = "Support crate for rustc's self-profiling feature"
 license = "MIT OR Apache-2.0"
+documentation = "https://docs.rs/measureme"
+homepage = "https://github.com/rust-lang/measureme"
+repository = "https://github.com/rust-lang/measureme"
 
 [badges]
 travis-ci = { repository = "rust-lang/measureme" }
