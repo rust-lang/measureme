@@ -56,7 +56,15 @@ impl Drop for MmapSerializationSink {
     fn drop(&mut self) {
         let actual_size = *self.current_pos.get_mut();
 
-        let mut file = BufWriter::new(File::create(&self.path).unwrap());
+        let file = match File::create(&self.path) {
+            Ok(file) => file,
+            Err(e) => {
+                eprintln!("Error opening file for writing: {:?}", e);
+                return
+            }
+        };
+
+        let mut file = BufWriter::new(file);
 
         if let Err(e) = file.write_all(&self.mapped_file[0 .. actual_size]) {
             eprintln!("Error writing file: {:?}", e);
