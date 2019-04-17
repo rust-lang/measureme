@@ -20,15 +20,17 @@ fn main() {
     //order the results by descending self time
     results.query_data.sort_by(|l, r| r.self_time.cmp(&l.self_time));
 
-    println!("| Item | Self Time | % of total time | Number of invocations | Cache hits |");
+    println!("| Item | Self Time | % of total time | Number of invocations \
+              | Cache hits | Blocked time |");
 
     for query_data in results.query_data {
         println!(
-            "{} | {:?} | {} | {} |",
+            "{} | {:?} | {} | {} | {:?} |",
             query_data.label,
             query_data.self_time,
             query_data.number_of_cache_hits + query_data.number_of_cache_misses,
             query_data.number_of_cache_hits,
+            query_data.blocked_time,
         );
     }
 
