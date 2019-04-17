@@ -1,6 +1,10 @@
+#[macro_use]
+extern crate prettytable;
+
 use std::path::PathBuf;
 use measureme::ProfilingData;
 
+use prettytable::{Table};
 use structopt::StructOpt;
 
 mod analysis;
@@ -20,20 +24,33 @@ fn main() {
     //order the results by descending self time
     results.query_data.sort_by(|l, r| r.self_time.cmp(&l.self_time));
 
-    println!("| Item | Self Time | % of total time | Number of invocations \
-              | Cache hits | Blocked time | Incremental load time |");
+    let mut table = Table::new();
+
+    table.add_row(row![
+        "Item",
+        "Self time",
+        "% of total time",
+        "Item count",
+        "Cache hits",
+        "Blocked time",
+        "Incremental load time",
+    ]);
+
+    let total_time = results.total_time.as_nanos() as f64;
 
     for query_data in results.query_data {
-        println!(
-            "| {} | {:?} | {} | {} | {:?} | {:?} |",
+        table.add_row(row![
             query_data.label,
-            query_data.self_time,
-            query_data.number_of_cache_hits + query_data.number_of_cache_misses,
-            query_data.number_of_cache_hits,
-            query_data.blocked_time,
-            query_data.incremental_load_time,
-        );
+            format!("{:.2?}", query_data.self_time),
+            format!("{:.3}", ((query_data.self_time.as_nanos() as f64) / total_time) * 100.0),
+            format!("{}", query_data.number_of_cache_hits + query_data.number_of_cache_misses),
+            format!("{}", query_data.number_of_cache_hits),
+            format!("{:.2?}", query_data.blocked_time),
+            format!("{:.2?}", query_data.incremental_load_time),
+        ]);
     }
+
+    table.printstd();
 
     println!("Total cpu time: {:?}", results.total_time);
 }

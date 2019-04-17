@@ -7,4 +7,5 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 measureme = { path = "../measureme" }
+prettytable-rs = "0.8"
 structopt = "0.2"
