@@ -9,6 +9,7 @@ pub struct QueryData {
     pub number_of_cache_misses: usize,
     pub number_of_cache_hits: usize,
     pub blocked_time: Duration,
+    pub incremental_load_time: Duration,
 }
 
 impl QueryData {
@@ -19,6 +20,7 @@ impl QueryData {
             number_of_cache_misses: 0,
             number_of_cache_hits: 0,
             blocked_time: Duration::from_nanos(0),
+            incremental_load_time: Duration::from_nanos(0),
         }
     }
 }
@@ -107,6 +109,10 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                 } else if &event.event_kind[..] == "QueryBlocked" {
                     record_event_data(&event.label, &|data| {
                         data.blocked_time += duration;
+                    });
+                } else if &event.event_kind[..] == "IncrementalLoadResult" {
+                    record_event_data(&event.label, &|data| {
+                        data.incremental_load_time += duration;
                     });
                 }
             }
