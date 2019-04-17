@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::time::Duration;
 use measureme::{ProfilingData, TimestampKind, Event};
@@ -32,6 +33,16 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
     let mut threads = HashMap::<_, Vec<Event>>::new();
     let mut total_time = Duration::from_nanos(0);
 
+    let mut record_event_data = |label: &Cow<'_, str>, f: &Fn(&mut QueryData)| {
+        if let Some(data) = query_data.get_mut(&label[..]) {
+            f(data);
+        } else {
+            let mut data = QueryData::new(label.clone().into_owned());
+            f(&mut data);
+            query_data.insert(label.clone().into_owned(), data);
+        }
+    };
+
     for event in data.iter() {
         match event.timestamp_kind {
             TimestampKind::Start => {
@@ -44,13 +55,9 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                             event.timestamp.duration_since(prev_event.timestamp)
                                 .unwrap_or(Duration::from_nanos(0));
 
-                        if let Some(data) = query_data.get_mut(&prev_event.label[..]) {
+                        record_event_data(&prev_event.label, &|data| {
                             data.self_time += duration;
-                        } else {
-                            let mut data = QueryData::new(prev_event.label.clone().into_owned());
-                            data.self_time = duration;
-                            query_data.insert(prev_event.label.clone().into_owned(), data);
-                        }
+                        });
 
                         //record the total time
                         total_time += duration;
@@ -64,13 +71,9 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
             },
             TimestampKind::Instant => {
                 if &event.event_kind[..] == "QueryCacheHit" {
-                    if let Some(data) = query_data.get_mut(&event.label[..]) {
+                    record_event_data(&event.label, &|data| {
                         data.number_of_cache_hits += 1;
-                    } else {
-                        let mut data = QueryData::new(event.label.clone().into_owned());
-                        data.number_of_cache_hits = 1;
-                        query_data.insert(event.label.clone().into_owned(), data);
-                    }
+                    });
                 }
             },
             TimestampKind::End => {
@@ -88,15 +91,10 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                         .unwrap_or(Duration::from_nanos(0));
 
                 if &event.event_kind[..] == "Query" || &event.event_kind[..] == "GenericActivity" {
-                    if let Some(data) = query_data.get_mut(&start_event.label[..]) {
+                    record_event_data(&event.label, &|data| {
                         data.self_time += duration;
                         data.number_of_cache_misses += 1;
-                    } else {
-                        let mut data = QueryData::new(start_event.label.clone().into_owned());
-                        data.self_time = duration;
-                        data.number_of_cache_misses = 1;
-                        query_data.insert(start_event.label.clone().into_owned(), data);
-                    }
+                    });
 
                     //now adjust the previous event's start time so that it "started" right now
                     if let Some(previous_event) = thread_stack.last_mut() {
@@ -107,13 +105,9 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                     //record the total time
                     total_time += duration;
                 } else if &event.event_kind[..] == "QueryBlocked" {
-                    if let Some(data) = query_data.get_mut(&start_event.label[..]) {
+                    record_event_data(&event.label, &|data| {
                         data.blocked_time += duration;
-                    } else {
-                        let mut data = QueryData::new(start_event.label.clone().into_owned());
-                        data.blocked_time = duration;
-                        query_data.insert(start_event.label.clone().into_owned(), data);
-                    }
+                    });
                 }
             }
         }
