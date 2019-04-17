@@ -7,6 +7,7 @@ pub struct QueryData {
     pub self_time: Duration,
     pub number_of_cache_misses: usize,
     pub number_of_cache_hits: usize,
+    pub blocked_time: Duration,
 }
 
 impl QueryData {
@@ -16,6 +17,7 @@ impl QueryData {
             self_time: Duration::from_nanos(0),
             number_of_cache_misses: 0,
             number_of_cache_hits: 0,
+            blocked_time: Duration::from_nanos(0),
         }
     }
 }
@@ -35,25 +37,30 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
             TimestampKind::Start => {
                 let thread_stack = threads.entry(event.thread_id).or_default();
 
-                if let Some(prev_event) = thread_stack.last() {
-                    //count the time run so far for this event
-                    let duration =
-                        event.timestamp.duration_since(prev_event.timestamp)
-                            .unwrap_or(Duration::from_nanos(0));
+                if &event.event_kind[..] == "Query" || &event.event_kind[..] == "GenericActivity" {
+                    if let Some(prev_event) = thread_stack.last() {
+                        //count the time run so far for this event
+                        let duration =
+                            event.timestamp.duration_since(prev_event.timestamp)
+                                .unwrap_or(Duration::from_nanos(0));
 
-                    if let Some(data) = query_data.get_mut(&prev_event.label[..]) {
-                        data.self_time += duration;
-                    } else {
-                        let mut data = QueryData::new(prev_event.label.clone().into_owned());
-                        data.self_time = duration;
-                        query_data.insert(prev_event.label.clone().into_owned(), data);
+                        if let Some(data) = query_data.get_mut(&prev_event.label[..]) {
+                            data.self_time += duration;
+                        } else {
+                            let mut data = QueryData::new(prev_event.label.clone().into_owned());
+                            data.self_time = duration;
+                            query_data.insert(prev_event.label.clone().into_owned(), data);
+                        }
+
+                        //record the total time
+                        total_time += duration;
                     }
 
-                    //record the total time
-                    total_time += duration;
+                    thread_stack.push(event);
+                } else if &event.event_kind[..] == "QueryBlocked" ||
+                          &event.event_kind[..] == "IncrementalLoadResult" {
+                    thread_stack.push(event);
                 }
-
-                thread_stack.push(event);
             },
             TimestampKind::Instant => {
                 if &event.event_kind[..] == "QueryCacheHit" {
@@ -69,6 +76,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
             TimestampKind::End => {
                 let thread_stack = threads.get_mut(&event.thread_id).unwrap();
                 let start_event = thread_stack.pop().unwrap();
+
                 assert_eq!(start_event.event_kind, event.event_kind);
                 assert_eq!(start_event.label, event.label);
                 assert_eq!(start_event.timestamp_kind, TimestampKind::Start);
@@ -79,24 +87,34 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                         .duration_since(start_event.timestamp)
                         .unwrap_or(Duration::from_nanos(0));
 
-                if let Some(data) = query_data.get_mut(&start_event.label[..]) {
-                    data.self_time += duration;
-                    data.number_of_cache_misses += 1;
-                } else {
-                    let mut data = QueryData::new(start_event.label.clone().into_owned());
-                    data.self_time = duration;
-                    data.number_of_cache_misses = 1;
-                    query_data.insert(start_event.label.into_owned(), data);
-                }
+                if &event.event_kind[..] == "Query" || &event.event_kind[..] == "GenericActivity" {
+                    if let Some(data) = query_data.get_mut(&start_event.label[..]) {
+                        data.self_time += duration;
+                        data.number_of_cache_misses += 1;
+                    } else {
+                        let mut data = QueryData::new(start_event.label.clone().into_owned());
+                        data.self_time = duration;
+                        data.number_of_cache_misses = 1;
+                        query_data.insert(start_event.label.clone().into_owned(), data);
+                    }
 
-                //now adjust the previous event's start time so that it "started" right now
-                if let Some(previous_event) = thread_stack.last_mut() {
-                    assert_eq!(TimestampKind::Start, previous_event.timestamp_kind);
-                    previous_event.timestamp = event.timestamp;
-                }
+                    //now adjust the previous event's start time so that it "started" right now
+                    if let Some(previous_event) = thread_stack.last_mut() {
+                        assert_eq!(TimestampKind::Start, previous_event.timestamp_kind);
+                        previous_event.timestamp = event.timestamp;
+                    }
 
-                //record the total time
-                total_time += duration;
+                    //record the total time
+                    total_time += duration;
+                } else if &event.event_kind[..] == "QueryBlocked" {
+                    if let Some(data) = query_data.get_mut(&start_event.label[..]) {
+                        data.blocked_time += duration;
+                    } else {
+                        let mut data = QueryData::new(start_event.label.clone().into_owned());
+                        data.blocked_time = duration;
+                        query_data.insert(start_event.label.clone().into_owned(), data);
+                    }
+                }
             }
         }
     }
