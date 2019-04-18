@@ -11,6 +11,7 @@ pub struct QueryData {
     pub self_time: Duration,
     pub number_of_cache_misses: usize,
     pub number_of_cache_hits: usize,
+    pub invocation_count: usize,
     pub blocked_time: Duration,
     pub incremental_load_time: Duration,
 }
@@ -22,6 +23,7 @@ impl QueryData {
             self_time: Duration::from_nanos(0),
             number_of_cache_misses: 0,
             number_of_cache_hits: 0,
+            invocation_count: 0,
             blocked_time: Duration::from_nanos(0),
             incremental_load_time: Duration::from_nanos(0),
         }
@@ -79,6 +81,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                 if &event.event_kind[..] == "QueryCacheHit" {
                     record_event_data(&event.label, &|data| {
                         data.number_of_cache_hits += 1;
+                        data.invocation_count += 1;
                     });
                 }
             },
@@ -100,6 +103,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                     record_event_data(&event.label, &|data| {
                         data.self_time += duration;
                         data.number_of_cache_misses += 1;
+                        data.invocation_count += 1;
                     });
 
                     //now adjust the previous event's start time so that it "started" right now
