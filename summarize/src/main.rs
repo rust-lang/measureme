@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate prettytable;
 
+use std::fs::File;
+use std::io::BufWriter;
 use std::path::PathBuf;
 use measureme::ProfilingData;
 
@@ -12,14 +14,25 @@ mod analysis;
 #[derive(StructOpt, Debug)]
 struct Opt {
     file_prefix: PathBuf,
+
+    /// Writes the analysis to a json file next to <file_prefix> instead of stdout
+    #[structopt(long = "json")]
+    json: bool,
 }
 
-fn main() {
+fn main() -> Result<(), Box<std::error::Error>> {
     let opt = Opt::from_args();
 
     let data = ProfilingData::new(&opt.file_prefix);
 
     let mut results = analysis::perform_analysis(data);
+
+    //just output the results into a json file
+    if opt.json {
+        let file = BufWriter::new(File::create(opt.file_prefix.with_extension("json"))?);
+        serde_json::to_writer(file, &results)?;
+        return Ok(());
+    }
 
     //order the results by descending self time
     results.query_data.sort_by(|l, r| r.self_time.cmp(&l.self_time));
@@ -53,4 +66,6 @@ fn main() {
     table.printstd();
 
     println!("Total cpu time: {:?}", results.total_time);
+
+    Ok(())
 }
