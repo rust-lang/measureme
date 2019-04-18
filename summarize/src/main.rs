@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
             query_data.label,
             format!("{:.2?}", query_data.self_time),
             format!("{:.3}", ((query_data.self_time.as_nanos() as f64) / total_time) * 100.0),
-            format!("{}", query_data.number_of_cache_hits + query_data.number_of_cache_misses),
+            format!("{}", query_data.invocation_count),
             format!("{}", query_data.number_of_cache_hits),
             format!("{:.2?}", query_data.blocked_time),
             format!("{:.2?}", query_data.incremental_load_time),
