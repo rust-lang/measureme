@@ -3,6 +3,9 @@ use std::collections::HashMap;
 use std::time::Duration;
 use measureme::{ProfilingData, TimestampKind, Event};
 
+use serde::{Serialize};
+
+#[derive(Serialize)]
 pub struct QueryData {
     pub label: String,
     pub self_time: Duration,
@@ -25,6 +28,7 @@ impl QueryData {
     }
 }
 
+#[derive(Serialize)]
 pub struct Results {
     pub query_data: Vec<QueryData>,
     pub total_time: Duration,
