@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+    "crox",
     "measureme",
     "mmview",
     "stack_collapse",
