@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::time::Duration;
 use measureme::{ProfilingData, TimestampKind, Event};
+use measureme::rustc::*;
 
 use serde::{Serialize};
 
@@ -56,7 +57,8 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
             TimestampKind::Start => {
                 let thread_stack = threads.entry(event.thread_id).or_default();
 
-                if &event.event_kind[..] == "Query" || &event.event_kind[..] == "GenericActivity" {
+                if &event.event_kind[..] == QUERY_EVENT_KIND ||
+                    &event.event_kind[..] == GENERIC_ACTIVITY_EVENT_KIND {
                     if let Some(prev_event) = thread_stack.last() {
                         //count the time run so far for this event
                         let duration =
@@ -72,13 +74,13 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                     }
 
                     thread_stack.push(event);
-                } else if &event.event_kind[..] == "QueryBlocked" ||
-                          &event.event_kind[..] == "IncrementalLoadResult" {
+                } else if &event.event_kind[..] == QUERY_BLOCKED_EVENT_KIND ||
+                          &event.event_kind[..] == INCREMENTAL_LOAD_RESULT_EVENT_KIND {
                     thread_stack.push(event);
                 }
             },
             TimestampKind::Instant => {
-                if &event.event_kind[..] == "QueryCacheHit" {
+                if &event.event_kind[..] == QUERY_CACHE_HIT_EVENT_KIND {
                     record_event_data(&event.label, &|data| {
                         data.number_of_cache_hits += 1;
                         data.invocation_count += 1;
@@ -99,7 +101,8 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                         .duration_since(start_event.timestamp)
                         .unwrap_or(Duration::from_nanos(0));
 
-                if &event.event_kind[..] == "Query" || &event.event_kind[..] == "GenericActivity" {
+                if &event.event_kind[..] == QUERY_EVENT_KIND ||
+                    &event.event_kind[..] == GENERIC_ACTIVITY_EVENT_KIND {
                     record_event_data(&event.label, &|data| {
                         data.self_time += duration;
                         data.number_of_cache_misses += 1;
@@ -114,11 +117,11 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
 
                     //record the total time
                     total_time += duration;
-                } else if &event.event_kind[..] == "QueryBlocked" {
+                } else if &event.event_kind[..] == QUERY_BLOCKED_EVENT_KIND {
                     record_event_data(&event.label, &|data| {
                         data.blocked_time += duration;
                     });
-                } else if &event.event_kind[..] == "IncrementalLoadResult" {
+                } else if &event.event_kind[..] == INCREMENTAL_LOAD_RESULT_EVENT_KIND {
                     record_event_data(&event.label, &|data| {
                         data.incremental_load_time += duration;
                     });
