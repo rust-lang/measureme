@@ -3,5 +3,6 @@
 members = [
     "measureme",
     "mmview",
+    "stack_collapse",
     "summarize",
 ]
