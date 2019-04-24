@@ -7,6 +7,7 @@ mod raw_event;
 mod serialization;
 mod stringtable;
 
+pub mod rustc;
 pub mod testing_common;
 
 pub use crate::event::Event;
