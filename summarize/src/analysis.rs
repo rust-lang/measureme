@@ -52,6 +52,62 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
         }
     };
 
+    /*
+        The basic idea is to iterate over all of the events in the profile data file, with some
+        special handling for Start and Stop events.
+
+        When calculating timing data, the core thing we're interested in is self-time.
+        In order to calculate that correctly, we need to track when an event is running and when
+        it has been interrupted by another event.
+
+        Let's look at a simple example with two events:
+
+        Event 1:
+        - Started at 0ms
+        - Ended at 10ms
+
+        Event 2:
+        - Started at 4ms
+        - Ended at 6ms
+
+          0  1  2  3  4  5  6  7  8  9  10
+          ================================
+        1 |------------------------------|
+        2             |-----|
+
+        When processing this, we see the events like this:
+
+        - Start Event 1
+        - Start Event 2
+        - End Event 2
+        - End Event 1
+
+        Now, I'll add some annotation to these events to show what's happening in the code:
+
+        - Start Event 1
+            - Since there is no other event is running, there is no additional bookkeeping to do
+            - We push Event 1 onto the thread stack.
+        - Start Event 2
+            - Since there is another event on the stack running, record the time from that event's
+              start time to this event's start time. (In this case, that's the time from 0ms - 4ms)
+            - We push Event 2 onto the thread stack.
+        - End Event 2
+            - We pop Event 2's start event from the thread stack and record the time from its start
+              time to the current time (In this case, that's 4ms - 6ms)
+            - Since there's another event on the stack, we mutate its start time to be the current
+              time. This effectively "restarts" that event's timer.
+        - End Event 1
+            - We pop Event 1's start event from the thread stack and record the time from its start
+              time to the current time (In this case, that's 6ms - 10ms because we mutated the start
+              time when we processed End Event 2)
+            - Since there's no other events on the stack, there is no additional bookkeeping to do
+
+        As a result:
+        Event 1's self-time is `(4-0)ms + (10-6)ms = 8ms`
+
+        Event 2's self-time is `(6-2)ms = 2ms`
+    */
+
     for event in data.iter() {
         match event.timestamp_kind {
             TimestampKind::Start => {
@@ -109,7 +165,8 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                         data.invocation_count += 1;
                     });
 
-                    //now adjust the previous event's start time so that it "started" right now
+                    //this is the critical bit to correctly calculating self-time:
+                    //adjust the previous event's start time so that it "started" right now
                     if let Some(previous_event) = thread_stack.last_mut() {
                         assert_eq!(TimestampKind::Start, previous_event.timestamp_kind);
                         previous_event.timestamp = event.timestamp;
