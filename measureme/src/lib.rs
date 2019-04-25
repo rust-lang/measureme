@@ -15,7 +15,7 @@ pub use crate::file_serialization_sink::FileSerializationSink;
 pub use crate::mmap_serialization_sink::MmapSerializationSink;
 pub use crate::profiler::{Profiler, ProfilerFiles};
 pub use crate::profiling_data::{ProfilingData, MatchingEvent};
-pub use crate::raw_event::{RawEvent, TimestampKind};
+pub use crate::raw_event::{RawEvent, Timestamp, TimestampKind};
 pub use crate::serialization::{Addr, SerializationSink};
 pub use crate::stringtable::{
     SerializableString, StringId, StringRef, StringTable, StringTableBuilder,
