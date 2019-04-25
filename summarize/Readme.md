@@ -2,17 +2,48 @@
 
 Summarize is a tool to produce a human readable summary of `measureme` profiling data.
 
-## Example
+## Installing summarize
+
+In order to use this tool you will first want to build it. To do this follow the steps
+below:
+
+```bash
+$ git clone https://github.com/rust-lang/measureme.git
+$ cd measureme/summarize
+$ cargo +nightly build --release
+```
+
+This will compile the `summarize` binary which we will need later. It will be located in
+the `measureme/target/release` folder (ie. not in the `summarize` folder).
+
+## Profiling the nightly compiler
+
+To profile the nightly compiler first ensure that you have a recent nightly compiler by
+typing `rustup update nightly`. If your compiler version is older than `2019-04-13` the
+profiling feature has not yet been added.
+
+Profiling the compiler is done by passing the flag `-Z self-profile` to `rustc`. Note that
+`-Z` flags are unstable, so you must use the nightly compiler. As an example we will
+profile the [regex][regex-crate] crate.
+
+[regex-crate]: https://github.com/rust-lang/regex
 
 ```bash
 $ git clone https://github.com/rust-lang/regex.git
-
 $ cd regex
+$ cargo +nightly rustc -- -Z self-profile
+```
 
-$ cargo rustc -- -Z self-profile
+The commands above will run `rustc` with the flag that enables profiling. You should now
+have three files in your directory named `pid-{pid}.events`, `pid-{pid}.string_data` and
+`pid-{pid}.string_index`, which contain the profiler data. (If you just got a
+`regex.profile_events.json` file instead, your compiler is too old.)
 
-$ summarize pid-{pid}
+You can now use the `summarize` tool we compiled in the previous section to view the
+contents of these files:
 
+```bash
+$ /path/to/measureme/target/release/summarize pid-{pid}
 +------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
 | Item                   | Self time | % of total time | Item count | Cache hits | Blocked time | Incremental load time |
 +------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
@@ -39,8 +70,77 @@ $ summarize pid-{pid}
 | mir_const              | 117.82ms  | 1.081           | 1050       | 30         | 0.00ns       | 0.00ns                |
 +------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
 
-(many more rows elided)
+(rows elided)
 
 Total cpu time: 10.896488447s
-
 ```
+
+## Profiling your own build of rustc
+
+You can also profile your own custom build of rustc. First you'll have to clone the
+[rust][rust-repo] repo and compile it. You can find the full guide on doing this
+[here][compiling-rust], but if you've never built rustc before, we suggest starting with
+
+[rust-repo]: https://github.com/rust-lang/rust
+[compiling-rust]: https://rust-lang.github.io/rustc-guide/how-to-build-and-run.html
+
+```bash
+$ git clone https://github.com/rust-lang/rust.git
+$ ./x.py build
+# This will take a while...
+$ rustup toolchain link mytoolchain build/x86_64-unknown-linux-gnu/stage2
+```
+
+Where `mytoolchain` is the name of your custom toolchain. Now we do more or less the same
+as before: (with regex as example)
+
+```bash
+$ git clone https://github.com/rust-lang/regex.git
+$ cd regex
+$ cargo +mytoolchain rustc -- -Z self-profile
+$ /path/to/measureme/target/release/summarize pid-{pid}
++------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
+| Item                   | Self time | % of total time | Item count | Cache hits | Blocked time | Incremental load time |
++------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
+| LLVM_emit_obj          | 4.51s     | 41.432          | 141        | 0          | 0.00ns       | 0.00ns                |
++------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
+| LLVM_module_passes     | 1.05s     | 9.626           | 140        | 0          | 0.00ns       | 0.00ns                |
++------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
+| LLVM_make_bitcode      | 712.94ms  | 6.543           | 140        | 0          | 0.00ns       | 0.00ns                |
++------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
+| typeck_tables_of       | 542.23ms  | 4.976           | 17470      | 16520      | 0.00ns       | 0.00ns                |
++------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
+| codegen                | 366.82ms  | 3.366           | 141        | 0          | 0.00ns       | 0.00ns                |
++------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
+| optimized_mir          | 188.22ms  | 1.727           | 11668      | 9114       | 0.00ns       | 0.00ns                |
++------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
+| mir_built              | 156.30ms  | 1.434           | 2040       | 1020       | 0.00ns       | 0.00ns                |
++------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
+
+(rows elided)
+
+Total cpu time: 10.896488447s
+```
+
+Note that your custom build of the compiler must not use a newer version of the
+`measureme` library than the one used in the `summarize` tool.
+
+## Reading the output
+
+The table is a list of different events. Each event has its own row, and the columns
+summarize the information for that event.
+
+ * The `Item` column contains the name of the event.
+ * The `Self time` column contains the total time used by events of this type.
+ * The `% of total time` column contains how large a percentage `Self time` is of the
+   total runtime of the compiler.
+ * The `Item count` column describes the number of times that event has occurred.
+ * The `Cache hits` column displays the number of times a [query][query] was found in the cache.
+ * The `Blocked time` is the amount of time this event spent while waiting on a different
+   thread. (This only happens with parallel queries enabled)
+ * The `Incremental load time` is the time spent loading the result of a query from a
+   previous incremental build. This is analogous to `Cache hits`.
+
+[query]: https://rust-lang.github.io/rustc-guide/query.html
+
+The table is sorted by `Self time`.
