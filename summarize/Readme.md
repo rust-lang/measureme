@@ -1,6 +1,6 @@
 # summarize
 
-Summarize is a tool to produce a human readable summary of `mesaurme` profiling data.
+Summarize is a tool to produce a human readable summary of `measureme` profiling data.
 
 ## Example
 
