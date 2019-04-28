@@ -19,8 +19,8 @@ struct Opt {
     #[structopt(long = "json")]
     json: bool,
 
-    /// Filters the output rows where "% of total time" > "percent-above"
-    #[structopt(short = "pa", long = "percent-above", default_value = "1.0")]
+    /// Filter the output to items whose self-time is greater than this value
+    #[structopt(short = "pa", long = "percent-above", default_value = "0.0")]
     percent_above: f64,
 }
 
@@ -38,14 +38,13 @@ fn main() -> Result<(), Box<std::error::Error>> {
         return Ok(());
     }
 
+    let percent_above = opt.percent_above;
     //cannot be greater than 100% or less than 0%
-    let percent_above = if opt.percent_above > 100.0 {
-        100.0
-    } else if opt.percent_above < 0.0 {
-        0.0
-    } else {
-        opt.percent_above
-    };
+    if percent_above > 100.0 {
+        return Err("Percentage of total time cannot be more than 100.0".into())
+    } else if percent_above < 0.0 {
+        return Err("Percentage of total time cannot be less than 0.0".into())
+    }
 
     //order the results by descending self time
     results.query_data.sort_by(|l, r| r.self_time.cmp(&l.self_time));
@@ -63,28 +62,33 @@ fn main() -> Result<(), Box<std::error::Error>> {
     ]);
 
     let total_time = results.total_time.as_nanos() as f64;
+    let mut percent_total_time: f64 = 0.0;
 
     for query_data in results.query_data {
 
-        let percent = (query_data.self_time.as_nanos() as f64) / total_time * 100.0;
+        let curr_percent = (query_data.self_time.as_nanos() as f64) / total_time * 100.0;
+        if curr_percent < percent_above { break } //no need to run entire loop if filtering by % time
 
-        if percent > percent_above {
-            table.add_row(row![
-                query_data.label,
-                format!("{:.2?}", query_data.self_time),
-                format!("{:.3}", percent),
-                format!("{}", query_data.invocation_count),
-                format!("{}", query_data.number_of_cache_hits),
-                format!("{:.2?}", query_data.blocked_time),
-                format!("{:.2?}", query_data.incremental_load_time),
-            ]);
-        }
+        percent_total_time = percent_total_time + curr_percent;
+
+        table.add_row(row![
+            query_data.label,
+            format!("{:.2?}", query_data.self_time),
+            format!("{:.3}", curr_percent),
+            format!("{}", query_data.invocation_count),
+            format!("{}", query_data.number_of_cache_hits),
+            format!("{:.2?}", query_data.blocked_time),
+            format!("{:.2?}", query_data.incremental_load_time),
+        ]);
     }
 
     table.printstd();
 
     println!("Total cpu time: {:?}", results.total_time);
-    println!("Showing results for % total time greater than {:?}%", percent_above);
+
+    if percent_above != 0.0 {
+        println!("Filtered results account for {:.3}% of total time.", percent_total_time);
+    }
 
     Ok(())
 }
