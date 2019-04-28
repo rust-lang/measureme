@@ -2,7 +2,7 @@
 
 ## Unreleased
 ### Added
-- New CLI argument `percent-above` for `summarize` crate ([GH-32])
+- `summarize`: New CLI argument `percent-above` for `summarize` crate ([GH-32])
 
 ## [0.2.1] - 2019-04-12
 
