@@ -4,7 +4,7 @@ Summarize is a tool to produce a human readable summary of `measureme` profiling
 
 ## Installing summarize
 
-In order to use this tool you will first want to build it. To do this follow the steps
+To use this tool you will first want to build it. To do this follow the steps
 below:
 
 ```bash
