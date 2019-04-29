@@ -41,9 +41,11 @@ fn main() -> Result<(), Box<std::error::Error>> {
     let percent_above = opt.percent_above;
     //cannot be greater than 100% or less than 0%
     if percent_above > 100.0 {
-        return Err("Percentage of total time cannot be more than 100.0".into())
+        eprintln!("Percentage of total time cannot be more than 100.0");
+        std::process::exit(1);
     } else if percent_above < 0.0 {
-        return Err("Percentage of total time cannot be less than 0.0".into())
+        eprintln!("Percentage of total time cannot be less than 0.0");
+        std::process::exit(1);
     }
 
     //order the results by descending self time
