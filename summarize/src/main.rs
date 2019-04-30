@@ -18,6 +18,10 @@ struct Opt {
     /// Writes the analysis to a json file next to <file_prefix> instead of stdout
     #[structopt(long = "json")]
     json: bool,
+
+    /// Filter the output to items whose self-time is greater than this value
+    #[structopt(short = "pa", long = "percent-above", default_value = "0.0")]
+    percent_above: f64,
 }
 
 fn main() -> Result<(), Box<std::error::Error>> {
@@ -32,6 +36,16 @@ fn main() -> Result<(), Box<std::error::Error>> {
         let file = BufWriter::new(File::create(opt.file_prefix.with_extension("json"))?);
         serde_json::to_writer(file, &results)?;
         return Ok(());
+    }
+
+    let percent_above = opt.percent_above;
+    //cannot be greater than 100% or less than 0%
+    if percent_above > 100.0 {
+        eprintln!("Percentage of total time cannot be more than 100.0");
+        std::process::exit(1);
+    } else if percent_above < 0.0 {
+        eprintln!("Percentage of total time cannot be less than 0.0");
+        std::process::exit(1);
     }
 
     //order the results by descending self time
@@ -50,12 +64,19 @@ fn main() -> Result<(), Box<std::error::Error>> {
     ]);
 
     let total_time = results.total_time.as_nanos() as f64;
+    let mut percent_total_time: f64 = 0.0;
 
     for query_data in results.query_data {
+
+        let curr_percent = (query_data.self_time.as_nanos() as f64) / total_time * 100.0;
+        if curr_percent < percent_above { break } //no need to run entire loop if filtering by % time
+
+        percent_total_time = percent_total_time + curr_percent;
+
         table.add_row(row![
             query_data.label,
             format!("{:.2?}", query_data.self_time),
-            format!("{:.3}", ((query_data.self_time.as_nanos() as f64) / total_time) * 100.0),
+            format!("{:.3}", curr_percent),
             format!("{}", query_data.invocation_count),
             format!("{}", query_data.number_of_cache_hits),
             format!("{:.2?}", query_data.blocked_time),
@@ -66,6 +87,10 @@ fn main() -> Result<(), Box<std::error::Error>> {
     table.printstd();
 
     println!("Total cpu time: {:?}", results.total_time);
+
+    if percent_above != 0.0 {
+        println!("Filtered results account for {:.3}% of total time.", percent_total_time);
+    }
 
     Ok(())
 }
