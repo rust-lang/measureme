@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::path::PathBuf;
 use measureme::ProfilingData;
 
@@ -8,12 +9,14 @@ struct Opt {
     file_prefix: PathBuf,
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let opt = Opt::from_args();
 
-    let data = ProfilingData::new(&opt.file_prefix);
+    let data = ProfilingData::new(&opt.file_prefix)?;
 
     for event in data.iter() {
         println!("{:?}", event);
     }
+
+    Ok(())
 }

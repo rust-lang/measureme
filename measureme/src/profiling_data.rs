@@ -1,5 +1,7 @@
+use crate::file_header::FILE_HEADER_SIZE;
 use crate::event::Event;
 use crate::{ProfilerFiles, RawEvent, StringTable, TimestampKind};
+use std::error::Error;
 use std::fs;
 use std::mem;
 use std::path::Path;
@@ -11,19 +13,19 @@ pub struct ProfilingData {
 }
 
 impl ProfilingData {
-    pub fn new(path_stem: &Path) -> ProfilingData {
+    pub fn new(path_stem: &Path) -> Result<ProfilingData, Box<dyn Error>> {
         let paths = ProfilerFiles::new(path_stem);
 
         let string_data = fs::read(paths.string_data_file).expect("couldn't read string_data file");
         let index_data = fs::read(paths.string_index_file).expect("couldn't read string_index file");
         let event_data = fs::read(paths.events_file).expect("couldn't read events file");
 
-        let string_table = StringTable::new(string_data, index_data);
+        let string_table = StringTable::new(string_data, index_data)?;
 
-        ProfilingData {
+        Ok(ProfilingData {
             string_table,
             event_data,
-        }
+        })
     }
 
     pub fn iter(&self) -> impl Iterator<Item = Event<'_>> {
@@ -53,15 +55,16 @@ impl<'a> Iterator for ProfilerEventIterator<'a> {
     type Item = Event<'a>;
 
     fn next(&mut self) -> Option<Event<'a>> {
-        let raw_idx = self.curr_event_idx * mem::size_of::<RawEvent>();
-        let raw_idx_end = raw_idx + mem::size_of::<RawEvent>();
-        if raw_idx_end > self.data.event_data.len() {
+        let event_start_addr = FILE_HEADER_SIZE +
+            self.curr_event_idx * mem::size_of::<RawEvent>();
+        let event_end_addr = event_start_addr + mem::size_of::<RawEvent>();
+        if event_end_addr > self.data.event_data.len() {
             return None;
         }
 
         self.curr_event_idx += 1;
 
-        let raw_event_bytes = &self.data.event_data[raw_idx..raw_idx_end];
+        let raw_event_bytes = &self.data.event_data[event_start_addr..event_end_addr];
 
         let mut raw_event = RawEvent::default();
         unsafe {

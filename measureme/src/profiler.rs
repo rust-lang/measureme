@@ -1,3 +1,4 @@
+use crate::file_header::{write_file_header, FILE_MAGIC_EVENT_STREAM};
 use crate::raw_event::{RawEvent, Timestamp, TimestampKind};
 use crate::serialization::SerializationSink;
 use crate::stringtable::{SerializableString, StringId, StringTableBuilder};
@@ -32,6 +33,10 @@ impl<S: SerializationSink> Profiler<S> {
     pub fn new(path_stem: &Path) -> Result<Profiler<S>, Box<dyn Error>> {
         let paths = ProfilerFiles::new(path_stem);
         let event_sink = Arc::new(S::from_path(&paths.events_file)?);
+
+        // The first thing in every file we generate must be the file header.
+        write_file_header(&*event_sink, FILE_MAGIC_EVENT_STREAM);
+
         let string_table = StringTableBuilder::new(
             Arc::new(S::from_path(&paths.string_data_file)?),
             Arc::new(S::from_path(&paths.string_index_file)?),

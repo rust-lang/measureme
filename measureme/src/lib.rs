@@ -1,4 +1,5 @@
 mod event;
+mod file_header;
 mod file_serialization_sink;
 mod mmap_serialization_sink;
 mod profiler;
