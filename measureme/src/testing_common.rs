@@ -88,7 +88,7 @@ fn generate_profiling_data<S: SerializationSink>(filestem: &Path) -> Vec<Event> 
 // Process some profiling data. This is the part that would run in a
 // post processing tool.
 fn process_profiling_data(filestem: &Path, expected_events: &[Event]) {
-    let profiling_data = ProfilingData::new(filestem);
+    let profiling_data = ProfilingData::new(filestem).unwrap();
 
     let mut count = 0;
 

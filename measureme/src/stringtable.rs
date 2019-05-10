@@ -12,10 +12,13 @@
 //! UTF-8 bytes. The content of a `TAG_STR_REF` is the contents of the entry
 //! it references.
 
+use crate::file_header::{write_file_header, read_file_header, strip_file_header,
+                         FILE_MAGIC_STRINGTABLE_DATA, FILE_MAGIC_STRINGTABLE_INDEX};
 use crate::serialization::{Addr, SerializationSink};
 use byteorder::{ByteOrder, LittleEndian};
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
+use std::error::Error;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
@@ -117,6 +120,11 @@ fn deserialize_index_entry(bytes: &[u8]) -> (StringId, Addr) {
 
 impl<S: SerializationSink> StringTableBuilder<S> {
     pub fn new(data_sink: Arc<S>, index_sink: Arc<S>) -> StringTableBuilder<S> {
+
+        // The first thing in every file we generate must be the file header.
+        write_file_header(&*data_sink, FILE_MAGIC_STRINGTABLE_DATA);
+        write_file_header(&*index_sink, FILE_MAGIC_STRINGTABLE_INDEX);
+
         StringTableBuilder {
             data_sink,
             index_sink,
@@ -230,12 +238,27 @@ pub struct StringTable {
 }
 
 impl<'data> StringTable {
-    pub fn new(string_data: Vec<u8>, index_data: Vec<u8>) -> StringTable {
+    pub fn new(string_data: Vec<u8>, index_data: Vec<u8>) -> Result<StringTable, Box<dyn Error>> {
+
+        let string_data_format = read_file_header(&string_data, FILE_MAGIC_STRINGTABLE_DATA)?;
+        let index_data_format = read_file_header(&index_data, FILE_MAGIC_STRINGTABLE_INDEX)?;
+
+        if string_data_format != index_data_format {
+            Err("Mismatch between StringTable DATA and INDEX format version")?;
+        }
+
+        if string_data_format != 0 {
+            Err(format!("StringTable file format version '{}' is not supported
+                         by this version of `measureme`.", string_data_format))?;
+        }
+
         assert!(index_data.len() % 8 == 0);
+        let index: FxHashMap<_, _> = strip_file_header(&index_data)
+            .chunks(8)
+            .map(deserialize_index_entry)
+            .collect();
 
-        let index: FxHashMap<_, _> = index_data.chunks(8).map(deserialize_index_entry).collect();
-
-        StringTable { string_data, index }
+        Ok(StringTable { string_data, index })
     }
 
     #[inline]
@@ -245,7 +268,7 @@ impl<'data> StringTable {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
     #[test]
@@ -278,7 +301,7 @@ mod test {
         let data_bytes = Arc::try_unwrap(data_sink).unwrap().into_bytes();
         let index_bytes = Arc::try_unwrap(index_sink).unwrap().into_bytes();
 
-        let string_table = StringTable::new(data_bytes, index_bytes);
+        let string_table = StringTable::new(data_bytes, index_bytes).unwrap();
 
         for (&id, &expected_string) in string_ids.iter().zip(expected_strings.iter()) {
             let str_ref = string_table.get(id);

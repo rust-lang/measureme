@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate prettytable;
 
+use std::error::Error;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::PathBuf;
@@ -24,10 +25,10 @@ struct Opt {
     percent_above: f64,
 }
 
-fn main() -> Result<(), Box<std::error::Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     let opt = Opt::from_args();
 
-    let data = ProfilingData::new(&opt.file_prefix);
+    let data = ProfilingData::new(&opt.file_prefix)?;
 
     let mut results = analysis::perform_analysis(data);
 

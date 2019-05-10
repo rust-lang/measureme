@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
@@ -20,10 +21,10 @@ struct Opt {
     interval: u64,
 }
 
-fn main() -> Result<(), Box<std::error::Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     let opt = Opt::from_args();
 
-    let profiling_data = ProfilingData::new(&opt.file_prefix);
+    let profiling_data = ProfilingData::new(&opt.file_prefix)?;
 
     let first_event_time = {
         let current_time = profiling_data.iter().next().unwrap().timestamp;
