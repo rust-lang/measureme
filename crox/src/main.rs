@@ -47,7 +47,7 @@ struct Opt {
 fn main() -> Result<(), Box<std::error::Error>> {
     let opt = Opt::from_args();
 
-    let data = ProfilingData::new(&opt.file_prefix);
+    let data = ProfilingData::new(&opt.file_prefix)?;
 
     let chrome_file = BufWriter::new(fs::File::create("chrome_profiler.json")?);
 
