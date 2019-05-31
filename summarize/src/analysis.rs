@@ -147,8 +147,8 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                 let thread_stack = threads.get_mut(&event.thread_id).unwrap();
                 let start_event = thread_stack.pop().unwrap();
 
-                assert_eq!(start_event.event_kind, event.event_kind);
                 assert_eq!(start_event.label, event.label);
+                assert_eq!(start_event.event_kind, event.event_kind);
                 assert_eq!(start_event.timestamp_kind, TimestampKind::Start);
 
                 //track the time for this event
