@@ -43,7 +43,7 @@ You can now use the `summarize` tool we compiled in the previous section to view
 contents of these files:
 
 ```bash
-$ /path/to/measureme/target/release/summarize pid-{pid}
+$ /path/to/measureme/target/release/summarize summarize id-{pid}
 +------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
 | Item                   | Self time | % of total time | Item count | Cache hits | Blocked time | Incremental load time |
 +------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
@@ -98,7 +98,7 @@ as before: (with regex as example)
 $ git clone https://github.com/rust-lang/regex.git
 $ cd regex
 $ cargo +mytoolchain rustc -- -Z self-profile
-$ /path/to/measureme/target/release/summarize pid-{pid}
+$ /path/to/measureme/target/release/summarize summarize pid-{pid}
 +------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
 | Item                   | Self time | % of total time | Item count | Cache hits | Blocked time | Incremental load time |
 +------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
@@ -143,4 +143,31 @@ summarize the information for that event.
 
 [query]: https://rust-lang.github.io/rustc-guide/query.html
 
-The table is sorted by `Self time`.
+The table is sorted by `Self time` descending.
+
+## The `diff` sub command
+
+The `diff` sub command allows you to compare the performance of two different profiles by event.
+
+The output is a table like that of the `summarize` sub command but it instead shows the differences in each metric.
+
+```bash
+$ /path/to/measureme/target/release/summarize diff base-profile changed-profile
++---------------------------+--------------+------------+------------+--------------+-----------------------+
+| Item                      | Self Time    | Item count | Cache hits | Blocked time | Incremental load time |
++---------------------------+--------------+------------+------------+--------------+-----------------------+
+| LLVM_module_passes        | -66.626471ms | +0         | +0         | +0ns         | +0ns                  |
++---------------------------+--------------+------------+------------+--------------+-----------------------+
+| LLVM_emit_obj             | -38.700719ms | +0         | +0         | +0ns         | +0ns                  |
++---------------------------+--------------+------------+------------+--------------+-----------------------+
+| LLVM_make_bitcode         | +32.006706ms | +0         | +0         | +0ns         | +0ns                  |
++---------------------------+--------------+------------+------------+--------------+-----------------------+
+| mir_borrowck              | -12.808322ms | +0         | +0         | +0ns         | +0ns                  |
++---------------------------+--------------+------------+------------+--------------+-----------------------+
+| typeck_tables_of          | -10.325247ms | +0         | +0         | +0ns         | +0ns                  |
++---------------------------+--------------+------------+------------+--------------+-----------------------+
+(rows elided)
+Total cpu time: -155.177548ms
+```
+
+The table is sorted by the absolute value of `Self time` descending.

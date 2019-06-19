@@ -4,6 +4,10 @@
 ### Added
 - `measureme`: Added support for compiling the library under wasm/wasi ([GH-43])
 - `mmview`: Added the `-t` flag to limit output to results on the specified thread id ([GH-49])
+- `summarize`: Added the `diff` sub command to compare two profiles ([GH-50])
+
+### Changed
+- `summarize`: Moved summarization under the `summarize` sub command ([GH-50])
 
 ## [0.3.0] - 2019-05-14
 ### Added
