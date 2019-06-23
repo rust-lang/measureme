@@ -3,17 +3,35 @@ extern crate prettytable;
 
 use std::error::Error;
 use std::fs::File;
-use std::io::BufWriter;
+use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
 use measureme::ProfilingData;
 
 use prettytable::{Table};
+use serde::Serialize;
 use structopt::StructOpt;
 
 mod analysis;
+mod diff;
+mod query_data;
+mod signed_duration;
+
+use query_data::Results;
 
 #[derive(StructOpt, Debug)]
-struct Opt {
+struct DiffOpt {
+    base: PathBuf,
+    change: PathBuf,
+
+    #[structopt(short = "e", long = "exclude")]
+    exclude: Vec<String>,
+
+    #[structopt(long = "json")]
+    json: bool,
+}
+
+#[derive(StructOpt, Debug)]
+struct SummarizeOpt {
     file_prefix: PathBuf,
 
     /// Writes the analysis to a json file next to <file_prefix> instead of stdout
@@ -25,17 +43,96 @@ struct Opt {
     percent_above: f64,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let opt = Opt::from_args();
+#[derive(StructOpt, Debug)]
+enum Opt {
+    #[structopt(name = "diff")]
+    Diff(DiffOpt),
 
+    /// Processes trace files and produces a summary
+    #[structopt(name = "summarize")]
+    Summarize(SummarizeOpt),
+}
+
+fn process_results(file: &PathBuf) -> Result<Results, Box<dyn Error>> {
+    if file.ends_with("json") {
+        let reader = BufReader::new(File::open(&file)?);
+
+        let results: Results = serde_json::from_reader(reader)?;
+        Ok(results)
+    } else {
+        let data = ProfilingData::new(&file)?;
+
+        Ok(analysis::perform_analysis(data))
+    }
+}
+
+fn write_results_json(file: &PathBuf, results: impl Serialize) -> Result<(), Box<dyn Error>> {
+    let file = BufWriter::new(File::create(file.with_extension("json"))?);
+    serde_json::to_writer(file, &results)?;
+    Ok(())
+}
+
+fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error>> {
+    let base = process_results(&opt.base)?;
+    let change = process_results(&opt.change)?;
+
+    let results = diff::calculate_diff(base, change);
+
+    if opt.json {
+        write_results_json(&opt.change, results)?;
+        return Ok(());
+    }
+
+    let mut table = Table::new();
+
+    table.add_row(row!(
+        "Item",
+        "Self Time",
+        "Item count",
+        "Cache hits",
+        "Blocked time",
+        "Incremental load time"
+    ));
+
+    for query_data in results.query_data {
+        let exclude = opt.exclude.iter().any(|e| query_data.label.contains(e));
+        if exclude {
+            continue;
+        }
+
+        fn print_i64(i: i64) -> String {
+            if i >= 0 {
+                format!("+{}", i)
+            } else {
+                format!("{}", i)
+            }
+        }
+
+        table.add_row(row![
+            query_data.label,
+            format!("{:.2?}", query_data.self_time),
+            print_i64(query_data.invocation_count),
+            print_i64(query_data.number_of_cache_hits),
+            format!("{:.2?}", query_data.blocked_time),
+            format!("{:.2?}", query_data.incremental_load_time),
+        ]);
+    }
+
+    table.printstd();
+
+    println!("Total cpu time: {:?}", results.total_time);
+
+    Ok(())
+}
+
+fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error>> {
     let data = ProfilingData::new(&opt.file_prefix)?;
 
     let mut results = analysis::perform_analysis(data);
 
     //just output the results into a json file
     if opt.json {
-        let file = BufWriter::new(File::create(opt.file_prefix.with_extension("json"))?);
-        serde_json::to_writer(file, &results)?;
+        write_results_json(&opt.file_prefix, &results)?;
         return Ok(());
     }
 
@@ -68,7 +165,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut percent_total_time: f64 = 0.0;
 
     for query_data in results.query_data {
-
         let curr_percent = (query_data.self_time.as_nanos() as f64) / total_time * 100.0;
         if curr_percent < percent_above { break } //no need to run entire loop if filtering by % time
 
@@ -94,4 +190,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let opt = Opt::from_args();
+
+    match opt {
+        Opt::Summarize(opt) => summarize(opt),
+        Opt::Diff(opt) => diff(opt),
+    }
 }

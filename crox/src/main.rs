@@ -44,7 +44,7 @@ struct Opt {
     file_prefix: PathBuf,
 }
 
-fn main() -> Result<(), Box<std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
     let data = ProfilingData::new(&opt.file_prefix)?;

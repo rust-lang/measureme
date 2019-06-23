@@ -3,46 +3,14 @@ use std::collections::HashMap;
 use std::time::Duration;
 use measureme::{ProfilingData, TimestampKind, Event};
 use measureme::rustc::*;
-
-use serde::{Serialize};
-
-#[derive(Serialize)]
-pub struct QueryData {
-    pub label: String,
-    pub self_time: Duration,
-    pub number_of_cache_misses: usize,
-    pub number_of_cache_hits: usize,
-    pub invocation_count: usize,
-    pub blocked_time: Duration,
-    pub incremental_load_time: Duration,
-}
-
-impl QueryData {
-    fn new(label: String) -> QueryData {
-        QueryData {
-            label,
-            self_time: Duration::from_nanos(0),
-            number_of_cache_misses: 0,
-            number_of_cache_hits: 0,
-            invocation_count: 0,
-            blocked_time: Duration::from_nanos(0),
-            incremental_load_time: Duration::from_nanos(0),
-        }
-    }
-}
-
-#[derive(Serialize)]
-pub struct Results {
-    pub query_data: Vec<QueryData>,
-    pub total_time: Duration,
-}
+use crate::query_data::{QueryData, Results};
 
 pub fn perform_analysis(data: ProfilingData) -> Results {
     let mut query_data = HashMap::<String, QueryData>::new();
     let mut threads = HashMap::<_, Vec<Event>>::new();
     let mut total_time = Duration::from_nanos(0);
 
-    let mut record_event_data = |label: &Cow<'_, str>, f: &Fn(&mut QueryData)| {
+    let mut record_event_data = |label: &Cow<'_, str>, f: &dyn Fn(&mut QueryData)| {
         if let Some(data) = query_data.get_mut(&label[..]) {
             f(data);
         } else {
