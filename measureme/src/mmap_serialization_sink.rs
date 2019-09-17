@@ -1,8 +1,8 @@
 use crate::serialization::{Addr, SerializationSink};
-use memmap::{MmapMut};
+use memmap::MmapMut;
 use std::error::Error;
-use std::io::{Write, BufWriter};
-use std::fs::{File};
+use std::fs::File;
+use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -60,13 +60,13 @@ impl Drop for MmapSerializationSink {
             Ok(file) => file,
             Err(e) => {
                 eprintln!("Error opening file for writing: {:?}", e);
-                return
+                return;
             }
         };
 
         let mut file = BufWriter::new(file);
 
-        if let Err(e) = file.write_all(&self.mapped_file[0 .. actual_size]) {
+        if let Err(e) = file.write_all(&self.mapped_file[0..actual_size]) {
             eprintln!("Error writing file: {:?}", e);
         }
     }

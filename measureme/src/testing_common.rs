@@ -1,8 +1,4 @@
-
-use crate::{
-    Event, Profiler, ProfilingData, SerializationSink, StringId,
-    TimestampKind,
-};
+use crate::{Event, Profiler, ProfilingData, SerializationSink, StringId, TimestampKind};
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
 use std::default::Default;
@@ -107,7 +103,7 @@ fn process_profiling_data(filestem: &Path, expected_events: &[Event]) {
 }
 
 pub fn run_end_to_end_serialization_test<S: SerializationSink>(file_name_stem: &str) {
-        let filestem = mk_filestem(file_name_stem);
-        let expected_events = generate_profiling_data::<S>(&filestem);
-        process_profiling_data(&filestem, &expected_events);
+    let filestem = mk_filestem(file_name_stem);
+    let expected_events = generate_profiling_data::<S>(&filestem);
+    process_profiling_data(&filestem, &expected_events);
 }

@@ -1,7 +1,7 @@
+use crate::signed_duration::SignedDuration;
+use serde::{Deserialize, Serialize};
 use std::ops::Sub;
 use std::time::Duration;
-use serde::{Deserialize, Serialize};
-use crate::signed_duration::SignedDuration;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct QueryData {
@@ -31,7 +31,7 @@ impl QueryData {
         fn invert(d: Duration) -> SignedDuration {
             SignedDuration {
                 duration: d,
-                is_positive: false
+                is_positive: false,
             }
         }
 

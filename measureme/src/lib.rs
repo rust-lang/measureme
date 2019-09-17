@@ -1,8 +1,8 @@
 mod event;
 mod file_header;
-#[cfg(any(not(target_arch="wasm32"), target_os="wasi"))]
+#[cfg(any(not(target_arch = "wasm32"), target_os = "wasi"))]
 mod file_serialization_sink;
-#[cfg(not(target_arch="wasm32"))]
+#[cfg(not(target_arch = "wasm32"))]
 mod mmap_serialization_sink;
 mod profiler;
 mod profiling_data;
@@ -14,12 +14,12 @@ pub mod rustc;
 pub mod testing_common;
 
 pub use crate::event::Event;
-#[cfg(any(not(target_arch="wasm32"), target_os="wasi"))]
+#[cfg(any(not(target_arch = "wasm32"), target_os = "wasi"))]
 pub use crate::file_serialization_sink::FileSerializationSink;
-#[cfg(not(target_arch="wasm32"))]
+#[cfg(not(target_arch = "wasm32"))]
 pub use crate::mmap_serialization_sink::MmapSerializationSink;
 pub use crate::profiler::{Profiler, ProfilerFiles};
-pub use crate::profiling_data::{ProfilingData, MatchingEvent};
+pub use crate::profiling_data::{MatchingEvent, ProfilingData};
 pub use crate::raw_event::{RawEvent, Timestamp, TimestampKind};
 pub use crate::serialization::{Addr, SerializationSink};
 pub use crate::stringtable::{

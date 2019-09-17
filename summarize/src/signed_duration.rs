@@ -1,8 +1,8 @@
+use serde::{Deserialize, Serialize};
 use std::cmp::{Ord, Ordering, PartialOrd};
 use std::fmt;
 use std::ops::Sub;
 use std::time::Duration;
-use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Copy, Eq, PartialEq)]
 pub struct SignedDuration {
@@ -31,7 +31,7 @@ impl From<Duration> for SignedDuration {
     fn from(d: Duration) -> SignedDuration {
         SignedDuration {
             duration: d,
-            is_positive: true
+            is_positive: true,
         }
     }
 }
@@ -70,8 +70,8 @@ impl fmt::Debug for SignedDuration {
 
 #[cfg(test)]
 mod test {
-    use std::time::Duration;
     use super::SignedDuration;
+    use std::time::Duration;
 
     #[test]
     fn op_subtract() {
@@ -81,9 +81,15 @@ mod test {
 
         let zero_sd = SignedDuration::from(zero_d);
         let one_sd = SignedDuration::from(one_d);
-        let neg_one_sd = SignedDuration { duration: one_d, is_positive: false };
+        let neg_one_sd = SignedDuration {
+            duration: one_d,
+            is_positive: false,
+        };
         let two_sd = SignedDuration::from(two_d);
-        let neg_two_sd = SignedDuration { duration: two_d, is_positive: false };
+        let neg_two_sd = SignedDuration {
+            duration: two_d,
+            is_positive: false,
+        };
 
         assert_eq!(zero_d, zero_sd.duration);
         assert_eq!(true, zero_sd.is_positive);

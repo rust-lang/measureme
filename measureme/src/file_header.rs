@@ -2,8 +2,8 @@
 //! consists of a 4 byte file magic string and a 4 byte little-endian version
 //! number.
 
-use byteorder::{ByteOrder, LittleEndian};
 use crate::serialization::SerializationSink;
+use byteorder::{ByteOrder, LittleEndian};
 use std::error::Error;
 
 pub const CURRENT_FILE_FORMAT_VERSION: u32 = 0;
@@ -21,28 +21,24 @@ pub fn write_file_header<S: SerializationSink>(s: &S, file_magic: &[u8; 4]) {
     assert_eq!(FILE_HEADER_SIZE, 8);
 
     s.write_atomic(FILE_HEADER_SIZE, |bytes| {
-        bytes[0 .. 4].copy_from_slice(file_magic);
+        bytes[0..4].copy_from_slice(file_magic);
         LittleEndian::write_u32(&mut bytes[4..8], CURRENT_FILE_FORMAT_VERSION);
     });
 }
 
-pub fn read_file_header(
-    bytes: &[u8],
-    expected_magic: &[u8; 4]
-) -> Result<u32, Box<dyn Error>> {
+pub fn read_file_header(bytes: &[u8], expected_magic: &[u8; 4]) -> Result<u32, Box<dyn Error>> {
     // The implementation here relies on FILE_HEADER_SIZE to have the value 8.
     // Let's make sure this assumption cannot be violated without being noticed.
     assert_eq!(FILE_HEADER_SIZE, 8);
 
-    let actual_magic = &bytes[0 .. 4];
+    let actual_magic = &bytes[0..4];
 
     if actual_magic != expected_magic {
         // FIXME: The error message should mention the file path in order to be
         //        more useful.
         let msg = format!(
             "Unexpected file magic `{:?}`. Expected `{:?}`",
-            actual_magic,
-            expected_magic,
+            actual_magic, expected_magic,
         );
 
         return Err(From::from(msg));
@@ -52,9 +48,8 @@ pub fn read_file_header(
 }
 
 pub fn strip_file_header(data: &[u8]) -> &[u8] {
-    &data[FILE_HEADER_SIZE ..]
+    &data[FILE_HEADER_SIZE..]
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -69,8 +64,10 @@ mod tests {
 
         let data = data_sink.into_bytes();
 
-        assert_eq!(read_file_header(&data, FILE_MAGIC_EVENT_STREAM).unwrap(),
-                   CURRENT_FILE_FORMAT_VERSION);
+        assert_eq!(
+            read_file_header(&data, FILE_MAGIC_EVENT_STREAM).unwrap(),
+            CURRENT_FILE_FORMAT_VERSION
+        );
     }
 
     #[test]
@@ -97,7 +94,9 @@ mod tests {
         data[5] = 0xFF;
         data[6] = 0xFF;
         data[7] = 0xFF;
-        assert_eq!(read_file_header(&data, FILE_MAGIC_STRINGTABLE_INDEX).unwrap(),
-                   0xFFFF_FFFF);
+        assert_eq!(
+            read_file_header(&data, FILE_MAGIC_STRINGTABLE_INDEX).unwrap(),
+            0xFFFF_FFFF
+        );
     }
 }

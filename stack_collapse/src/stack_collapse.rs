@@ -3,7 +3,11 @@ use std::time::{Duration, SystemTime};
 
 use measureme::{Event, TimestampKind};
 
-pub fn collapse_stacks<'a>(events: impl Iterator<Item = Event<'a>>, first_event_time: SystemTime, interval: u64) -> HashMap<String, usize> {
+pub fn collapse_stacks<'a>(
+    events: impl Iterator<Item = Event<'a>>,
+    first_event_time: SystemTime,
+    interval: u64,
+) -> HashMap<String, usize> {
     let mut recorded_stacks = HashMap::<String, usize>::new();
 
     let mut next_observation_time = first_event_time;
@@ -36,13 +40,13 @@ pub fn collapse_stacks<'a>(events: impl Iterator<Item = Event<'a>>, first_event_
         match event.timestamp_kind {
             TimestampKind::Start => {
                 thread_stack.push(event);
-            },
+            }
             TimestampKind::End => {
                 let previous_event = thread_stack.pop().expect("no start event found");
                 assert_eq!(event.label, previous_event.label);
                 assert_eq!(previous_event.timestamp_kind, TimestampKind::Start);
-            },
-            TimestampKind::Instant => { },
+            }
+            TimestampKind::Instant => {}
         }
     }
 
@@ -51,9 +55,9 @@ pub fn collapse_stacks<'a>(events: impl Iterator<Item = Event<'a>>, first_event_
 
 #[cfg(test)]
 mod test {
+    use measureme::{Event, TimestampKind};
     use std::collections::HashMap;
     use std::time::{Duration, SystemTime};
-    use measureme::{Event, TimestampKind};
 
     #[test]
     fn basic_test() {
@@ -118,9 +122,6 @@ mod test {
         expected_stacks.insert("rustc;EventA".into(), 1000);
         expected_stacks.insert("rustc".into(), 1000);
 
-        assert_eq!(
-            expected_stacks,
-            recorded_stacks
-        );
+        assert_eq!(expected_stacks, recorded_stacks);
     }
 }
