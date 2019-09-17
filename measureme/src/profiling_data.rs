@@ -1,5 +1,5 @@
-use crate::file_header::FILE_HEADER_SIZE;
 use crate::event::Event;
+use crate::file_header::FILE_HEADER_SIZE;
 use crate::{ProfilerFiles, RawEvent, StringTable, TimestampKind};
 use std::error::Error;
 use std::fs;
@@ -17,7 +17,8 @@ impl ProfilingData {
         let paths = ProfilerFiles::new(path_stem);
 
         let string_data = fs::read(paths.string_data_file).expect("couldn't read string_data file");
-        let index_data = fs::read(paths.string_index_file).expect("couldn't read string_index file");
+        let index_data =
+            fs::read(paths.string_index_file).expect("couldn't read string_index file");
         let event_data = fs::read(paths.events_file).expect("couldn't read events file");
 
         let string_table = StringTable::new(string_data, index_data)?;
@@ -55,8 +56,7 @@ impl<'a> Iterator for ProfilerEventIterator<'a> {
     type Item = Event<'a>;
 
     fn next(&mut self) -> Option<Event<'a>> {
-        let event_start_addr = FILE_HEADER_SIZE +
-            self.curr_event_idx * mem::size_of::<RawEvent>();
+        let event_start_addr = FILE_HEADER_SIZE + self.curr_event_idx * mem::size_of::<RawEvent>();
         let event_end_addr = event_start_addr + mem::size_of::<RawEvent>();
         if event_end_addr > self.data.event_data.len() {
             return None;
@@ -70,7 +70,7 @@ impl<'a> Iterator for ProfilerEventIterator<'a> {
         unsafe {
             let raw_event = std::slice::from_raw_parts_mut(
                 &mut raw_event as *mut RawEvent as *mut u8,
-                std::mem::size_of::<RawEvent>()
+                std::mem::size_of::<RawEvent>(),
             );
             raw_event.copy_from_slice(raw_event_bytes);
         };
@@ -121,21 +121,22 @@ impl<'a> Iterator for MatchingEventsIterator<'a> {
                     let thread_id = event.thread_id as usize;
                     if thread_id >= self.thread_stacks.len() {
                         let growth_size = (thread_id + 1) - self.thread_stacks.len();
-                        self.thread_stacks.append(
-                            &mut vec![vec![]; growth_size]
-                        )
+                        self.thread_stacks.append(&mut vec![vec![]; growth_size])
                     }
 
                     self.thread_stacks[thread_id].push(event);
-                },
+                }
                 TimestampKind::Instant => {
                     return Some(MatchingEvent::Instant(event));
-                },
+                }
                 TimestampKind::End => {
                     let thread_id = event.thread_id as usize;
-                    let previous_event = self.thread_stacks[thread_id].pop().expect("no previous event");
-                    if previous_event.event_kind != event.event_kind ||
-                        previous_event.label != event.label {
+                    let previous_event = self.thread_stacks[thread_id]
+                        .pop()
+                        .expect("no previous event");
+                    if previous_event.event_kind != event.event_kind
+                        || previous_event.label != event.label
+                    {
                         panic!("previous event on thread wasn't the start event");
                     }
 

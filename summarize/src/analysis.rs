@@ -1,9 +1,9 @@
+use crate::query_data::{QueryData, Results};
+use measureme::rustc::*;
+use measureme::{Event, ProfilingData, TimestampKind};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::time::Duration;
-use measureme::{ProfilingData, TimestampKind, Event};
-use measureme::rustc::*;
-use crate::query_data::{QueryData, Results};
 
 pub fn perform_analysis(data: ProfilingData) -> Results {
     let mut query_data = HashMap::<String, QueryData>::new();
@@ -81,13 +81,15 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
             TimestampKind::Start => {
                 let thread_stack = threads.entry(event.thread_id).or_default();
 
-                if &event.event_kind[..] == QUERY_EVENT_KIND ||
-                    &event.event_kind[..] == GENERIC_ACTIVITY_EVENT_KIND {
+                if &event.event_kind[..] == QUERY_EVENT_KIND
+                    || &event.event_kind[..] == GENERIC_ACTIVITY_EVENT_KIND
+                {
                     if let Some(prev_event) = thread_stack.last() {
                         //count the time run so far for this event
-                        let duration =
-                            event.timestamp.duration_since(prev_event.timestamp)
-                                .unwrap_or(Duration::from_nanos(0));
+                        let duration = event
+                            .timestamp
+                            .duration_since(prev_event.timestamp)
+                            .unwrap_or(Duration::from_nanos(0));
 
                         record_event_data(&prev_event.label, &|data| {
                             data.self_time += duration;
@@ -98,11 +100,12 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                     }
 
                     thread_stack.push(event);
-                } else if &event.event_kind[..] == QUERY_BLOCKED_EVENT_KIND ||
-                          &event.event_kind[..] == INCREMENTAL_LOAD_RESULT_EVENT_KIND {
+                } else if &event.event_kind[..] == QUERY_BLOCKED_EVENT_KIND
+                    || &event.event_kind[..] == INCREMENTAL_LOAD_RESULT_EVENT_KIND
+                {
                     thread_stack.push(event);
                 }
-            },
+            }
             TimestampKind::Instant => {
                 if &event.event_kind[..] == QUERY_CACHE_HIT_EVENT_KIND {
                     record_event_data(&event.label, &|data| {
@@ -110,7 +113,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                         data.invocation_count += 1;
                     });
                 }
-            },
+            }
             TimestampKind::End => {
                 let thread_stack = threads.get_mut(&event.thread_id).unwrap();
                 let start_event = thread_stack.pop().unwrap();
@@ -120,13 +123,14 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                 assert_eq!(start_event.timestamp_kind, TimestampKind::Start);
 
                 //track the time for this event
-                let duration =
-                    event.timestamp
-                        .duration_since(start_event.timestamp)
-                        .unwrap_or(Duration::from_nanos(0));
+                let duration = event
+                    .timestamp
+                    .duration_since(start_event.timestamp)
+                    .unwrap_or(Duration::from_nanos(0));
 
-                if &event.event_kind[..] == QUERY_EVENT_KIND ||
-                    &event.event_kind[..] == GENERIC_ACTIVITY_EVENT_KIND {
+                if &event.event_kind[..] == QUERY_EVENT_KIND
+                    || &event.event_kind[..] == GENERIC_ACTIVITY_EVENT_KIND
+                {
                     record_event_data(&event.label, &|data| {
                         data.self_time += duration;
                         data.number_of_cache_misses += 1;

@@ -62,19 +62,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //create an iterator so we can avoid allocating a Vec with every Event for serialization
     let json_event_iterator = std::iter::from_fn(|| {
         while let Some(event) = event_iterator.next() {
-            let event_type =
-                match event.timestamp_kind {
-                    TimestampKind::Start => EventType::Begin,
-                    TimestampKind::End => EventType::End,
-                    //Chrome does not seem to like how many QueryCacheHit events we generate
-                    TimestampKind::Instant => continue,
-                };
+            let event_type = match event.timestamp_kind {
+                TimestampKind::Start => EventType::Begin,
+                TimestampKind::End => EventType::End,
+                // Chrome does not seem to like how many QueryCacheHit events we generate
+                TimestampKind::Instant => continue,
+            };
 
             return Some(Event {
                 name: event.label.clone().into_owned(),
                 category: event.event_kind.clone().into_owned(),
                 event_type,
-                timestamp: event.timestamp.duration_since(first_event_timestamp).unwrap(),
+                timestamp: event
+                    .timestamp
+                    .duration_since(first_event_timestamp)
+                    .unwrap(),
                 process_id: 0,
                 thread_id: event.thread_id,
                 args: None,

@@ -1,13 +1,13 @@
 #[macro_use]
 extern crate prettytable;
 
+use measureme::ProfilingData;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
-use measureme::ProfilingData;
 
-use prettytable::{Table};
+use prettytable::Table;
 use serde::Serialize;
 use structopt::StructOpt;
 
@@ -147,7 +147,9 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error>> {
     }
 
     //order the results by descending self time
-    results.query_data.sort_by(|l, r| r.self_time.cmp(&l.self_time));
+    results
+        .query_data
+        .sort_by(|l, r| r.self_time.cmp(&l.self_time));
 
     let mut table = Table::new();
 
@@ -166,7 +168,9 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error>> {
 
     for query_data in results.query_data {
         let curr_percent = (query_data.self_time.as_nanos() as f64) / total_time * 100.0;
-        if curr_percent < percent_above { break } //no need to run entire loop if filtering by % time
+        if curr_percent < percent_above {
+            break;
+        } //no need to run entire loop if filtering by % time
 
         percent_total_time = percent_total_time + curr_percent;
 
@@ -186,7 +190,10 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error>> {
     println!("Total cpu time: {:?}", results.total_time);
 
     if percent_above != 0.0 {
-        println!("Filtered results account for {:.3}% of total time.", percent_total_time);
+        println!(
+            "Filtered results account for {:.3}% of total time.",
+            percent_total_time
+        );
     }
 
     Ok(())
