@@ -71,31 +71,34 @@ fn generate_thread_to_collapsed_thread_mapping(
                 .or_insert_with(|| (event.timestamp, event.timestamp));
         }
         // collect the the threads in order of the end time
-        let mut end_to_thread = thread_start_and_end
+        let mut end_and_thread = thread_start_and_end
             .iter()
             .map(|(&thread_id, &(_start, end))| (end, thread_id))
             .collect::<Vec<_>>();
 
-        end_to_thread.sort_unstable_by_key(|&(end, _thread_id)| end);
-        let mut next_end_iter = end_to_thread.iter();
+        end_and_thread.sort_unstable_by_key(|&(end, _thread_id)| end);
+        let mut next_end_iter = end_and_thread.iter().peekable();
 
-        // used to get the thread that was first to end
-        let &(temp_next_end, temp_next_thread_id) = next_end_iter.next().unwrap();
-        let mut next_end = temp_next_end;
-        let mut next_thread_id = temp_next_thread_id;
+         // collect the the threads in order of the start time
+        let mut start_and_thread = thread_start_and_end
+            .iter()
+            .map(|(&thread_id, &(start, _end))| (start, thread_id))
+            .collect::<Vec<_>>();
+
+        start_and_thread.sort_unstable_by_key(|&(start, _thread_id)| start);
 
         let mut current_thread_id = 0; // use new thread_ids to avoid strange gaps in the numbers
-        for (&thread_id, &(start, _end)) in thread_start_and_end.iter() {
-            if start > next_end {
+        for &(start, thread_id) in start_and_thread.iter() {
+            // safe to unwrap due to end_and_thread and start_and_thread have the same length
+            let (next_end, next_thread_id) = next_end_iter.peek().unwrap();
+            if start > *next_end {
+                next_end_iter.next();
                 // need to lookup the thread_id due to new and collapsed threads
                 let mapped_thread_id = *thread_to_collapsed_thread
                     .get(&next_thread_id)
                     .unwrap_or(&next_thread_id);
 
                 thread_to_collapsed_thread.insert(thread_id, mapped_thread_id);
-                let &(temp_next_end, temp_next_thread_id) = next_end_iter.next().unwrap();
-                next_end = temp_next_end;
-                next_thread_id = temp_next_thread_id;
             } else {
                 thread_to_collapsed_thread.insert(thread_id, current_thread_id);
                 current_thread_id += 1;
