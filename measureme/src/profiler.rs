@@ -1,7 +1,7 @@
 use crate::file_header::{write_file_header, FILE_MAGIC_EVENT_STREAM};
 use crate::raw_event::{RawEvent, Timestamp, TimestampKind};
 use crate::serialization::SerializationSink;
-use crate::stringtable::{SerializableString, StringId, StringTableBuilder};
+use crate::stringtable::{METADATA_STRING_ID, SerializableString, StringId, StringTableBuilder};
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -42,11 +42,26 @@ impl<S: SerializationSink> Profiler<S> {
             Arc::new(S::from_path(&paths.string_index_file)?),
         );
 
-        Ok(Profiler {
+        let profiler = Profiler {
             event_sink,
             string_table,
             start_time: Instant::now(),
-        })
+        };
+
+        let mut args = String::new();
+        for arg in std::env::args() {
+            args.push_str(&arg.escape_default().to_string());
+            args.push(' ');
+        }
+
+        profiler.string_table.alloc_metadata(&*format!(
+            r#"{{ "start_time": {}, "process_id": {}, "cmd": "{}" }}"#,
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
+            std::process::id(),
+            args,
+        ));
+
+        Ok(profiler)
     }
 
     #[inline(always)]
