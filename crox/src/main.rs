@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use std::time::SystemTime;
 
-use measureme::{ProfilingData, TimestampKind};
+use measureme::{MatchingEvent, ProfilingData};
 
 use serde::{Serialize, Serializer};
 use structopt::StructOpt;
@@ -17,10 +17,8 @@ fn as_micros<S: Serializer>(d: &Duration, s: S) -> Result<S::Ok, S::Error> {
 
 #[derive(Clone, Copy, Eq, PartialEq, Serialize)]
 enum EventType {
-    #[serde(rename = "B")]
-    Begin,
-    #[serde(rename = "E")]
-    End,
+    #[serde(rename = "X")]
+    Complete,
 }
 
 #[derive(Serialize)]
@@ -33,6 +31,8 @@ struct Event {
     #[serde(rename = "ts", serialize_with = "as_micros")]
     #[serde()]
     timestamp: Duration,
+    #[serde(rename = "dur", serialize_with = "as_micros")]
+    duration: Duration,
     #[serde(rename = "pid")]
     process_id: u32,
     #[serde(rename = "tid")]
@@ -79,7 +79,7 @@ fn generate_thread_to_collapsed_thread_mapping(
         end_and_thread.sort_unstable_by_key(|&(end, _thread_id)| end);
         let mut next_end_iter = end_and_thread.iter().peekable();
 
-         // collect the the threads in order of the start time
+        // collect the the threads in order of the start time
         let mut start_and_thread = thread_start_and_end
             .iter()
             .map(|(&thread_id, &(start, _end))| (start, thread_id))
@@ -121,32 +121,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut serializer = serde_json::Serializer::new(chrome_file);
     let thread_to_collapsed_thread = generate_thread_to_collapsed_thread_mapping(&opt, &data);
-    let mut event_iterator = data.iter();
+    let mut event_iterator = data.iter_matching_events();
 
     //create an iterator so we can avoid allocating a Vec with every Event for serialization
     let json_event_iterator = std::iter::from_fn(|| {
         while let Some(event) = event_iterator.next() {
-            let event_type = match event.timestamp_kind {
-                TimestampKind::Start => EventType::Begin,
-                TimestampKind::End => EventType::End,
-                // Chrome does not seem to like how many QueryCacheHit events we generate
-                TimestampKind::Instant => continue,
-            };
+            // Chrome does not seem to like how many QueryCacheHit events we generate
+            // only handle startStop events for now
+            if let MatchingEvent::StartStop(start, stop) = event {
+                let duration = stop.timestamp.duration_since(start.timestamp).unwrap();
 
-            return Some(Event {
-                name: event.label.clone().into_owned(),
-                category: event.event_kind.clone().into_owned(),
-                event_type,
-                timestamp: event
-                    .timestamp
-                    .duration_since(first_event_timestamp)
-                    .unwrap(),
-                process_id: 0,
-                thread_id: *thread_to_collapsed_thread
-                    .get(&event.thread_id)
-                    .unwrap_or(&event.thread_id),
-                args: None,
-            });
+                return Some(Event {
+                    name: start.label.clone().into_owned(),
+                    category: start.event_kind.clone().into_owned(),
+                    event_type: EventType::Complete,
+                    timestamp: start
+                        .timestamp
+                        .duration_since(first_event_timestamp)
+                        .unwrap(),
+                    duration,
+                    process_id: 0,
+                    thread_id: *thread_to_collapsed_thread
+                        .get(&start.thread_id)
+                        .unwrap_or(&start.thread_id),
+                    args: None,
+                });
+            }
         }
 
         None
