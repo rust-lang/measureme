@@ -5,9 +5,12 @@
 - `measureme`: Added support for compiling the library under wasm/wasi ([GH-43])
 - `mmview`: Added the `-t` flag to limit output to results on the specified thread id ([GH-49])
 - `summarize`: Added the `diff` sub command to compare two profiles ([GH-50])
+- `crox`: Added the `--collapse-threads` flag to collapse events from unrelated threads to make visual analysis easier ([GH-56])
+- `crox`: Added the `--minimum-duration` flag to filter out events under the specified number of microseconds ([GH-60])
 
 ### Changed
 - `summarize`: Moved summarization under the `summarize` sub command ([GH-50])
+- `crox`: Output files are now up to 50% smaller ([GH-59])
 
 ## [0.3.0] - 2019-05-14
 ### Added
@@ -29,3 +32,6 @@
 [GH-41]: https://github.com/rust-lang/measureme/pull/41
 [GH-43]: https://github.com/rust-lang/measureme/pull/43
 [GH-49]: https://github.com/rust-lang/measureme/pull/49
+[GH-56]: https://github.com/rust-lang/measureme/pull/56
+[GH-59]: https://github.com/rust-lang/measureme/pull/59
+[GH-60]: https://github.com/rust-lang/measureme/pull/60
