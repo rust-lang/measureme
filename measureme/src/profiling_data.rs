@@ -137,7 +137,11 @@ impl<'a> Iterator for MatchingEventsIterator<'a> {
                     if previous_event.event_kind != event.event_kind
                         || previous_event.label != event.label
                     {
-                        panic!("previous event on thread wasn't the start event");
+                        panic!(
+                            "the event with label: \"{}\" went out of scope of the parent \
+                             event with label: \"{}\"",
+                            previous_event.label, event.label
+                        );
                     }
 
                     return Some(MatchingEvent::StartStop(previous_event, event));
