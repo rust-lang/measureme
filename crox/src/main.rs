@@ -48,7 +48,7 @@ struct Opt {
     collapse_threads: bool,
     /// filter out events with shorter duration (in microseconds)
     #[structopt(long = "minimum-duration")]
-    minimum_duration: u128,
+    minimum_duration: Option<u128>,
 }
 
 // generate mapping from thread_id to collapsed thread_id or an empty map
@@ -133,8 +133,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // only handle startStop events for now
             if let MatchingEvent::StartStop(start, stop) = event {
                 let duration = stop.timestamp.duration_since(start.timestamp).unwrap();
-                if duration.as_micros() < opt.minimum_duration {
-                    continue;
+                if let Some(minimum_duration) = opt.minimum_duration {
+                    if duration.as_micros() < minimum_duration {
+                        continue;
+                    }
                 }
                 return Some(Event {
                     name: start.label.clone().into_owned(),
