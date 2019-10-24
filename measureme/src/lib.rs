@@ -21,6 +21,10 @@
 //!   - `thread_id`: a `u64` id of the thread which is recording this event
 //!   - `timestamp_kind`: a [`TimestampKind`] which specifies how this event should be treated by `measureme` tooling
 //!
+//! Alternatively, events can also be recorded via the [`Profiler::start_recording_interval_event()`] method. This
+//! method records a "start" event and returns a `TimingGuard` object that will automatically record
+//! the corresponding "end" event when it is dropped.
+//!
 //! To create a [`StringId`], call one of the string allocation methods:
 //!   - [`Profiler::alloc_string()`]: allocates a string and returns the [`StringId`] that refers to it
 //!   - [`Profiler::alloc_string_with_reserved_id()`]: allocates a string using the specified [`StringId`].
@@ -41,6 +45,7 @@
 //! [`Profiler::alloc_string_with_reserved_id()`]: struct.Profiler.html#method.alloc_string_with_reserved_id
 //! [`Profiler::new()`]: struct.Profiler.html#method.new
 //! [`Profiler::record_event()`]: struct.Profiler.html#method.record_event
+//! [`Profiler::start_recording_interval_event()`]: struct.Profiler.html#method.start_recording_interval_event
 //! [`ProfilingData`]: struct.ProfilingData.html
 //! [`ProfilingData::iter()`]: struct.ProfilingData.html#method.iter
 //! [`ProfilingData::iter_matching_events()`]: struct.ProfilingData.html#method.iter_matching_events
@@ -69,7 +74,7 @@ pub use crate::event::Event;
 pub use crate::file_serialization_sink::FileSerializationSink;
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::mmap_serialization_sink::MmapSerializationSink;
-pub use crate::profiler::{Profiler, ProfilerFiles};
+pub use crate::profiler::{Profiler, ProfilerFiles, TimingGuard};
 pub use crate::profiling_data::{MatchingEvent, ProfilingData};
 pub use crate::raw_event::{RawEvent, Timestamp, TimestampKind};
 pub use crate::serialization::{Addr, SerializationSink};
