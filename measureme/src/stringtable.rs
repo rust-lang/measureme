@@ -265,7 +265,7 @@ pub struct StringTable {
     index: FxHashMap<StringId, Addr>,
 }
 
-impl<'data> StringTable {
+impl StringTable {
     pub fn new(string_data: Vec<u8>, index_data: Vec<u8>) -> Result<StringTable, Box<dyn Error>> {
         let string_data_format = read_file_header(&string_data, FILE_MAGIC_STRINGTABLE_DATA)?;
         let index_data_format = read_file_header(&index_data, FILE_MAGIC_STRINGTABLE_INDEX)?;
@@ -292,7 +292,7 @@ impl<'data> StringTable {
     }
 
     #[inline]
-    pub fn get(&self, id: StringId) -> StringRef {
+    pub fn get<'a>(&'a self, id: StringId) -> StringRef<'a> {
         StringRef { id, table: self }
     }
 }
