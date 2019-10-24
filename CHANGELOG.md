@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## [0.4.0] - 2019-10-24
 ### Added
+- `measureme`: Added RAII-based API for recording events ([GH-70])
 - `measureme`: Added support for compiling the library under wasm/wasi ([GH-43])
 - `mmview`: Added the `-t` flag to limit output to results on the specified thread id ([GH-49])
 - `summarize`: Added the `diff` sub command to compare two profiles ([GH-50])
@@ -22,7 +23,7 @@
 
 ## [0.2.0] - 2019-04-10
 
-
+[0.4.0]: https://github.com/rust-lang/measureme/releases/tag/0.4.0
 [0.3.0]: https://github.com/rust-lang/measureme/releases/tag/0.3.0
 [0.2.1]: https://github.com/rust-lang/measureme/releases/tag/0.2.1
 [0.2.0]: https://github.com/rust-lang/measureme/releases/tag/0.2.0
@@ -35,3 +36,4 @@
 [GH-56]: https://github.com/rust-lang/measureme/pull/56
 [GH-59]: https://github.com/rust-lang/measureme/pull/59
 [GH-60]: https://github.com/rust-lang/measureme/pull/60
+[GH-70]: https://github.com/rust-lang/measureme/pull/70
