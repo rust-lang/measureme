@@ -1,7 +1,7 @@
 use crate::file_header::{write_file_header, FILE_MAGIC_EVENT_STREAM};
 use crate::raw_event::{RawEvent, Timestamp, TimestampKind};
 use crate::serialization::SerializationSink;
-use crate::stringtable::{METADATA_STRING_ID, SerializableString, StringId, StringTableBuilder};
+use crate::stringtable::{SerializableString, StringId, StringTableBuilder};
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

@@ -47,6 +47,8 @@
 //! [`StringId`]: struct.StringId.html
 //! [`TimestampKind`]: enum.TimestampKind.html
 
+#![deny(warnings)]
+
 mod event;
 mod file_header;
 #[cfg(any(not(target_arch = "wasm32"), target_os = "wasi"))]
