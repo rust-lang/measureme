@@ -6,14 +6,15 @@ use crate::file_header::{
 use crate::serialization::ByteVecSink;
 use crate::{
     ProfilerFiles, RawEvent, SerializationSink, StringTable, StringTableBuilder, Timestamp,
-    TimestampKind,
 };
 use std::error::Error;
 use std::fs;
 use std::mem;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
+
+const RAW_EVENT_SIZE: usize = mem::size_of::<RawEvent>();
 
 pub struct ProfilingData {
     event_data: Vec<u8>,
@@ -46,40 +47,35 @@ impl ProfilingData {
         })
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = Event<'_>> {
+    pub fn iter<'a>(&'a self) -> ProfilerEventIterator<'a> {
         ProfilerEventIterator::new(&self)
     }
 
-    pub fn iter_matching_events(&self) -> impl Iterator<Item = MatchingEvent<'_>> {
-        MatchingEventsIterator::new(ProfilerEventIterator::new(&self))
+    pub fn num_events(&self) -> usize {
+        let event_byte_count = self.event_data.len() - FILE_HEADER_SIZE;
+        assert!(event_byte_count % RAW_EVENT_SIZE == 0);
+        event_byte_count / RAW_EVENT_SIZE
     }
 }
 
-struct ProfilerEventIterator<'a> {
+pub struct ProfilerEventIterator<'a> {
     data: &'a ProfilingData,
-    curr_event_idx: usize,
+    forward_event_idx: usize,
+    backward_event_idx: usize,
 }
 
 impl<'a> ProfilerEventIterator<'a> {
     pub fn new(data: &'a ProfilingData) -> ProfilerEventIterator<'a> {
         ProfilerEventIterator {
             data,
-            curr_event_idx: 0,
+            forward_event_idx: 0,
+            backward_event_idx: data.num_events(),
         }
     }
-}
 
-impl<'a> Iterator for ProfilerEventIterator<'a> {
-    type Item = Event<'a>;
-
-    fn next(&mut self) -> Option<Event<'a>> {
-        let event_start_addr = FILE_HEADER_SIZE + self.curr_event_idx * mem::size_of::<RawEvent>();
-        let event_end_addr = event_start_addr + mem::size_of::<RawEvent>();
-        if event_end_addr > self.data.event_data.len() {
-            return None;
-        }
-
-        self.curr_event_idx += 1;
+    fn decode_event(&self, event_index: usize) -> Event<'a> {
+        let event_start_addr = event_index_to_addr(event_index);
+        let event_end_addr = event_start_addr.checked_add(RAW_EVENT_SIZE).unwrap();
 
         let raw_event_bytes = &self.data.event_data[event_start_addr..event_end_addr];
 
@@ -94,79 +90,54 @@ impl<'a> Iterator for ProfilerEventIterator<'a> {
 
         let string_table = &self.data.string_table;
 
-        let mut timestamp = SystemTime::UNIX_EPOCH;
-        timestamp += Duration::from_nanos(raw_event.timestamp.nanos());
+        // FIXME: Lots of Rust code compiled in the seventies apparently.
+        let timestamp = Timestamp::from_raw_event(&raw_event, SystemTime::UNIX_EPOCH);
 
-        Some(Event {
+        Event {
             event_kind: string_table.get(raw_event.event_kind).to_string(),
-            label: string_table.get(raw_event.id).to_string(),
+            label: string_table.get(raw_event.event_id).to_string(),
             additional_data: &[],
-            timestamp: timestamp,
-            timestamp_kind: raw_event.timestamp.kind(),
+            timestamp,
             thread_id: raw_event.thread_id,
-        })
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum MatchingEvent<'a> {
-    StartStop(Event<'a>, Event<'a>),
-    Instant(Event<'a>),
-}
-
-struct MatchingEventsIterator<'a> {
-    events: ProfilerEventIterator<'a>,
-    thread_stacks: Vec<Vec<Event<'a>>>,
-}
-
-impl<'a> MatchingEventsIterator<'a> {
-    pub fn new(events: ProfilerEventIterator<'a>) -> MatchingEventsIterator<'a> {
-        MatchingEventsIterator {
-            events,
-            thread_stacks: vec![],
         }
     }
 }
 
-impl<'a> Iterator for MatchingEventsIterator<'a> {
-    type Item = MatchingEvent<'a>;
+impl<'a> Iterator for ProfilerEventIterator<'a> {
+    type Item = Event<'a>;
 
-    fn next(&mut self) -> Option<MatchingEvent<'a>> {
-        while let Some(event) = self.events.next() {
-            match event.timestamp_kind {
-                TimestampKind::Start => {
-                    let thread_id = event.thread_id as usize;
-                    if thread_id >= self.thread_stacks.len() {
-                        let growth_size = (thread_id + 1) - self.thread_stacks.len();
-                        self.thread_stacks.append(&mut vec![vec![]; growth_size])
-                    }
-
-                    self.thread_stacks[thread_id].push(event);
-                }
-                TimestampKind::Instant => {
-                    return Some(MatchingEvent::Instant(event));
-                }
-                TimestampKind::End => {
-                    let thread_id = event.thread_id as usize;
-                    let previous_event = self.thread_stacks[thread_id]
-                        .pop()
-                        .expect("no previous event");
-                    if previous_event.event_kind != event.event_kind
-                        || previous_event.label != event.label
-                    {
-                        panic!(
-                            "the event with label: \"{}\" went out of scope of the parent \
-                             event with label: \"{}\"",
-                            previous_event.label, event.label
-                        );
-                    }
-
-                    return Some(MatchingEvent::StartStop(previous_event, event));
-                }
-            }
+    fn next(&mut self) -> Option<Event<'a>> {
+        if self.forward_event_idx == self.backward_event_idx {
+            return None;
         }
 
-        None
+        let event = Some(self.decode_event(self.forward_event_idx));
+
+        // Advance the index *after* reading the event
+        self.forward_event_idx = self.forward_event_idx.checked_add(1).unwrap();
+
+        event
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let items_left = self
+            .backward_event_idx
+            .checked_sub(self.forward_event_idx)
+            .unwrap();
+        (items_left, Some(items_left))
+    }
+}
+
+impl<'a> DoubleEndedIterator for ProfilerEventIterator<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.forward_event_idx == self.backward_event_idx {
+            return None;
+        }
+
+        // Advance the index *before* reading the event
+        self.backward_event_idx = self.backward_event_idx.checked_sub(1).unwrap();
+
+        Some(self.decode_event(self.backward_event_idx))
     }
 }
 
@@ -223,21 +194,12 @@ impl ProfilingDataBuilder {
         let event_kind = self.string_table.alloc(event_kind);
         let event_id = self.string_table.alloc(event_id);
 
-        self.write_raw_event(&RawEvent {
-            event_kind,
-            id: event_id,
-            thread_id,
-            timestamp: Timestamp::new(start_nanos, TimestampKind::Start),
-        });
-
         inner(self);
 
-        self.write_raw_event(&RawEvent {
-            event_kind,
-            id: event_id,
-            thread_id,
-            timestamp: Timestamp::new(end_nanos, TimestampKind::End),
-        });
+        let raw_event =
+            RawEvent::new_interval(event_kind, event_id, thread_id, start_nanos, end_nanos);
+
+        self.write_raw_event(&raw_event);
 
         self
     }
@@ -253,12 +215,9 @@ impl ProfilingDataBuilder {
         let event_kind = self.string_table.alloc(event_kind);
         let event_id = self.string_table.alloc(event_id);
 
-        self.write_raw_event(&RawEvent {
-            event_kind,
-            id: event_id,
-            thread_id,
-            timestamp: Timestamp::new(timestamp_nanos, TimestampKind::Instant),
-        });
+        let raw_event = RawEvent::new_instant(event_kind, event_id, thread_id, timestamp_nanos);
+
+        self.write_raw_event(&raw_event);
 
         self
     }
@@ -306,26 +265,50 @@ impl ProfilingDataBuilder {
     }
 }
 
+impl<'a> ExactSizeIterator for ProfilerEventIterator<'a> {}
+
+fn event_index_to_addr(event_index: usize) -> usize {
+    FILE_HEADER_SIZE + event_index * mem::size_of::<RawEvent>()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::borrow::Cow;
+    use std::time::Duration;
 
-    fn event(
+    fn interval(
         event_kind: &'static str,
         label: &'static str,
         thread_id: u64,
-        nanos: u64,
-        timestamp_kind: TimestampKind,
+        start_nanos: u64,
+        end_nanos: u64,
     ) -> Event<'static> {
-        let timestamp = SystemTime::UNIX_EPOCH + Duration::from_nanos(nanos);
-
         Event {
             event_kind: Cow::from(event_kind),
             label: Cow::from(label),
             additional_data: &[],
-            timestamp,
-            timestamp_kind,
+            timestamp: Timestamp::Interval {
+                start: SystemTime::UNIX_EPOCH + Duration::from_nanos(start_nanos),
+                end: SystemTime::UNIX_EPOCH + Duration::from_nanos(end_nanos),
+            },
+            thread_id,
+        }
+    }
+
+    fn instant(
+        event_kind: &'static str,
+        label: &'static str,
+        thread_id: u64,
+        timestamp_nanos: u64,
+    ) -> Event<'static> {
+        Event {
+            event_kind: Cow::from(event_kind),
+            label: Cow::from(label),
+            additional_data: &[],
+            timestamp: Timestamp::Instant(
+                SystemTime::UNIX_EPOCH + Duration::from_nanos(timestamp_nanos),
+            ),
             thread_id,
         }
     }
@@ -343,12 +326,9 @@ mod tests {
 
         let events: Vec<Event<'_>> = profiling_data.iter().collect();
 
-        assert_eq!(events[0], event("k1", "id1", 0, 10, TimestampKind::Start));
-        assert_eq!(events[1], event("k1", "id1", 0, 100, TimestampKind::End));
-        assert_eq!(events[2], event("k2", "id2", 1, 100, TimestampKind::Start));
-        assert_eq!(events[3], event("k2", "id2", 1, 110, TimestampKind::End));
-        assert_eq!(events[4], event("k3", "id3", 0, 120, TimestampKind::Start));
-        assert_eq!(events[5], event("k3", "id3", 0, 140, TimestampKind::End));
+        assert_eq!(events[0], interval("k1", "id1", 0, 10, 100));
+        assert_eq!(events[1], interval("k2", "id2", 1, 100, 110));
+        assert_eq!(events[2], interval("k3", "id3", 0, 120, 140));
     }
 
     #[test]
@@ -365,12 +345,9 @@ mod tests {
 
         let events: Vec<Event<'_>> = profiling_data.iter().collect();
 
-        assert_eq!(events[0], event("k1", "id1", 0, 10, TimestampKind::Start));
-        assert_eq!(events[1], event("k2", "id2", 0, 20, TimestampKind::Start));
-        assert_eq!(events[2], event("k3", "id3", 0, 30, TimestampKind::Start));
-        assert_eq!(events[3], event("k3", "id3", 0, 90, TimestampKind::End));
-        assert_eq!(events[4], event("k2", "id2", 0, 100, TimestampKind::End));
-        assert_eq!(events[5], event("k1", "id1", 0, 100, TimestampKind::End));
+        assert_eq!(events[0], interval("k3", "id3", 0, 30, 90));
+        assert_eq!(events[1], interval("k2", "id2", 0, 20, 100));
+        assert_eq!(events[2], interval("k1", "id1", 0, 10, 100));
     }
 
     #[test]
@@ -378,28 +355,24 @@ mod tests {
         let mut b = ProfilingDataBuilder::new();
 
         b.interval("k1", "id1", 0, 10, 100, |b| {
-            b.interval("k2", "id2", 0, 20, 100, |b| {
+            b.interval("k2", "id2", 0, 20, 92, |b| {
                 b.interval("k3", "id3", 0, 30, 90, |b| {
                     b.instant("k4", "id4", 0, 70);
                     b.instant("k5", "id5", 0, 75);
                 });
-            })
-            .instant("k6", "id6", 0, 95);
+            });
+            b.instant("k6", "id6", 0, 95);
         });
 
         let profiling_data = b.into_profiling_data();
 
         let events: Vec<Event<'_>> = profiling_data.iter().collect();
 
-        assert_eq!(events[0], event("k1", "id1", 0, 10, TimestampKind::Start));
-        assert_eq!(events[1], event("k2", "id2", 0, 20, TimestampKind::Start));
-        assert_eq!(events[2], event("k3", "id3", 0, 30, TimestampKind::Start));
-        assert_eq!(events[3], event("k4", "id4", 0, 70, TimestampKind::Instant));
-        assert_eq!(events[4], event("k5", "id5", 0, 75, TimestampKind::Instant));
-        assert_eq!(events[5], event("k3", "id3", 0, 90, TimestampKind::End));
-        assert_eq!(events[6], event("k2", "id2", 0, 100, TimestampKind::End));
-        assert_eq!(events[7], event("k6", "id6", 0, 95, TimestampKind::Instant));
-        assert_eq!(events[8], event("k1", "id1", 0, 100, TimestampKind::End));
+        assert_eq!(events[0], instant("k4", "id4", 0, 70));
+        assert_eq!(events[1], instant("k5", "id5", 0, 75));
+        assert_eq!(events[2], interval("k3", "id3", 0, 30, 90));
+        assert_eq!(events[3], interval("k2", "id2", 0, 20, 92));
+        assert_eq!(events[4], instant("k6", "id6", 0, 95));
+        assert_eq!(events[5], interval("k1", "id1", 0, 10, 100));
     }
-
 }

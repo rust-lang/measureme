@@ -1,54 +1,58 @@
 use crate::stringtable::StringId;
 
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub enum TimestampKind {
-    Start = 0,
-    End = 1,
-    Instant = 2,
-}
-
-#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-#[repr(C)]
-pub struct Timestamp(u64);
-
-impl Timestamp {
-    #[inline]
-    pub fn new(nanos: u64, kind: TimestampKind) -> Timestamp {
-        Timestamp((nanos << 2) | kind as u64)
-    }
-
-    #[inline]
-    pub fn nanos(self) -> u64 {
-        self.0 >> 2
-    }
-
-    #[inline]
-    pub fn kind(self) -> TimestampKind {
-        match self.0 & 0b11 {
-            0 => TimestampKind::Start,
-            1 => TimestampKind::End,
-            2 => TimestampKind::Instant,
-            _ => unreachable!(),
-        }
-    }
-}
-
 #[derive(Eq, PartialEq, Debug)]
 #[repr(C)]
 pub struct RawEvent {
     pub event_kind: StringId,
-    pub id: StringId,
+    pub event_id: StringId,
     pub thread_id: u64,
-    pub timestamp: Timestamp,
+    pub start_ns: u64,
+    pub end_ns: u64,
+}
+
+impl RawEvent {
+    #[inline]
+    pub fn new_interval(
+        event_kind: StringId,
+        event_id: StringId,
+        thread_id: u64,
+        start_ns: u64,
+        end_ns: u64,
+    ) -> RawEvent {
+        RawEvent {
+            event_kind,
+            event_id,
+            thread_id,
+            start_ns,
+            end_ns,
+        }
+    }
+
+    #[inline]
+    pub fn new_instant(
+        event_kind: StringId,
+        event_id: StringId,
+        thread_id: u64,
+        timestamp_ns: u64,
+    ) -> RawEvent {
+        RawEvent {
+            event_kind,
+            event_id,
+            thread_id,
+            start_ns: timestamp_ns,
+            end_ns: std::u64::MAX,
+        }
+    }
 }
 
 impl Default for RawEvent {
     fn default() -> Self {
         RawEvent {
             event_kind: StringId::reserved(0),
-            id: StringId::reserved(0),
+            event_id: StringId::reserved(0),
             thread_id: 0,
-            timestamp: Timestamp::new(0, TimestampKind::Instant),
+            start_ns: 0,
+            end_ns: 0,
         }
     }
 }

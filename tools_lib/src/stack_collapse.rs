@@ -1,233 +1,167 @@
+use std::cmp;
 use std::collections::HashMap;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
-use measureme::{Event, TimestampKind};
+use measureme::{Event, ProfilingData};
 
-pub fn collapse_stacks<'a>(
-    events: impl Iterator<Item = Event<'a>>,
-    interval: u64,
-) -> HashMap<String, usize> {
-    let mut recorded_stacks = HashMap::<String, usize>::new();
-    let mut thread_stacks: HashMap<u64, (SystemTime, Vec<Event>)> = HashMap::new();
+// This state is kept up-to-date while iteration over events.
+struct PerThreadState<'a> {
+    stack: Vec<Event<'a>>,
+    stack_id: String,
+    start: SystemTime,
+    end: SystemTime,
+    total_event_time_nanos: u64,
+}
 
-    for event in events {
-        let (next_observation_time, thread_stack) = thread_stacks
-            .entry(event.thread_id)
-            .or_insert((event.timestamp, Vec::new()));
-        //if this event is after the next_observation_time then we need to record the current stacks
-        if event.timestamp > *next_observation_time {
-            let mut stack_string = String::new();
-            stack_string.push_str("rustc");
+/// Collect a map of all stacks and how many nanoseconds are spent in each.
+/// Uses a variation of the algorithm in `summarize`.
+// Original implementation provided by @andjo403 in
+// https://github.com/michaelwoerister/measureme/pull/1
+pub fn collapse_stacks<'a>(profiling_data: &ProfilingData) -> HashMap<String, u64> {
+    let mut counters = HashMap::new();
+    let mut threads = HashMap::<_, PerThreadState<'_>>::new();
 
-            for event in thread_stack.iter() {
-                stack_string.push(';');
-                stack_string.push_str(&event.label);
+    for current_event in profiling_data
+        .iter()
+        .rev()
+        .filter(|e| !e.timestamp.is_instant())
+    {
+        let thread = threads
+            .entry(current_event.thread_id)
+            .or_insert(PerThreadState {
+                stack: Vec::new(),
+                stack_id: "rustc".to_owned(),
+                start: current_event.timestamp.start(),
+                end: current_event.timestamp.end(),
+                total_event_time_nanos: 0,
+            });
+
+        thread.start = cmp::min(thread.start, current_event.timestamp.start());
+
+        // Pop all events from the stack that are not parents of the
+        // current event.
+        while let Some(current_top) = thread.stack.last().cloned() {
+            if current_top.contains(&current_event) {
+                break;
             }
 
-            let count = recorded_stacks.entry(stack_string).or_default();
-
-            while event.timestamp > *next_observation_time {
-                *count += 1;
-                *next_observation_time += Duration::from_millis(interval);
-            }
+            let popped = thread.stack.pop().unwrap();
+            let new_stack_id_len = thread.stack_id.len() - (popped.label.len() + 1);
+            thread.stack_id.truncate(new_stack_id_len);
         }
 
-        match event.timestamp_kind {
-            TimestampKind::Start => {
-                thread_stack.push(event);
-            }
-            TimestampKind::End => {
-                let previous_event = thread_stack.pop().expect("no start event found");
-                assert_eq!(event.label, previous_event.label);
-                assert_eq!(previous_event.timestamp_kind, TimestampKind::Start);
-            }
-            TimestampKind::Instant => {}
+        if !thread.stack.is_empty() {
+            // If there is something on the stack, subtract the current
+            // interval from it.
+            counters
+                .entry(thread.stack_id.clone())
+                .and_modify(|self_time| {
+                    *self_time -= current_event.duration().unwrap().as_nanos() as u64;
+                });
+        } else {
+            // Update the total_event_time_nanos counter as the current event
+            // is on top level
+            thread.total_event_time_nanos += current_event.duration().unwrap().as_nanos() as u64;
         }
+
+        // Add this event to the stack_id
+        thread.stack_id.push(';');
+        thread.stack_id.push_str(&current_event.label[..]);
+
+        // Update current events self time
+        let self_time = counters.entry(thread.stack_id.clone()).or_default();
+        *self_time += current_event.duration().unwrap().as_nanos() as u64;
+
+        // Bring the stack up-to-date
+        thread.stack.push(current_event)
     }
 
-    recorded_stacks
+    // Finally add a stack that accounts for the gaps between any recorded
+    // events.
+    let mut rustc_time = 0;
+    for thread in threads.values() {
+        // For each thread we take the time between the start of the first and
+        // the end of the last event, and subtract the duration of all top-level
+        // events of that thread. That leaves us with the duration of all gaps
+        // on the threads timeline.
+        rustc_time += thread.end.duration_since(thread.start).unwrap().as_nanos() as u64
+            - thread.total_event_time_nanos;
+    }
+    counters.insert("rustc".to_owned(), rustc_time);
+
+    counters
 }
 
 #[cfg(test)]
 mod test {
-    use measureme::{Event, TimestampKind};
+    use measureme::ProfilingDataBuilder;
     use std::collections::HashMap;
-    use std::time::{Duration, SystemTime};
 
     #[test]
     fn basic_test() {
-        //                                         <--e1-->
-        //                 <--e1-->        <----------e2---------->
-        //              T2 1       2       3       4       5       6
-        // sample interval |   |   |   |   |   |   |   |   |   |   |
+        let mut b = ProfilingDataBuilder::new();
+
+        //                                                 <------e3------>
+        //                                         <--------------e1-------------->
+        //                 <--e1-->        <------------------------e2-------------------->
+        //         thread0 1       2       3       4       5       6       7       8       9
+        //
         // stacks count:
-        // rustc                       1   2
-        // rustc;e1            1   2
-        // rustc;e2                            1   2           3   4
-        // rustc;e2;e1                                 1   2
+        // rustc                   1
+        // rustc;e1        1
+        // rustc;e2                        1                                       2
+        // rustc;e2;e1                             1                       2
+        // rustc;e2;e1;e3                                  1       2
 
-        let events = [
-            Event {
-                event_kind: "Query".into(),
-                label: "e1".into(),
-                additional_data: &[],
-                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(1),
-                timestamp_kind: TimestampKind::Start,
-                thread_id: 1,
-            },
-            Event {
-                event_kind: "Query".into(),
-                label: "e1".into(),
-                additional_data: &[],
-                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(2),
-                timestamp_kind: TimestampKind::End,
-                thread_id: 1,
-            },
-            Event {
-                event_kind: "Query".into(),
-                label: "e2".into(),
-                additional_data: &[],
-                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(3),
-                timestamp_kind: TimestampKind::Start,
-                thread_id: 1,
-            },
-            Event {
-                event_kind: "Query".into(),
-                label: "e1".into(),
-                additional_data: &[],
-                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(4),
-                timestamp_kind: TimestampKind::Start,
-                thread_id: 1,
-            },
-            Event {
-                event_kind: "Query".into(),
-                label: "e1".into(),
-                additional_data: &[],
-                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(5),
-                timestamp_kind: TimestampKind::End,
-                thread_id: 1,
-            },
-            Event {
-                event_kind: "Query".into(),
-                label: "e2".into(),
-                additional_data: &[],
-                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(6),
-                timestamp_kind: TimestampKind::End,
-                thread_id: 1,
-            },
-        ];
+        b.interval("Query", "e1", 0, 1, 2, |_| {});
+        b.interval("Query", "e2", 0, 3, 9, |b| {
+            b.interval("Query", "e1", 0, 4, 8, |b| {
+                b.interval("Query", "e3", 0, 5, 7, |_| {});
+            });
+        });
 
-        let recorded_stacks = super::collapse_stacks(events.iter().cloned(), 500);
+        let profiling_data = b.into_profiling_data();
 
-        let mut expected_stacks = HashMap::<String, usize>::new();
+        let recorded_stacks = super::collapse_stacks(&profiling_data);
+
+        let mut expected_stacks = HashMap::<String, u64>::new();
+        expected_stacks.insert("rustc;e2;e1;e3".into(), 2);
         expected_stacks.insert("rustc;e2;e1".into(), 2);
-        expected_stacks.insert("rustc;e2".into(), 4);
-        expected_stacks.insert("rustc;e1".into(), 2);
-        expected_stacks.insert("rustc".into(), 2);
+        expected_stacks.insert("rustc;e2".into(), 2);
+        expected_stacks.insert("rustc;e1".into(), 1);
+        expected_stacks.insert("rustc".into(), 1);
 
         assert_eq!(expected_stacks, recorded_stacks);
     }
 
     #[test]
     fn multi_threaded_test() {
+        let mut b = ProfilingDataBuilder::new();
+
         //                 <--e1-->        <--e1-->
-        //              T1 1       2       3       4       5
+        //         thread1 1       2       3       4       5
         //                                 <--e3-->
         //                 <--e1--><----------e2---------->
-        //              T2 1       2       3       4       5
-        // sample interval |       |       |       |       |
+        //         thread2 1       2       3       4       5
+        //
         // stacks count:
-        // rustc                           1
-        // rustc;e1                2               3
-        // rustc;e2                        1               2
-        // rustc;e2;e3                             1
+        // rustc                   1
+        // rustc;e1        2               3
+        // rustc;e2                1               2
+        // rustc;e2;e3                     1
 
-        let events = [
-            Event {
-                event_kind: "Query".into(),
-                label: "e1".into(),
-                additional_data: &[],
-                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(1),
-                timestamp_kind: TimestampKind::Start,
-                thread_id: 1,
-            },
-            Event {
-                event_kind: "Query".into(),
-                label: "e1".into(),
-                additional_data: &[],
-                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(1),
-                timestamp_kind: TimestampKind::Start,
-                thread_id: 2,
-            },
-            Event {
-                event_kind: "Query".into(),
-                label: "e1".into(),
-                additional_data: &[],
-                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(2),
-                timestamp_kind: TimestampKind::End,
-                thread_id: 2,
-            },
-            Event {
-                event_kind: "Query".into(),
-                label: "e2".into(),
-                additional_data: &[],
-                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(2),
-                timestamp_kind: TimestampKind::Start,
-                thread_id: 2,
-            },
-            Event {
-                event_kind: "Query".into(),
-                label: "e1".into(),
-                additional_data: &[],
-                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(2),
-                timestamp_kind: TimestampKind::End,
-                thread_id: 1,
-            },
-            Event {
-                event_kind: "Query".into(),
-                label: "e1".into(),
-                additional_data: &[],
-                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(3),
-                timestamp_kind: TimestampKind::Start,
-                thread_id: 1,
-            },
-            Event {
-                event_kind: "Query".into(),
-                label: "e1".into(),
-                additional_data: &[],
-                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(4),
-                timestamp_kind: TimestampKind::End,
-                thread_id: 1,
-            },
-            Event {
-                event_kind: "Query".into(),
-                label: "e3".into(),
-                additional_data: &[],
-                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(3),
-                timestamp_kind: TimestampKind::Start,
-                thread_id: 2,
-            },
-            Event {
-                event_kind: "Query".into(),
-                label: "e3".into(),
-                additional_data: &[],
-                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(4),
-                timestamp_kind: TimestampKind::End,
-                thread_id: 2,
-            },
-            Event {
-                event_kind: "Query".into(),
-                label: "e2".into(),
-                additional_data: &[],
-                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(5),
-                timestamp_kind: TimestampKind::End,
-                thread_id: 2,
-            },
-        ];
+        b.interval("Query", "e1", 1, 1, 2, |_| {});
+        b.interval("Query", "e1", 1, 3, 4, |_| {});
+        b.interval("Query", "e1", 2, 1, 2, |_| {});
+        b.interval("Query", "e2", 2, 2, 5, |b| {
+            b.interval("Query", "e3", 2, 3, 4, |_| {});
+        });
 
-        let recorded_stacks = super::collapse_stacks(events.iter().cloned(), 1000);
+        let profiling_data = b.into_profiling_data();
 
-        let mut expected_stacks = HashMap::<String, usize>::new();
+        let recorded_stacks = super::collapse_stacks(&profiling_data);
+
+        let mut expected_stacks = HashMap::<String, u64>::new();
         expected_stacks.insert("rustc;e2;e3".into(), 1);
         expected_stacks.insert("rustc;e2".into(), 2);
         expected_stacks.insert("rustc;e1".into(), 3);

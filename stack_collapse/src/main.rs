@@ -12,10 +12,6 @@ use tools_lib::stack_collapse::collapse_stacks;
 #[derive(StructOpt, Debug)]
 struct Opt {
     file_prefix: PathBuf,
-
-    /// The sampling interval in milliseconds
-    #[structopt(short = "i", long = "interval", default_value = "1")]
-    interval: u64,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -23,7 +19,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let profiling_data = ProfilingData::new(&opt.file_prefix)?;
 
-    let recorded_stacks = collapse_stacks(profiling_data.iter(), opt.interval);
+    let recorded_stacks = collapse_stacks(&profiling_data);
 
     let mut file = BufWriter::new(File::create("out.stacks_folded")?);
 

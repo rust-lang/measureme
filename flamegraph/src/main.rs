@@ -14,10 +14,6 @@ use inferno::flamegraph::{from_lines, Options as FlamegraphOptions};
 #[derive(StructOpt, Debug)]
 struct Opt {
     file_prefix: PathBuf,
-
-    /// The sampling interval in milliseconds
-    #[structopt(short = "i", long = "interval", default_value = "1")]
-    interval: u64,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -25,7 +21,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let profiling_data = ProfilingData::new(&opt.file_prefix)?;
 
-    let recorded_stacks = collapse_stacks(profiling_data.iter(), opt.interval)
+    let recorded_stacks = collapse_stacks(&profiling_data)
         .iter()
         .map(|(unique_stack, count)| format!("{} {}", unique_stack, count))
         .collect::<Vec<_>>();

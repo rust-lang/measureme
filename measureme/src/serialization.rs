@@ -19,7 +19,6 @@ pub trait SerializationSink: Sized {
         W: FnOnce(&mut [u8]);
 }
 
-
 /// A `SerializationSink` that writes to an internal `Vec<u8>` and can be
 /// converted into this raw `Vec<u8>`. This implementation is only meant to be
 /// used for testing and is not very efficient.
