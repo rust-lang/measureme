@@ -6,7 +6,7 @@ use crate::serialization::SerializationSink;
 use byteorder::{ByteOrder, LittleEndian};
 use std::error::Error;
 
-pub const CURRENT_FILE_FORMAT_VERSION: u32 = 0;
+pub const CURRENT_FILE_FORMAT_VERSION: u32 = 1;
 pub const FILE_MAGIC_EVENT_STREAM: &[u8; 4] = b"MMES";
 pub const FILE_MAGIC_STRINGTABLE_DATA: &[u8; 4] = b"MMSD";
 pub const FILE_MAGIC_STRINGTABLE_INDEX: &[u8; 4] = b"MMSI";

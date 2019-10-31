@@ -4,6 +4,10 @@
 ### Added
 - `flamegraph`: new tool that uses the `inferno` crate to generate flamegraph svg files ([GH-73])
 
+### Changed
+- `measureme`: Events are recorded in a more compact format ([GH-76])
+- `stack_collapse`: Removed the `--interval` commandline option ([GH-76])
+
 ## [0.4.0] - 2019-10-24
 ### Added
 - `measureme`: Added RAII-based API for recording events ([GH-70])
@@ -42,3 +46,4 @@
 [GH-60]: https://github.com/rust-lang/measureme/pull/60
 [GH-70]: https://github.com/rust-lang/measureme/pull/70
 [GH-73]: https://github.com/rust-lang/measureme/pull/73
+[GH-76]: https://github.com/rust-lang/measureme/pull/76

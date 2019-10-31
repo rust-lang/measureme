@@ -50,7 +50,6 @@
 //! [`ProfilingData::iter()`]: struct.ProfilingData.html#method.iter
 //! [`ProfilingData::iter_matching_events()`]: struct.ProfilingData.html#method.iter_matching_events
 //! [`StringId`]: struct.StringId.html
-//! [`TimestampKind`]: enum.TimestampKind.html
 
 #![deny(warnings)]
 
@@ -69,14 +68,14 @@ mod stringtable;
 pub mod rustc;
 pub mod testing_common;
 
-pub use crate::event::Event;
+pub use crate::event::{Event, Timestamp};
 #[cfg(any(not(target_arch = "wasm32"), target_os = "wasi"))]
 pub use crate::file_serialization_sink::FileSerializationSink;
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::mmap_serialization_sink::MmapSerializationSink;
 pub use crate::profiler::{Profiler, ProfilerFiles, TimingGuard};
-pub use crate::profiling_data::{MatchingEvent, ProfilingData, ProfilingDataBuilder};
-pub use crate::raw_event::{RawEvent, Timestamp, TimestampKind};
+pub use crate::profiling_data::{ProfilingData, ProfilingDataBuilder};
+pub use crate::raw_event::RawEvent;
 pub use crate::serialization::{Addr, ByteVecSink, SerializationSink};
 pub use crate::stringtable::{
     SerializableString, StringId, StringRef, StringTable, StringTableBuilder,

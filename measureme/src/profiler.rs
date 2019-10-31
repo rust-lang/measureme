@@ -1,5 +1,5 @@
 use crate::file_header::{write_file_header, FILE_MAGIC_EVENT_STREAM};
-use crate::raw_event::{RawEvent, Timestamp, TimestampKind};
+use crate::raw_event::RawEvent;
 use crate::serialization::SerializationSink;
 use crate::stringtable::{SerializableString, StringId, StringTableBuilder};
 use std::error::Error;
@@ -83,38 +83,11 @@ impl<S: SerializationSink> Profiler<S> {
 
     /// Records an event with the given parameters. The event time is computed
     /// automatically.
-    pub fn record_event(
-        &self,
-        event_kind: StringId,
-        event_id: StringId,
-        thread_id: u64,
-        timestamp_kind: TimestampKind,
-    ) {
-        let duration_since_start = self.start_time.elapsed();
-        let nanos_since_start = duration_since_start.as_secs() * 1_000_000_000
-            + duration_since_start.subsec_nanos() as u64;
-        let timestamp = Timestamp::new(nanos_since_start, timestamp_kind);
+    pub fn record_instant_event(&self, event_kind: StringId, event_id: StringId, thread_id: u64) {
+        let raw_event =
+            RawEvent::new_instant(event_kind, event_id, thread_id, self.nanos_since_start());
 
-        let raw_event = RawEvent {
-            event_kind,
-            id: event_id,
-            thread_id,
-            timestamp,
-        };
-
-        self.event_sink
-            .write_atomic(std::mem::size_of::<RawEvent>(), |bytes| {
-                debug_assert_eq!(bytes.len(), std::mem::size_of::<RawEvent>());
-
-                let raw_event_bytes: &[u8] = unsafe {
-                    std::slice::from_raw_parts(
-                        &raw_event as *const _ as *const u8,
-                        std::mem::size_of::<RawEvent>(),
-                    )
-                };
-
-                bytes.copy_from_slice(raw_event_bytes);
-            });
+        self.record_raw_event(&raw_event);
     }
 
     /// Creates a "start" event and returns a `TimingGuard` that will create
@@ -125,14 +98,34 @@ impl<S: SerializationSink> Profiler<S> {
         event_id: StringId,
         thread_id: u64,
     ) -> TimingGuard<'a, S> {
-        self.record_event(event_kind, event_id, thread_id, TimestampKind::Start);
-
         TimingGuard {
             profiler: self,
             event_id,
             event_kind,
             thread_id,
+            start_ns: self.nanos_since_start(),
         }
+    }
+
+    fn record_raw_event(&self, raw_event: &RawEvent) {
+        self.event_sink
+            .write_atomic(std::mem::size_of::<RawEvent>(), |bytes| {
+                debug_assert_eq!(bytes.len(), std::mem::size_of::<RawEvent>());
+
+                let raw_event_bytes: &[u8] = unsafe {
+                    std::slice::from_raw_parts(
+                        raw_event as *const _ as *const u8,
+                        std::mem::size_of::<RawEvent>(),
+                    )
+                };
+
+                bytes.copy_from_slice(raw_event_bytes);
+            });
+    }
+
+    fn nanos_since_start(&self) -> u64 {
+        let duration_since_start = self.start_time.elapsed();
+        duration_since_start.as_secs() * 1_000_000_000 + duration_since_start.subsec_nanos() as u64
     }
 }
 
@@ -144,16 +137,20 @@ pub struct TimingGuard<'a, S: SerializationSink> {
     event_id: StringId,
     event_kind: StringId,
     thread_id: u64,
+    start_ns: u64,
 }
 
 impl<'a, S: SerializationSink> Drop for TimingGuard<'a, S> {
     #[inline]
     fn drop(&mut self) {
-        self.profiler.record_event(
+        let raw_event = RawEvent::new_interval(
             self.event_kind,
             self.event_id,
             self.thread_id,
-            TimestampKind::End,
+            self.start_ns,
+            self.profiler.nanos_since_start(),
         );
+
+        self.profiler.record_raw_event(&raw_event);
     }
 }

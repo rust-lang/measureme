@@ -5,9 +5,10 @@ use std::path::PathBuf;
 use std::time::Duration;
 use std::time::SystemTime;
 
-use measureme::{MatchingEvent, ProfilingData};
+use measureme::{ProfilingData, Timestamp};
 
 use serde::{Serialize, Serializer};
+use std::cmp;
 use structopt::StructOpt;
 
 fn as_micros<S: Serializer>(d: &Duration, s: S) -> Result<S::Ok, S::Error> {
@@ -64,14 +65,12 @@ fn generate_thread_to_collapsed_thread_mapping(
         for event in data.iter() {
             thread_start_and_end
                 .entry(event.thread_id)
-                .and_modify(|(start, end)| {
-                    if *start > event.timestamp {
-                        *start = event.timestamp;
-                    } else if *end < event.timestamp {
-                        *end = event.timestamp;
-                    }
+                .and_modify(|(thread_start, thread_end)| {
+                    let (event_min, event_max) = timestamp_to_min_max(event.timestamp);
+                    *thread_start = cmp::min(*thread_start, event_min);
+                    *thread_end = cmp::max(*thread_end, event_max);
                 })
-                .or_insert_with(|| (event.timestamp, event.timestamp));
+                .or_insert_with(|| timestamp_to_min_max(event.timestamp));
         }
         // collect the the threads in order of the end time
         let mut end_and_thread = thread_start_and_end
@@ -120,37 +119,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     //find the earlier timestamp (it should be the first event)
     //subtract one tick so that the start of the event shows in Chrome
-    let first_event_timestamp = data.iter().next().unwrap().timestamp - Duration::from_micros(1);
+    let first_event_timestamp = make_start_timestamp(&data);
 
     let mut serializer = serde_json::Serializer::new(chrome_file);
     let thread_to_collapsed_thread = generate_thread_to_collapsed_thread_mapping(&opt, &data);
-    let mut event_iterator = data.iter_matching_events();
+    let mut event_iterator = data.iter();
 
     //create an iterator so we can avoid allocating a Vec with every Event for serialization
     let json_event_iterator = std::iter::from_fn(|| {
         while let Some(event) = event_iterator.next() {
             // Chrome does not seem to like how many QueryCacheHit events we generate
             // only handle startStop events for now
-            if let MatchingEvent::StartStop(start, stop) = event {
-                let duration = stop.timestamp.duration_since(start.timestamp).unwrap();
+            if let Timestamp::Interval { start, end } = event.timestamp {
+                let duration = end.duration_since(start).unwrap();
                 if let Some(minimum_duration) = opt.minimum_duration {
                     if duration.as_micros() < minimum_duration {
                         continue;
                     }
                 }
                 return Some(Event {
-                    name: start.label.clone().into_owned(),
-                    category: start.event_kind.clone().into_owned(),
+                    name: event.label.clone().into_owned(),
+                    category: event.event_kind.clone().into_owned(),
                     event_type: EventType::Complete,
-                    timestamp: start
-                        .timestamp
-                        .duration_since(first_event_timestamp)
-                        .unwrap(),
+                    timestamp: start.duration_since(first_event_timestamp).unwrap(),
                     duration,
                     process_id: 0,
                     thread_id: *thread_to_collapsed_thread
-                        .get(&start.thread_id)
-                        .unwrap_or(&start.thread_id),
+                        .get(&event.thread_id)
+                        .unwrap_or(&event.thread_id),
                     args: None,
                 });
             }
@@ -162,4 +158,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     serializer.collect_seq(json_event_iterator)?;
 
     Ok(())
+}
+
+fn timestamp_to_min_max(timestamp: Timestamp) -> (SystemTime, SystemTime) {
+    match timestamp {
+        Timestamp::Instant(t) => (t, t),
+        Timestamp::Interval { start, end } => {
+            // Usually start should always be greater than end, but let's not
+            // choke on invalid data here.
+            (cmp::min(start, end), cmp::max(start, end))
+        }
+    }
+}
+
+// FIXME: Move this to `ProfilingData` and base it on the `start_time` field
+//        from metadata.
+fn make_start_timestamp(data: &ProfilingData) -> SystemTime {
+    // We cannot assume the first event in the stream actually is the first
+    // event because interval events are emitted at their end. So in theory it
+    // is possible that the event with the earliest starting time is the last
+    // event in the stream (i.e. if there is an interval event that spans the
+    // entire execution of the profile).
+    //
+    // Let's be on the safe side and iterate the whole stream.
+    let min = data
+        .iter()
+        .map(|e| timestamp_to_min_max(e.timestamp).0)
+        .min()
+        .unwrap();
+
+    min - Duration::from_micros(1)
 }
