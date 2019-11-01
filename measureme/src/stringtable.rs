@@ -30,8 +30,8 @@
 //! After `METADATA_STRING_ID` are all other `StringId` values.
 
 use crate::file_header::{
-    read_file_header, strip_file_header, write_file_header, FILE_MAGIC_STRINGTABLE_DATA,
-    FILE_MAGIC_STRINGTABLE_INDEX,
+    read_file_header, strip_file_header, write_file_header, CURRENT_FILE_FORMAT_VERSION,
+    FILE_MAGIC_STRINGTABLE_DATA, FILE_MAGIC_STRINGTABLE_INDEX,
 };
 use crate::serialization::{Addr, SerializationSink};
 use byteorder::{ByteOrder, LittleEndian};
@@ -274,7 +274,7 @@ impl StringTable {
             Err("Mismatch between StringTable DATA and INDEX format version")?;
         }
 
-        if string_data_format != 0 {
+        if string_data_format != CURRENT_FILE_FORMAT_VERSION {
             Err(format!(
                 "StringTable file format version '{}' is not supported
                          by this version of `measureme`.",
@@ -303,10 +303,10 @@ mod tests {
 
     #[test]
     fn simple_strings() {
-        use crate::serialization::test::TestSink;
+        use crate::serialization::ByteVecSink;
 
-        let data_sink = Arc::new(TestSink::new());
-        let index_sink = Arc::new(TestSink::new());
+        let data_sink = Arc::new(ByteVecSink::new());
+        let index_sink = Arc::new(ByteVecSink::new());
 
         let expected_strings = &[
             "abc",

@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::path::Path;
+use std::sync::Mutex;
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub struct Addr(pub u32);
@@ -18,51 +19,49 @@ pub trait SerializationSink: Sized {
         W: FnOnce(&mut [u8]);
 }
 
-#[cfg(test)]
-pub mod test {
-    use super::*;
-    use std::sync::Mutex;
 
-    pub struct TestSink {
-        data: Mutex<Vec<u8>>,
-    }
+/// A `SerializationSink` that writes to an internal `Vec<u8>` and can be
+/// converted into this raw `Vec<u8>`. This implementation is only meant to be
+/// used for testing and is not very efficient.
+pub struct ByteVecSink {
+    data: Mutex<Vec<u8>>,
+}
 
-    impl TestSink {
-        pub fn new() -> TestSink {
-            TestSink {
-                data: Mutex::new(Vec::new()),
-            }
-        }
-
-        pub fn into_bytes(self) -> Vec<u8> {
-            self.data.into_inner().unwrap()
+impl ByteVecSink {
+    pub fn new() -> ByteVecSink {
+        ByteVecSink {
+            data: Mutex::new(Vec::new()),
         }
     }
 
-    impl SerializationSink for TestSink {
-        fn from_path(_path: &Path) -> Result<Self, Box<dyn Error>> {
-            unimplemented!()
-        }
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.data.into_inner().unwrap()
+    }
+}
 
-        fn write_atomic<W>(&self, num_bytes: usize, write: W) -> Addr
-        where
-            W: FnOnce(&mut [u8]),
-        {
-            let mut data = self.data.lock().unwrap();
-
-            let start = data.len();
-
-            data.resize(start + num_bytes, 0);
-
-            write(&mut data[start..]);
-
-            Addr(start as u32)
-        }
+impl SerializationSink for ByteVecSink {
+    fn from_path(_path: &Path) -> Result<Self, Box<dyn Error>> {
+        unimplemented!()
     }
 
-    impl std::fmt::Debug for TestSink {
-        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-            write!(f, "TestSink")
-        }
+    fn write_atomic<W>(&self, num_bytes: usize, write: W) -> Addr
+    where
+        W: FnOnce(&mut [u8]),
+    {
+        let mut data = self.data.lock().unwrap();
+
+        let start = data.len();
+
+        data.resize(start + num_bytes, 0);
+
+        write(&mut data[start..]);
+
+        Addr(start as u32)
+    }
+}
+
+impl std::fmt::Debug for ByteVecSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "ByteVecSink")
     }
 }

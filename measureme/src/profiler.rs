@@ -56,7 +56,10 @@ impl<S: SerializationSink> Profiler<S> {
 
         profiler.string_table.alloc_metadata(&*format!(
             r#"{{ "start_time": {}, "process_id": {}, "cmd": "{}" }}"#,
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
             std::process::id(),
             args,
         ));
@@ -150,7 +153,7 @@ impl<'a, S: SerializationSink> Drop for TimingGuard<'a, S> {
             self.event_kind,
             self.event_id,
             self.thread_id,
-            TimestampKind::End
+            TimestampKind::End,
         );
     }
 }
