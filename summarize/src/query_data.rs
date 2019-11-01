@@ -101,3 +101,11 @@ pub struct Results {
     pub query_data: Vec<QueryData>,
     pub total_time: Duration,
 }
+
+// For now this is only needed for tests it seems
+#[cfg(test)]
+impl Results {
+    pub fn query_data_by_label(&self, label: &str) -> &QueryData {
+        self.query_data.iter().find(|qd| qd.label == label).unwrap()
+    }
+}
