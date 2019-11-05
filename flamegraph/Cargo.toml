@@ -1,5 +1,5 @@
 [package]
-name = "stack_collapse"
+name = "flamegraph"
 version = "0.1.0"
 authors = ["Wesley Wiser <wwiser@gmail.com>", "Michael Woerister <michaelwoerister@posteo>"]
 edition = "2018"
@@ -9,3 +9,4 @@ license = "MIT OR Apache-2.0"
 measureme = { path = "../measureme" }
 tools_lib = { path = "../tools_lib" }
 structopt = "0.2"
+inferno = { version="0.9.1", default-features = false }

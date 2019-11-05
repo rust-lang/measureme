@@ -6,4 +6,6 @@ members = [
     "mmview",
     "stack_collapse",
     "summarize",
+    "tools_lib",
+    "flamegraph",
 ]
