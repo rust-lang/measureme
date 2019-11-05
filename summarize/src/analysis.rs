@@ -164,3 +164,255 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
         total_time,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use measureme::ProfilingDataBuilder;
+
+    #[test]
+    fn total_time_and_nesting() {
+        let mut b = ProfilingDataBuilder::new();
+
+        b.interval(QUERY_EVENT_KIND, "q1", 0, 100, 200, |b| {
+            b.interval(QUERY_EVENT_KIND, "q2", 0, 110, 190, |b| {
+                b.interval(QUERY_EVENT_KIND, "q3", 0, 120, 180, |_| {});
+            });
+        });
+
+        let results = perform_analysis(b.into_profiling_data());
+
+        assert_eq!(results.total_time, Duration::from_nanos(100));
+
+        // 10ns in the beginning and 10ns in the end
+        assert_eq!(results.query_data_by_label("q1").self_time, Duration::from_nanos(20));
+        // 10ns in the beginning and 10ns in the end, again
+        assert_eq!(results.query_data_by_label("q2").self_time, Duration::from_nanos(20));
+        // 60ns of uninterupted self-time
+        assert_eq!(results.query_data_by_label("q3").self_time, Duration::from_nanos(60));
+
+        assert_eq!(results.query_data_by_label("q1").invocation_count, 1);
+        assert_eq!(results.query_data_by_label("q2").invocation_count, 1);
+        assert_eq!(results.query_data_by_label("q3").invocation_count, 1);
+    }
+
+    #[test]
+    fn events_with_same_starting_time() {
+        //                      <--e4-->
+        //                      <---e3--->
+        //  <--------e1--------><--------e2-------->
+        //  100                 200                300
+
+        let mut b = ProfilingDataBuilder::new();
+
+        b.interval(QUERY_EVENT_KIND, "e1", 0, 100, 200, |_| {});
+        b.interval(QUERY_EVENT_KIND, "e2", 0, 200, 300, |b| {
+            b.interval(QUERY_EVENT_KIND, "e3", 0, 200, 250, |b| {
+                b.interval(QUERY_EVENT_KIND, "e4", 0, 200, 220, |_| {});
+            });
+        });
+
+        let results = perform_analysis(b.into_profiling_data());
+
+        assert_eq!(results.total_time, Duration::from_nanos(200));
+
+        assert_eq!(results.query_data_by_label("e1").self_time, Duration::from_nanos(100));
+        assert_eq!(results.query_data_by_label("e2").self_time, Duration::from_nanos(50));
+        assert_eq!(results.query_data_by_label("e3").self_time, Duration::from_nanos(30));
+        assert_eq!(results.query_data_by_label("e4").self_time, Duration::from_nanos(20));
+
+        assert_eq!(results.query_data_by_label("e1").invocation_count, 1);
+        assert_eq!(results.query_data_by_label("e2").invocation_count, 1);
+        assert_eq!(results.query_data_by_label("e3").invocation_count, 1);
+        assert_eq!(results.query_data_by_label("e4").invocation_count, 1);
+    }
+
+    #[test]
+    fn events_with_same_end_time() {
+        //                                  <--e4-->
+        //                                <---e3--->
+        //  <--------e1--------><--------e2-------->
+        //  100                 200                300
+
+        let mut b = ProfilingDataBuilder::new();
+
+        b.interval(QUERY_EVENT_KIND, "e1", 0, 100, 200, |_| {});
+        b.interval(QUERY_EVENT_KIND, "e2", 0, 200, 300, |b| {
+            b.interval(QUERY_EVENT_KIND, "e3", 0, 250, 300, |b| {
+                b.interval(QUERY_EVENT_KIND, "e4", 0, 280, 300, |_| {});
+            });
+        });
+
+        let results = perform_analysis(b.into_profiling_data());
+
+        assert_eq!(results.total_time, Duration::from_nanos(200));
+
+        assert_eq!(results.query_data_by_label("e1").self_time, Duration::from_nanos(100));
+        assert_eq!(results.query_data_by_label("e2").self_time, Duration::from_nanos(50));
+        assert_eq!(results.query_data_by_label("e3").self_time, Duration::from_nanos(30));
+        assert_eq!(results.query_data_by_label("e4").self_time, Duration::from_nanos(20));
+
+        assert_eq!(results.query_data_by_label("e1").invocation_count, 1);
+        assert_eq!(results.query_data_by_label("e2").invocation_count, 1);
+        assert_eq!(results.query_data_by_label("e3").invocation_count, 1);
+        assert_eq!(results.query_data_by_label("e4").invocation_count, 1);
+    }
+
+    #[test]
+    fn same_event_multiple_times() {
+        //        <--e3-->            <--e3-->
+        //       <---e2--->          <---e2--->
+        //  <--------e1--------><--------e1-------->
+        //  100                 200                300
+
+        let mut b = ProfilingDataBuilder::new();
+
+        b.interval(QUERY_EVENT_KIND, "e1", 0, 100, 200, |b| {
+            b.interval(QUERY_EVENT_KIND, "e2", 0, 120, 180, |b| {
+                b.interval(QUERY_EVENT_KIND, "e3", 0, 140, 160, |_| {});
+            });
+        });
+
+        b.interval(QUERY_EVENT_KIND, "e1", 0, 200, 300, |b| {
+            b.interval(QUERY_EVENT_KIND, "e2", 0, 220, 280, |b| {
+                b.interval(QUERY_EVENT_KIND, "e3", 0, 240, 260, |_| {});
+            });
+        });
+
+        let results = perform_analysis(b.into_profiling_data());
+
+        assert_eq!(results.total_time, Duration::from_nanos(200));
+
+        assert_eq!(results.query_data_by_label("e1").self_time, Duration::from_nanos(80));
+        assert_eq!(results.query_data_by_label("e2").self_time, Duration::from_nanos(80));
+        assert_eq!(results.query_data_by_label("e3").self_time, Duration::from_nanos(40));
+
+        assert_eq!(results.query_data_by_label("e1").invocation_count, 2);
+        assert_eq!(results.query_data_by_label("e2").invocation_count, 2);
+        assert_eq!(results.query_data_by_label("e3").invocation_count, 2);
+    }
+
+    #[test]
+    fn multiple_threads() {
+        //          <--e3-->            <--e3-->
+        //         <---e2--->          <---e2--->
+        //    <--------e1--------><--------e1-------->
+        // T0 100                 200                300
+        //
+        //           <--e3-->            <--e3-->
+        //          <---e2--->          <---e2--->
+        //     <--------e1--------><--------e1-------->
+        // T1 100                 200                300
+
+        let mut b = ProfilingDataBuilder::new();
+
+        // Thread 0
+        b.interval(QUERY_EVENT_KIND, "e1", 0, 100, 200, |b| {
+            b.interval(QUERY_EVENT_KIND, "e2", 0, 120, 180, |b| {
+                b.interval(QUERY_EVENT_KIND, "e3", 0, 140, 160, |_| {});
+            });
+        });
+
+        // Thread 1 -- the same as thread 0 with a slight time offset
+        b.interval(QUERY_EVENT_KIND, "e1", 1, 110, 210, |b| {
+            b.interval(QUERY_EVENT_KIND, "e2", 1, 130, 190, |b| {
+                b.interval(QUERY_EVENT_KIND, "e3", 1, 150, 170, |_| {});
+            });
+        });
+
+        // Thread 0 -- continued
+        b.interval(QUERY_EVENT_KIND, "e1", 0, 200, 300, |b| {
+            b.interval(QUERY_EVENT_KIND, "e2", 0, 220, 280, |b| {
+                b.interval(QUERY_EVENT_KIND, "e3", 0, 240, 260, |_| {});
+            });
+        });
+
+        // Thread 1 -- continued
+        b.interval(QUERY_EVENT_KIND, "e1", 1, 210, 310, |b| {
+            b.interval(QUERY_EVENT_KIND, "e2", 1, 230, 290, |b| {
+                b.interval(QUERY_EVENT_KIND, "e3", 1, 250, 270, |_| {});
+            });
+        });
+
+        let results = perform_analysis(b.into_profiling_data());
+
+        assert_eq!(results.total_time, Duration::from_nanos(400));
+
+        assert_eq!(results.query_data_by_label("e1").self_time, Duration::from_nanos(160));
+        assert_eq!(results.query_data_by_label("e2").self_time, Duration::from_nanos(160));
+        assert_eq!(results.query_data_by_label("e3").self_time, Duration::from_nanos(80));
+
+        assert_eq!(results.query_data_by_label("e1").invocation_count, 4);
+        assert_eq!(results.query_data_by_label("e2").invocation_count, 4);
+        assert_eq!(results.query_data_by_label("e3").invocation_count, 4);
+    }
+
+    #[test]
+    fn instant_events() {
+        //          xyxy
+        //      y <--e3--> x
+        //   x <-----e2-----> x
+        //  <--------e1-------->
+        //  100                200
+
+        let mut b = ProfilingDataBuilder::new();
+
+        b.interval(QUERY_EVENT_KIND, "e1", 0, 200, 300, |b| {
+            b.instant(QUERY_CACHE_HIT_EVENT_KIND, "x", 0, 210);
+
+            b.interval(QUERY_EVENT_KIND, "e2", 0, 220, 280, |b| {
+
+                b.instant(QUERY_CACHE_HIT_EVENT_KIND, "y", 0, 230);
+
+                b.interval(QUERY_EVENT_KIND, "e3", 0, 240, 260, |b| {
+                    b.instant(QUERY_CACHE_HIT_EVENT_KIND, "x", 0, 241);
+                    b.instant(QUERY_CACHE_HIT_EVENT_KIND, "y", 0, 242);
+                    b.instant(QUERY_CACHE_HIT_EVENT_KIND, "x", 0, 243);
+                    b.instant(QUERY_CACHE_HIT_EVENT_KIND, "y", 0, 244);
+                });
+
+                b.instant(QUERY_CACHE_HIT_EVENT_KIND, "x", 0, 270);
+            });
+
+            b.instant(QUERY_CACHE_HIT_EVENT_KIND, "x", 0, 290);
+        });
+
+        let results = perform_analysis(b.into_profiling_data());
+
+        assert_eq!(results.total_time, Duration::from_nanos(100));
+
+        assert_eq!(results.query_data_by_label("e1").self_time, Duration::from_nanos(40));
+        assert_eq!(results.query_data_by_label("e2").self_time, Duration::from_nanos(40));
+        assert_eq!(results.query_data_by_label("e3").self_time, Duration::from_nanos(20));
+
+        assert_eq!(results.query_data_by_label("e1").invocation_count, 1);
+        assert_eq!(results.query_data_by_label("e2").invocation_count, 1);
+        assert_eq!(results.query_data_by_label("e3").invocation_count, 1);
+
+        assert_eq!(results.query_data_by_label("x").number_of_cache_hits, 5);
+        assert_eq!(results.query_data_by_label("y").number_of_cache_hits, 3);
+    }
+
+    #[test]
+    fn stack_of_same_events() {
+        //        <--e1-->
+        //     <-----e1----->
+        //  <--------e1-------->
+        //  100                200
+
+        let mut b = ProfilingDataBuilder::new();
+
+        b.interval(QUERY_EVENT_KIND, "e1", 0, 200, 300, |b| {
+            b.interval(QUERY_EVENT_KIND, "e1", 0, 220, 280, |b| {
+                b.interval(QUERY_EVENT_KIND, "e1", 0, 240, 260, |_| {});
+            });
+        });
+
+        let results = perform_analysis(b.into_profiling_data());
+
+        assert_eq!(results.total_time, Duration::from_nanos(100));
+
+        assert_eq!(results.query_data_by_label("e1").self_time, Duration::from_nanos(100));
+        assert_eq!(results.query_data_by_label("e1").invocation_count, 3);
+    }
+}
