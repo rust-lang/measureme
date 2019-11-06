@@ -1,5 +1,5 @@
 [package]
-name = "stack_collapse"
+name = "tools_lib"
 version = "0.1.0"
 authors = ["Wesley Wiser <wwiser@gmail.com>", "Michael Woerister <michaelwoerister@posteo>"]
 edition = "2018"
@@ -7,5 +7,3 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 measureme = { path = "../measureme" }
-tools_lib = { path = "../tools_lib" }
-structopt = "0.2"

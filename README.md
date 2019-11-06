@@ -29,6 +29,12 @@ It contains two main modes:
 
 [Learn more](./stack_collapse/README.md)
 
+### flamegraph
+
+`flamegraph` reads `measureme` profiling data and outputs [Flame Graph](https://github.com/brendangregg/FlameGraph).
+
+[Learn more](./flamegraph/README.md)
+
 ### crox
 
 `crox` turns `measureme` profiling data into files that can be visualized by the Chromium performance tools.
