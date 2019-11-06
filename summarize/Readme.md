@@ -82,7 +82,7 @@ You can also profile your own custom build of rustc. First you'll have to clone 
 [here][compiling-rust], but if you've never built rustc before, we suggest starting with
 
 [rust-repo]: https://github.com/rust-lang/rust
-[compiling-rust]: https://rust-lang.github.io/rustc-guide/how-to-build-and-run.html
+[compiling-rust]: https://rust-lang.github.io/rustc-guide/building/how-to-build-and-run.html
 
 ```bash
 $ git clone https://github.com/rust-lang/rust.git
