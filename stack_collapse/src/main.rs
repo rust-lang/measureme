@@ -2,7 +2,6 @@ use std::error::Error;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
-use std::time::Duration;
 
 use measureme::ProfilingData;
 
@@ -24,12 +23,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let profiling_data = ProfilingData::new(&opt.file_prefix)?;
 
-    let first_event_time = {
-        let current_time = profiling_data.iter().next().unwrap().timestamp;
-        current_time + Duration::from_millis(opt.interval)
-    };
-
-    let recorded_stacks = collapse_stacks(profiling_data.iter(), first_event_time, opt.interval);
+    let recorded_stacks = collapse_stacks(profiling_data.iter(), opt.interval);
 
     let mut file = BufWriter::new(File::create("out.stacks_folded")?);
 
