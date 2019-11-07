@@ -56,10 +56,20 @@ mod test {
 
     #[test]
     fn basic_test() {
+        //                                         <--e1-->
+        //                 <--e1-->        <----------e2---------->
+        //              T2 1       2       3       4       5       6
+        // sample interval |   |   |   |   |   |   |   |   |   |   |
+        // stacks count:
+        // rustc                       1   2
+        // rustc;e1            1   2
+        // rustc;e2                            1   2           3   4
+        // rustc;e2;e1                                 1   2
+
         let events = [
             Event {
                 event_kind: "Query".into(),
-                label: "EventA".into(),
+                label: "e1".into(),
                 additional_data: &[],
                 timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(1),
                 timestamp_kind: TimestampKind::Start,
@@ -67,7 +77,7 @@ mod test {
             },
             Event {
                 event_kind: "Query".into(),
-                label: "EventA".into(),
+                label: "e1".into(),
                 additional_data: &[],
                 timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(2),
                 timestamp_kind: TimestampKind::End,
@@ -75,7 +85,7 @@ mod test {
             },
             Event {
                 event_kind: "Query".into(),
-                label: "EventB".into(),
+                label: "e2".into(),
                 additional_data: &[],
                 timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(3),
                 timestamp_kind: TimestampKind::Start,
@@ -83,7 +93,7 @@ mod test {
             },
             Event {
                 event_kind: "Query".into(),
-                label: "EventA".into(),
+                label: "e1".into(),
                 additional_data: &[],
                 timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(4),
                 timestamp_kind: TimestampKind::Start,
@@ -91,7 +101,7 @@ mod test {
             },
             Event {
                 event_kind: "Query".into(),
-                label: "EventA".into(),
+                label: "e1".into(),
                 additional_data: &[],
                 timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(5),
                 timestamp_kind: TimestampKind::End,
@@ -99,7 +109,7 @@ mod test {
             },
             Event {
                 event_kind: "Query".into(),
-                label: "EventB".into(),
+                label: "e2".into(),
                 additional_data: &[],
                 timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(6),
                 timestamp_kind: TimestampKind::End,
@@ -107,23 +117,35 @@ mod test {
             },
         ];
 
-        let recorded_stacks = super::collapse_stacks(events.iter().cloned(), 1);
+        let recorded_stacks = super::collapse_stacks(events.iter().cloned(), 500);
 
         let mut expected_stacks = HashMap::<String, usize>::new();
-        expected_stacks.insert("rustc;EventB;EventA".into(), 1000);
-        expected_stacks.insert("rustc;EventB".into(), 2000);
-        expected_stacks.insert("rustc;EventA".into(), 1000);
-        expected_stacks.insert("rustc".into(), 1000);
+        expected_stacks.insert("rustc;e2;e1".into(), 2);
+        expected_stacks.insert("rustc;e2".into(), 4);
+        expected_stacks.insert("rustc;e1".into(), 2);
+        expected_stacks.insert("rustc".into(), 2);
 
         assert_eq!(expected_stacks, recorded_stacks);
     }
 
     #[test]
     fn multi_threaded_test() {
+        //                 <--e1-->        <--e1-->
+        //              T1 1       2       3       4       5
+        //                                 <--e3-->
+        //                 <--e1--><----------e2---------->
+        //              T2 1       2       3       4       5
+        // sample interval |       |       |       |       |
+        // stacks count:
+        // rustc                           1
+        // rustc;e1                2               3
+        // rustc;e2                        1               2
+        // rustc;e2;e3                             1
+
         let events = [
             Event {
                 event_kind: "Query".into(),
-                label: "EventA".into(),
+                label: "e1".into(),
                 additional_data: &[],
                 timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(1),
                 timestamp_kind: TimestampKind::Start,
@@ -131,15 +153,31 @@ mod test {
             },
             Event {
                 event_kind: "Query".into(),
-                label: "EventB".into(),
+                label: "e1".into(),
                 additional_data: &[],
-                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(3),
+                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(1),
                 timestamp_kind: TimestampKind::Start,
                 thread_id: 2,
             },
             Event {
                 event_kind: "Query".into(),
-                label: "EventA".into(),
+                label: "e1".into(),
+                additional_data: &[],
+                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(2),
+                timestamp_kind: TimestampKind::End,
+                thread_id: 2,
+            },
+            Event {
+                event_kind: "Query".into(),
+                label: "e2".into(),
+                additional_data: &[],
+                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(2),
+                timestamp_kind: TimestampKind::Start,
+                thread_id: 2,
+            },
+            Event {
+                event_kind: "Query".into(),
+                label: "e1".into(),
                 additional_data: &[],
                 timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(2),
                 timestamp_kind: TimestampKind::End,
@@ -147,25 +185,41 @@ mod test {
             },
             Event {
                 event_kind: "Query".into(),
-                label: "EventA".into(),
+                label: "e1".into(),
+                additional_data: &[],
+                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(3),
+                timestamp_kind: TimestampKind::Start,
+                thread_id: 1,
+            },
+            Event {
+                event_kind: "Query".into(),
+                label: "e1".into(),
                 additional_data: &[],
                 timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(4),
+                timestamp_kind: TimestampKind::End,
+                thread_id: 1,
+            },
+            Event {
+                event_kind: "Query".into(),
+                label: "e3".into(),
+                additional_data: &[],
+                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(3),
                 timestamp_kind: TimestampKind::Start,
                 thread_id: 2,
             },
             Event {
                 event_kind: "Query".into(),
-                label: "EventA".into(),
+                label: "e3".into(),
                 additional_data: &[],
-                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(5),
+                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(4),
                 timestamp_kind: TimestampKind::End,
                 thread_id: 2,
             },
             Event {
                 event_kind: "Query".into(),
-                label: "EventB".into(),
+                label: "e2".into(),
                 additional_data: &[],
-                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(6),
+                timestamp: SystemTime::UNIX_EPOCH + Duration::from_secs(5),
                 timestamp_kind: TimestampKind::End,
                 thread_id: 2,
             },
@@ -174,9 +228,10 @@ mod test {
         let recorded_stacks = super::collapse_stacks(events.iter().cloned(), 1000);
 
         let mut expected_stacks = HashMap::<String, usize>::new();
-        expected_stacks.insert("rustc;EventB;EventA".into(), 1);
-        expected_stacks.insert("rustc;EventB".into(), 2);
-        expected_stacks.insert("rustc;EventA".into(), 1);
+        expected_stacks.insert("rustc;e2;e3".into(), 1);
+        expected_stacks.insert("rustc;e2".into(), 2);
+        expected_stacks.insert("rustc;e1".into(), 3);
+        expected_stacks.insert("rustc".into(), 1);
 
         assert_eq!(expected_stacks, recorded_stacks);
     }
