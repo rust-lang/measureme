@@ -7,3 +7,4 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 measureme = { path = "../measureme" }
+rustc-hash = "1.0.1"
