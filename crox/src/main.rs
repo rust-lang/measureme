@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use rustc_hash::FxHashMap;
 use std::fs;
 use std::io::BufWriter;
 use std::path::PathBuf;
@@ -38,7 +38,7 @@ struct Event {
     process_id: u32,
     #[serde(rename = "tid")]
     thread_id: u64,
-    args: Option<BTreeMap<String, String>>,
+    args: Option<FxHashMap<String, String>>,
 }
 
 #[derive(StructOpt, Debug)]
@@ -56,12 +56,12 @@ struct Opt {
 fn generate_thread_to_collapsed_thread_mapping(
     opt: &Opt,
     data: &ProfilingData,
-) -> BTreeMap<u64, u64> {
-    let mut thread_to_collapsed_thread: BTreeMap<u64, u64> = BTreeMap::new();
+) -> FxHashMap<u64, u64> {
+    let mut thread_to_collapsed_thread: FxHashMap<u64, u64> = FxHashMap::default();
 
     if opt.collapse_threads {
         // collect start and end times for all threads
-        let mut thread_start_and_end: BTreeMap<u64, (SystemTime, SystemTime)> = BTreeMap::new();
+        let mut thread_start_and_end: FxHashMap<u64, (SystemTime, SystemTime)> = FxHashMap::default();
         for event in data.iter() {
             thread_start_and_end
                 .entry(event.thread_id)

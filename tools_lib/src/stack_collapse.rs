@@ -1,5 +1,5 @@
+use rustc_hash::FxHashMap;
 use std::cmp;
-use std::collections::HashMap;
 use std::time::SystemTime;
 
 use measureme::{Event, ProfilingData};
@@ -17,9 +17,9 @@ struct PerThreadState<'a> {
 /// Uses a variation of the algorithm in `summarize`.
 // Original implementation provided by @andjo403 in
 // https://github.com/michaelwoerister/measureme/pull/1
-pub fn collapse_stacks<'a>(profiling_data: &ProfilingData) -> HashMap<String, u64> {
-    let mut counters = HashMap::new();
-    let mut threads = HashMap::<_, PerThreadState<'_>>::new();
+pub fn collapse_stacks<'a>(profiling_data: &ProfilingData) -> FxHashMap<String, u64> {
+    let mut counters = FxHashMap::default();
+    let mut threads = FxHashMap::<_, PerThreadState<'_>>::default();
 
     for current_event in profiling_data
         .iter()
@@ -95,7 +95,7 @@ pub fn collapse_stacks<'a>(profiling_data: &ProfilingData) -> HashMap<String, u6
 #[cfg(test)]
 mod test {
     use measureme::ProfilingDataBuilder;
-    use std::collections::HashMap;
+    use rustc_hash::FxHashMap;
 
     #[test]
     fn basic_test() {
@@ -124,7 +124,7 @@ mod test {
 
         let recorded_stacks = super::collapse_stacks(&profiling_data);
 
-        let mut expected_stacks = HashMap::<String, u64>::new();
+        let mut expected_stacks = FxHashMap::<String, u64>::default();
         expected_stacks.insert("rustc;e2;e1;e3".into(), 2);
         expected_stacks.insert("rustc;e2;e1".into(), 2);
         expected_stacks.insert("rustc;e2".into(), 2);
@@ -161,7 +161,7 @@ mod test {
 
         let recorded_stacks = super::collapse_stacks(&profiling_data);
 
-        let mut expected_stacks = HashMap::<String, u64>::new();
+        let mut expected_stacks = FxHashMap::<String, u64>::default();
         expected_stacks.insert("rustc;e2;e3".into(), 1);
         expected_stacks.insert("rustc;e2".into(), 2);
         expected_stacks.insert("rustc;e1".into(), 3);

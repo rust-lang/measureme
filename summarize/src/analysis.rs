@@ -1,9 +1,9 @@
 use crate::query_data::{QueryData, Results};
 use measureme::rustc::*;
 use measureme::{Event, ProfilingData, Timestamp};
+use rustc_hash::FxHashMap;
 use std::borrow::Cow;
-use std::collections::HashMap;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
 /// Collects accumulated summary data for the given ProfilingData.
 ///
@@ -116,8 +116,8 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
         end: SystemTime,
     }
 
-    let mut query_data = HashMap::<String, QueryData>::new();
-    let mut threads = HashMap::<_, PerThreadState>::new();
+    let mut query_data = FxHashMap::<String, QueryData>::default();
+    let mut threads = FxHashMap::<_, PerThreadState>::default();
 
     let mut record_event_data = |label: &Cow<'_, str>, f: &dyn Fn(&mut QueryData)| {
         if let Some(data) = query_data.get_mut(&label[..]) {
@@ -219,6 +219,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
     use measureme::ProfilingDataBuilder;
 
     #[test]

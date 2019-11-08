@@ -1,7 +1,7 @@
 use crate::query_data::{QueryData, QueryDataDiff, Results};
 use crate::signed_duration::SignedDuration;
+use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 #[derive(Serialize, Deserialize)]
@@ -10,8 +10,8 @@ pub struct DiffResults {
     pub total_time: SignedDuration,
 }
 
-fn build_query_lookup(query_data: &[QueryData]) -> HashMap<&str, usize> {
-    let mut lookup = HashMap::with_capacity(query_data.len());
+fn build_query_lookup(query_data: &[QueryData]) -> FxHashMap<&str, usize> {
+    let mut lookup = FxHashMap::with_capacity_and_hasher(query_data.len(), Default::default());
     for i in 0..query_data.len() {
         lookup.insert(&query_data[i].label[..], i);
     }
@@ -28,7 +28,7 @@ pub fn calculate_diff(base: Results, change: Results) -> DiffResults {
     let base_data = build_query_lookup(&base.query_data);
     let change_data = build_query_lookup(&change.query_data);
 
-    let mut all_labels = HashSet::with_capacity(base.query_data.len() + change.query_data.len());
+    let mut all_labels = FxHashSet::with_capacity_and_hasher(base.query_data.len() + change.query_data.len(), Default::default());
     for query_data in base.query_data.iter().chain(&change.query_data) {
         all_labels.insert(&query_data.label[..]);
     }
