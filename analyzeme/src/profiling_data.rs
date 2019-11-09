@@ -5,18 +5,38 @@ use measureme::file_header::{
 };
 use measureme::ByteVecSink;
 use measureme::{ProfilerFiles, RawEvent, SerializationSink, StringTable, StringTableBuilder};
+use serde::{Deserialize, Deserializer};
 use std::error::Error;
 use std::fs;
 use std::mem;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const RAW_EVENT_SIZE: usize = mem::size_of::<RawEvent>();
+
+fn system_time_from_nanos<'de, D>(deserializer: D) -> Result<SystemTime, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let duration_from_epoch = Duration::from_nanos(u64::deserialize(deserializer)?);
+    Ok(UNIX_EPOCH
+        .checked_add(duration_from_epoch)
+        .expect("a time that can be represented as SystemTime"))
+}
+
+#[derive(Deserialize)]
+pub struct MetaData {
+    #[serde(deserialize_with = "system_time_from_nanos")]
+    pub start_time: SystemTime,
+    pub process_id: u32,
+    pub cmd: String,
+}
 
 pub struct ProfilingData {
     event_data: Vec<u8>,
     string_table: StringTable,
+    pub meta_data: MetaData,
 }
 
 impl ProfilingData {
@@ -39,9 +59,13 @@ impl ProfilingData {
 
         let string_table = StringTable::new(string_data, index_data)?;
 
+        let meta_data = string_table.get_metadata().to_string();
+        let meta_data: MetaData = serde_json::from_str(&meta_data)?;
+
         Ok(ProfilingData {
             string_table,
             event_data,
+            meta_data,
         })
     }
 
@@ -88,8 +112,7 @@ impl<'a> ProfilerEventIterator<'a> {
 
         let string_table = &self.data.string_table;
 
-        // FIXME: Lots of Rust code compiled in the seventies apparently.
-        let timestamp = Timestamp::from_raw_event(&raw_event, SystemTime::UNIX_EPOCH);
+        let timestamp = Timestamp::from_raw_event(&raw_event, self.data.meta_data.start_time);
 
         Event {
             event_kind: string_table.get(raw_event.event_kind).to_string(),
@@ -240,10 +263,16 @@ impl ProfilingDataBuilder {
             CURRENT_FILE_FORMAT_VERSION
         );
         let string_table = StringTable::new(data_bytes, index_bytes).unwrap();
+        let meta_data = MetaData {
+            start_time: UNIX_EPOCH,
+            process_id: 0,
+            cmd: "test cmd".to_string(),
+        };
 
         ProfilingData {
             event_data,
             string_table,
+            meta_data,
         }
     }
 

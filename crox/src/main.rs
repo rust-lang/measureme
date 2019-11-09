@@ -2,8 +2,7 @@ use rustc_hash::FxHashMap;
 use std::fs;
 use std::io::BufWriter;
 use std::path::PathBuf;
-use std::time::Duration;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use analyzeme::{ProfilingData, Timestamp};
 
@@ -118,10 +117,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let chrome_file = BufWriter::new(fs::File::create("chrome_profiler.json")?);
 
-    //find the earlier timestamp (it should be the first event)
-    //subtract one tick so that the start of the event shows in Chrome
-    let first_event_timestamp = make_start_timestamp(&data);
-
     let mut serializer = serde_json::Serializer::new(chrome_file);
     let thread_to_collapsed_thread = generate_thread_to_collapsed_thread_mapping(&opt, &data);
     let mut event_iterator = data.iter();
@@ -142,9 +137,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     name: event.label.clone().into_owned(),
                     category: event.event_kind.clone().into_owned(),
                     event_type: EventType::Complete,
-                    timestamp: start.duration_since(first_event_timestamp).unwrap(),
+                    timestamp: start.duration_since(UNIX_EPOCH).unwrap(),
                     duration,
-                    process_id: 0,
+                    process_id: data.meta_data.process_id,
                     thread_id: *thread_to_collapsed_thread
                         .get(&event.thread_id)
                         .unwrap_or(&event.thread_id),
@@ -170,23 +165,4 @@ fn timestamp_to_min_max(timestamp: Timestamp) -> (SystemTime, SystemTime) {
             (cmp::min(start, end), cmp::max(start, end))
         }
     }
-}
-
-// FIXME: Move this to `ProfilingData` and base it on the `start_time` field
-//        from metadata.
-fn make_start_timestamp(data: &ProfilingData) -> SystemTime {
-    // We cannot assume the first event in the stream actually is the first
-    // event because interval events are emitted at their end. So in theory it
-    // is possible that the event with the earliest starting time is the last
-    // event in the stream (i.e. if there is an interval event that spans the
-    // entire execution of the profile).
-    //
-    // Let's be on the safe side and iterate the whole stream.
-    let min = data
-        .iter()
-        .map(|e| timestamp_to_min_max(e.timestamp).0)
-        .min()
-        .unwrap();
-
-    min - Duration::from_micros(1)
 }
