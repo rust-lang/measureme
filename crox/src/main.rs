@@ -6,7 +6,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use analyzeme::{ProfilingData, Timestamp};
 
+use serde::ser::SerializeSeq;
 use serde::{Serialize, Serializer};
+use serde_json::json;
 use std::cmp;
 use structopt::StructOpt;
 
@@ -42,7 +44,7 @@ struct Event {
 
 #[derive(StructOpt, Debug)]
 struct Opt {
-    file_prefix: PathBuf,
+    file_prefix: Vec<PathBuf>,
     /// collapse threads without overlapping events
     #[structopt(long = "collapse-threads")]
     collapse_threads: bool,
@@ -113,45 +115,78 @@ fn generate_thread_to_collapsed_thread_mapping(
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
-    let data = ProfilingData::new(&opt.file_prefix)?;
-
     let chrome_file = BufWriter::new(fs::File::create("chrome_profiler.json")?);
-
     let mut serializer = serde_json::Serializer::new(chrome_file);
-    let thread_to_collapsed_thread = generate_thread_to_collapsed_thread_mapping(&opt, &data);
-    let mut event_iterator = data.iter();
 
-    //create an iterator so we can avoid allocating a Vec with every Event for serialization
-    let json_event_iterator = std::iter::from_fn(|| {
-        while let Some(event) = event_iterator.next() {
-            // Chrome does not seem to like how many QueryCacheHit events we generate
-            // only handle startStop events for now
-            if let Timestamp::Interval { start, end } = event.timestamp {
-                let duration = end.duration_since(start).unwrap();
-                if let Some(minimum_duration) = opt.minimum_duration {
-                    if duration.as_micros() < minimum_duration {
-                        continue;
-                    }
+    let mut seq = serializer.serialize_seq(None)?;
+
+    for file_prefix in opt.file_prefix.iter() {
+        let data = ProfilingData::new(&file_prefix)?;
+
+        let thread_to_collapsed_thread = generate_thread_to_collapsed_thread_mapping(&opt, &data);
+
+        // Chrome does not seem to like how many QueryCacheHit events we generate
+        // only handle Interval events for now
+        for event in data.iter().filter(|e| !e.timestamp.is_instant()) {
+            let duration = event.duration().unwrap();
+            if let Some(minimum_duration) = opt.minimum_duration {
+                if duration.as_micros() < minimum_duration {
+                    continue;
                 }
-                return Some(Event {
-                    name: event.label.clone().into_owned(),
-                    category: event.event_kind.clone().into_owned(),
-                    event_type: EventType::Complete,
-                    timestamp: start.duration_since(UNIX_EPOCH).unwrap(),
-                    duration,
-                    process_id: data.meta_data.process_id,
-                    thread_id: *thread_to_collapsed_thread
-                        .get(&event.thread_id)
-                        .unwrap_or(&event.thread_id),
-                    args: None,
-                });
             }
+            let crox_event = Event {
+                name: event.label.clone().into_owned(),
+                category: event.event_kind.clone().into_owned(),
+                event_type: EventType::Complete,
+                timestamp: event.timestamp.start().duration_since(UNIX_EPOCH).unwrap(),
+                duration,
+                process_id: data.meta_data.process_id,
+                thread_id: *thread_to_collapsed_thread
+                    .get(&event.thread_id)
+                    .unwrap_or(&event.thread_id),
+                args: None,
+            };
+            seq.serialize_element(&crox_event)?;
         }
+        // add crate name for the process_id
+        let index_of_crate_name = data
+            .meta_data
+            .cmd
+            .find(" --crate-name ")
+            .map(|index| index + 14);
+        if let Some(index) = index_of_crate_name {
+            let (_, last) = data.meta_data.cmd.split_at(index);
+            let (crate_name, _) = last.split_at(last.find(" ").unwrap_or(last.len()));
 
-        None
-    });
+            let process_name = json!({
+                "name": "process_name",
+                "ph" : "M",
+                "ts" : 0,
+                "tid" : 0,
+                "cat" : "",
+                "pid" : data.meta_data.process_id,
+                "args": {
+                    "name" : crate_name
+                }
+            });
+            seq.serialize_element(&process_name)?;
+        }
+        // sort the processes after start time
+        let process_name = json!({
+            "name": "process_sort_index",
+            "ph" : "M",
+            "ts" : 0,
+            "tid" : 0,
+            "cat" : "",
+            "pid" : data.meta_data.process_id,
+            "args": {
+                "sort_index" : data.meta_data.start_time.duration_since(UNIX_EPOCH).unwrap().as_micros() as u64
+            }
+        });
+        seq.serialize_element(&process_name)?;
+    }
 
-    serializer.collect_seq(json_event_iterator)?;
+    seq.end()?;
 
     Ok(())
 }
