@@ -44,7 +44,11 @@ struct Event {
 
 #[derive(StructOpt, Debug)]
 struct Opt {
+    #[structopt(required_unless = "dir")]
     file_prefix: Vec<PathBuf>,
+    /// all event trace files in dir will be merged to one chrome_profiler.json file
+    #[structopt(long = "dir")]
+    dir: Option<PathBuf>,
     /// collapse threads without overlapping events
     #[structopt(long = "collapse-threads")]
     collapse_threads: bool,
@@ -120,7 +124,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut seq = serializer.serialize_seq(None)?;
 
-    for file_prefix in opt.file_prefix.iter() {
+    let dir_paths = file_prefixes_in_dir(&opt)?;
+
+    for file_prefix in opt.file_prefix.iter().chain(dir_paths.iter()) {
         let data = ProfilingData::new(&file_prefix)?;
 
         let thread_to_collapsed_thread = generate_thread_to_collapsed_thread_mapping(&opt, &data);
@@ -189,6 +195,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     seq.end()?;
 
     Ok(())
+}
+
+fn file_prefixes_in_dir(opt: &Opt) -> Result<Vec<PathBuf>, std::io::Error> {
+    let mut result = Vec::new();
+    if let Some(dir_path) = &opt.dir {
+        for entry in fs::read_dir(dir_path)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.extension().filter(|e| *e == "events").is_some() {
+                result.push(path)
+            }
+        }
+    }
+    Ok(result)
 }
 
 fn timestamp_to_min_max(timestamp: Timestamp) -> (SystemTime, SystemTime) {
