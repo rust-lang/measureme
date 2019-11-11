@@ -3,7 +3,7 @@ use measureme::rustc::*;
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
 use std::time::SystemTime;
-use tools_lib::{Event, ProfilingData, Timestamp};
+use analyzeme::{Event, ProfilingData, Timestamp};
 
 /// Collects accumulated summary data for the given ProfilingData.
 ///
@@ -220,7 +220,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
 mod tests {
     use super::*;
     use std::time::Duration;
-    use tools_lib::ProfilingDataBuilder;
+    use analyzeme::ProfilingDataBuilder;
 
     #[test]
     fn total_time_and_nesting() {
