@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::path::PathBuf;
-use tools_lib::ProfilingData;
+use analyzeme::ProfilingData;
 
 use structopt::StructOpt;
 

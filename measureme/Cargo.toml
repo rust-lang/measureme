@@ -20,4 +20,4 @@ rustc-hash = "1.0.1"
 memmap = "0.6.0"
 
 [dev-dependencies]
-tools_lib = { path = "../tools_lib" }
+analyzeme = { path = "../analyzeme" }

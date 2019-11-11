@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use inferno::flamegraph::{from_lines, Options as FlamegraphOptions};
 use structopt::StructOpt;
-use tools_lib::{collapse_stacks, ProfilingData};
+use analyzeme::{collapse_stacks, ProfilingData};
 
 #[derive(StructOpt, Debug)]
 struct Opt {

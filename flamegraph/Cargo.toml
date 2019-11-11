@@ -7,6 +7,6 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 measureme = { path = "../measureme" }
-tools_lib = { path = "../tools_lib" }
+analyzeme = { path = "../analyzeme" }
 structopt = "0.2"
 inferno = { version="0.9.1", default-features = false }

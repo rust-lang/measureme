@@ -4,7 +4,7 @@ use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 
 use structopt::StructOpt;
-use tools_lib::{collapse_stacks, ProfilingData};
+use analyzeme::{collapse_stacks, ProfilingData};
 
 #[derive(StructOpt, Debug)]
 struct Opt {
