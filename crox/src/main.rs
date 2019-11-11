@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use std::time::SystemTime;
 
-use measureme::{ProfilingData, Timestamp};
+use tools_lib::{ProfilingData, Timestamp};
 
 use serde::{Serialize, Serializer};
 use std::cmp;

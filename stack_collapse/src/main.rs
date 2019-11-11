@@ -3,11 +3,8 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 
-use measureme::ProfilingData;
-
 use structopt::StructOpt;
-
-use tools_lib::stack_collapse::collapse_stacks;
+use tools_lib::{collapse_stacks, ProfilingData};
 
 #[derive(StructOpt, Debug)]
 struct Opt {

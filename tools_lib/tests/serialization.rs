@@ -1,5 +1,5 @@
-use measureme::testing_common::run_end_to_end_serialization_test;
 use measureme::{FileSerializationSink, MmapSerializationSink};
+use tools_lib::testing_common::run_end_to_end_serialization_test;
 
 #[test]
 fn test_file_serialization_sink() {

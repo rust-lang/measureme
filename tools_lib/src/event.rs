@@ -1,4 +1,4 @@
-use crate::raw_event::RawEvent;
+use measureme::RawEvent;
 use std::borrow::Cow;
 use std::time::{Duration, SystemTime};
 

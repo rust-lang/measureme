@@ -1,6 +1,6 @@
-use measureme::ProfilingData;
 use std::error::Error;
 use std::path::PathBuf;
+use tools_lib::ProfilingData;
 
 use structopt::StructOpt;
 

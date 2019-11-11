@@ -1,11 +1,11 @@
 #[macro_use]
 extern crate prettytable;
 
-use measureme::ProfilingData;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
+use tools_lib::ProfilingData;
 
 use prettytable::Table;
 use serde::Serialize;
