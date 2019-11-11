@@ -3,13 +3,9 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::path::PathBuf;
 
-use measureme::ProfilingData;
-
-use structopt::StructOpt;
-
-use tools_lib::stack_collapse::collapse_stacks;
-
 use inferno::flamegraph::{from_lines, Options as FlamegraphOptions};
+use structopt::StructOpt;
+use tools_lib::{collapse_stacks, ProfilingData};
 
 #[derive(StructOpt, Debug)]
 struct Opt {

@@ -1,9 +1,9 @@
 use crate::query_data::{QueryData, Results};
 use measureme::rustc::*;
-use measureme::{Event, ProfilingData, Timestamp};
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
 use std::time::SystemTime;
+use tools_lib::{Event, ProfilingData, Timestamp};
 
 /// Collects accumulated summary data for the given ProfilingData.
 ///
@@ -220,7 +220,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
 mod tests {
     use super::*;
     use std::time::Duration;
-    use measureme::ProfilingDataBuilder;
+    use tools_lib::ProfilingDataBuilder;
 
     #[test]
     fn total_time_and_nesting() {

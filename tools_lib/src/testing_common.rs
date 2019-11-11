@@ -1,4 +1,5 @@
-use crate::{Event, Profiler, ProfilingData, SerializationSink, StringId, Timestamp};
+use crate::{Event, ProfilingData, Timestamp};
+use measureme::{Profiler, SerializationSink, StringId};
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
 use std::default::Default;

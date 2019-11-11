@@ -2,7 +2,7 @@ use rustc_hash::FxHashMap;
 use std::cmp;
 use std::time::SystemTime;
 
-use measureme::{Event, ProfilingData};
+use crate::{Event, ProfilingData};
 
 // This state is kept up-to-date while iteration over events.
 struct PerThreadState<'a> {
@@ -94,7 +94,7 @@ pub fn collapse_stacks<'a>(profiling_data: &ProfilingData) -> FxHashMap<String, 
 
 #[cfg(test)]
 mod test {
-    use measureme::ProfilingDataBuilder;
+    use crate::ProfilingDataBuilder;
     use rustc_hash::FxHashMap;
 
     #[test]

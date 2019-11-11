@@ -2,7 +2,8 @@
 
 extern crate test;
 
-use measureme::{testing_common, FileSerializationSink, MmapSerializationSink};
+use measureme::{FileSerializationSink, MmapSerializationSink};
+use tools_lib::testing_common;
 
 #[bench]
 fn bench_file_serialization_sink(bencher: &mut test::Bencher) {
