@@ -28,7 +28,10 @@ pub fn calculate_diff(base: Results, change: Results) -> DiffResults {
     let base_data = build_query_lookup(&base.query_data);
     let change_data = build_query_lookup(&change.query_data);
 
-    let mut all_labels = FxHashSet::with_capacity_and_hasher(base.query_data.len() + change.query_data.len(), Default::default());
+    let mut all_labels = FxHashSet::with_capacity_and_hasher(
+        base.query_data.len() + change.query_data.len(),
+        Default::default(),
+    );
     for query_data in base.query_data.iter().chain(&change.query_data) {
         all_labels.insert(&query_data.label[..]);
     }

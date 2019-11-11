@@ -1,9 +1,9 @@
 use crate::query_data::{QueryData, Results};
+use analyzeme::{Event, ProfilingData, Timestamp};
 use measureme::rustc::*;
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
 use std::time::SystemTime;
-use analyzeme::{Event, ProfilingData, Timestamp};
 
 /// Collects accumulated summary data for the given ProfilingData.
 ///
@@ -109,7 +109,6 @@ use analyzeme::{Event, ProfilingData, Timestamp};
 /// In this case when we encounter `e2`, the stack is `[e1, e3, e4]`, and both
 /// `e4` and `e3` need to be popped in the same step.
 pub fn perform_analysis(data: ProfilingData) -> Results {
-
     struct PerThreadState<'a> {
         stack: Vec<Event<'a>>,
         start: SystemTime,
@@ -141,13 +140,14 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
             }
             Timestamp::Interval { start, end } => {
                 // This is an interval event
-                let thread = threads.entry(current_event.thread_id).or_insert_with(|| {
-                    PerThreadState {
-                        stack: Vec::new(),
-                        start,
-                        end,
-                    }
-                });
+                let thread =
+                    threads
+                        .entry(current_event.thread_id)
+                        .or_insert_with(|| PerThreadState {
+                            stack: Vec::new(),
+                            start,
+                            end,
+                        });
 
                 // Pop all events from the stack that are not parents of the
                 // current event.
@@ -207,7 +207,10 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
         }
     }
 
-    let total_time = threads.values().map(|t| t.end.duration_since(t.start).unwrap()).sum();
+    let total_time = threads
+        .values()
+        .map(|t| t.end.duration_since(t.start).unwrap())
+        .sum();
 
     Results {
         query_data: query_data.drain().map(|(_, value)| value).collect(),

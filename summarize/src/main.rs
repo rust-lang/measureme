@@ -1,11 +1,11 @@
 #[macro_use]
 extern crate prettytable;
 
+use analyzeme::ProfilingData;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
-use analyzeme::ProfilingData;
 
 use prettytable::Table;
 use serde::Serialize;
