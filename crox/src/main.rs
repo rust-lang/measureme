@@ -61,7 +61,8 @@ fn generate_thread_to_collapsed_thread_mapping(
 
     if opt.collapse_threads {
         // collect start and end times for all threads
-        let mut thread_start_and_end: FxHashMap<u64, (SystemTime, SystemTime)> = FxHashMap::default();
+        let mut thread_start_and_end: FxHashMap<u64, (SystemTime, SystemTime)> =
+            FxHashMap::default();
         for event in data.iter() {
             thread_start_and_end
                 .entry(event.thread_id)
