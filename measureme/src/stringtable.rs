@@ -295,6 +295,10 @@ impl StringTable {
     pub fn get<'a>(&'a self, id: StringId) -> StringRef<'a> {
         StringRef { id, table: self }
     }
+    pub fn get_metadata<'a>(&'a self) -> StringRef<'a> {
+        let id = StringId(METADATA_STRING_ID);
+        self.get(id)
+    }
 }
 
 #[cfg(test)]

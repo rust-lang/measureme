@@ -2,12 +2,13 @@ use rustc_hash::FxHashMap;
 use std::fs;
 use std::io::BufWriter;
 use std::path::PathBuf;
-use std::time::Duration;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use analyzeme::{ProfilingData, Timestamp};
 
+use serde::ser::SerializeSeq;
 use serde::{Serialize, Serializer};
+use serde_json::json;
 use std::cmp;
 use structopt::StructOpt;
 
@@ -43,7 +44,11 @@ struct Event {
 
 #[derive(StructOpt, Debug)]
 struct Opt {
-    file_prefix: PathBuf,
+    #[structopt(required_unless = "dir")]
+    file_prefix: Vec<PathBuf>,
+    /// all event trace files in dir will be merged to one chrome_profiler.json file
+    #[structopt(long = "dir")]
+    dir: Option<PathBuf>,
     /// collapse threads without overlapping events
     #[structopt(long = "collapse-threads")]
     collapse_threads: bool,
@@ -114,51 +119,96 @@ fn generate_thread_to_collapsed_thread_mapping(
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
-    let data = ProfilingData::new(&opt.file_prefix)?;
-
     let chrome_file = BufWriter::new(fs::File::create("chrome_profiler.json")?);
-
-    //find the earlier timestamp (it should be the first event)
-    //subtract one tick so that the start of the event shows in Chrome
-    let first_event_timestamp = make_start_timestamp(&data);
-
     let mut serializer = serde_json::Serializer::new(chrome_file);
-    let thread_to_collapsed_thread = generate_thread_to_collapsed_thread_mapping(&opt, &data);
-    let mut event_iterator = data.iter();
 
-    //create an iterator so we can avoid allocating a Vec with every Event for serialization
-    let json_event_iterator = std::iter::from_fn(|| {
-        while let Some(event) = event_iterator.next() {
-            // Chrome does not seem to like how many QueryCacheHit events we generate
-            // only handle startStop events for now
-            if let Timestamp::Interval { start, end } = event.timestamp {
-                let duration = end.duration_since(start).unwrap();
-                if let Some(minimum_duration) = opt.minimum_duration {
-                    if duration.as_micros() < minimum_duration {
-                        continue;
-                    }
+    let mut seq = serializer.serialize_seq(None)?;
+
+    let dir_paths = file_prefixes_in_dir(&opt)?;
+
+    for file_prefix in opt.file_prefix.iter().chain(dir_paths.iter()) {
+        let data = ProfilingData::new(&file_prefix)?;
+
+        let thread_to_collapsed_thread = generate_thread_to_collapsed_thread_mapping(&opt, &data);
+
+        // Chrome does not seem to like how many QueryCacheHit events we generate
+        // only handle Interval events for now
+        for event in data.iter().filter(|e| !e.timestamp.is_instant()) {
+            let duration = event.duration().unwrap();
+            if let Some(minimum_duration) = opt.minimum_duration {
+                if duration.as_micros() < minimum_duration {
+                    continue;
                 }
-                return Some(Event {
-                    name: event.label.clone().into_owned(),
-                    category: event.event_kind.clone().into_owned(),
-                    event_type: EventType::Complete,
-                    timestamp: start.duration_since(first_event_timestamp).unwrap(),
-                    duration,
-                    process_id: 0,
-                    thread_id: *thread_to_collapsed_thread
-                        .get(&event.thread_id)
-                        .unwrap_or(&event.thread_id),
-                    args: None,
-                });
             }
+            let crox_event = Event {
+                name: event.label.clone().into_owned(),
+                category: event.event_kind.clone().into_owned(),
+                event_type: EventType::Complete,
+                timestamp: event.timestamp.start().duration_since(UNIX_EPOCH).unwrap(),
+                duration,
+                process_id: data.metadata.process_id,
+                thread_id: *thread_to_collapsed_thread
+                    .get(&event.thread_id)
+                    .unwrap_or(&event.thread_id),
+                args: None,
+            };
+            seq.serialize_element(&crox_event)?;
         }
+        // add crate name for the process_id
+        let index_of_crate_name = data
+            .metadata
+            .cmd
+            .find(" --crate-name ")
+            .map(|index| index + 14);
+        if let Some(index) = index_of_crate_name {
+            let (_, last) = data.metadata.cmd.split_at(index);
+            let (crate_name, _) = last.split_at(last.find(" ").unwrap_or(last.len()));
 
-        None
-    });
+            let process_name = json!({
+                "name": "process_name",
+                "ph" : "M",
+                "ts" : 0,
+                "tid" : 0,
+                "cat" : "",
+                "pid" : data.metadata.process_id,
+                "args": {
+                    "name" : crate_name
+                }
+            });
+            seq.serialize_element(&process_name)?;
+        }
+        // sort the processes after start time
+        let process_name = json!({
+            "name": "process_sort_index",
+            "ph" : "M",
+            "ts" : 0,
+            "tid" : 0,
+            "cat" : "",
+            "pid" : data.metadata.process_id,
+            "args": {
+                "sort_index" : data.metadata.start_time.duration_since(UNIX_EPOCH).unwrap().as_micros() as u64
+            }
+        });
+        seq.serialize_element(&process_name)?;
+    }
 
-    serializer.collect_seq(json_event_iterator)?;
+    seq.end()?;
 
     Ok(())
+}
+
+fn file_prefixes_in_dir(opt: &Opt) -> Result<Vec<PathBuf>, std::io::Error> {
+    let mut result = Vec::new();
+    if let Some(dir_path) = &opt.dir {
+        for entry in fs::read_dir(dir_path)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.extension().filter(|e| *e == "events").is_some() {
+                result.push(path)
+            }
+        }
+    }
+    Ok(result)
 }
 
 fn timestamp_to_min_max(timestamp: Timestamp) -> (SystemTime, SystemTime) {
@@ -170,23 +220,4 @@ fn timestamp_to_min_max(timestamp: Timestamp) -> (SystemTime, SystemTime) {
             (cmp::min(start, end), cmp::max(start, end))
         }
     }
-}
-
-// FIXME: Move this to `ProfilingData` and base it on the `start_time` field
-//        from metadata.
-fn make_start_timestamp(data: &ProfilingData) -> SystemTime {
-    // We cannot assume the first event in the stream actually is the first
-    // event because interval events are emitted at their end. So in theory it
-    // is possible that the event with the earliest starting time is the last
-    // event in the stream (i.e. if there is an interval event that spans the
-    // entire execution of the profile).
-    //
-    // Let's be on the safe side and iterate the whole stream.
-    let min = data
-        .iter()
-        .map(|e| timestamp_to_min_max(e.timestamp).0)
-        .min()
-        .unwrap();
-
-    min - Duration::from_micros(1)
 }
