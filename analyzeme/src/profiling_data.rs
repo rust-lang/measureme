@@ -26,7 +26,7 @@ where
 }
 
 #[derive(Deserialize)]
-pub struct MetaData {
+pub struct Metadata {
     #[serde(deserialize_with = "system_time_from_nanos")]
     pub start_time: SystemTime,
     pub process_id: u32,
@@ -36,7 +36,7 @@ pub struct MetaData {
 pub struct ProfilingData {
     event_data: Vec<u8>,
     string_table: StringTable,
-    pub meta_data: MetaData,
+    pub metadata: Metadata,
 }
 
 impl ProfilingData {
@@ -59,13 +59,13 @@ impl ProfilingData {
 
         let string_table = StringTable::new(string_data, index_data)?;
 
-        let meta_data = string_table.get_metadata().to_string();
-        let meta_data: MetaData = serde_json::from_str(&meta_data)?;
+        let metadata = string_table.get_metadata().to_string();
+        let metadata: Metadata = serde_json::from_str(&metadata)?;
 
         Ok(ProfilingData {
             string_table,
             event_data,
-            meta_data,
+            metadata,
         })
     }
 
@@ -112,7 +112,7 @@ impl<'a> ProfilerEventIterator<'a> {
 
         let string_table = &self.data.string_table;
 
-        let timestamp = Timestamp::from_raw_event(&raw_event, self.data.meta_data.start_time);
+        let timestamp = Timestamp::from_raw_event(&raw_event, self.data.metadata.start_time);
 
         Event {
             event_kind: string_table.get(raw_event.event_kind).to_string(),
@@ -263,7 +263,7 @@ impl ProfilingDataBuilder {
             CURRENT_FILE_FORMAT_VERSION
         );
         let string_table = StringTable::new(data_bytes, index_bytes).unwrap();
-        let meta_data = MetaData {
+        let metadata = Metadata {
             start_time: UNIX_EPOCH,
             process_id: 0,
             cmd: "test cmd".to_string(),
@@ -272,7 +272,7 @@ impl ProfilingDataBuilder {
         ProfilingData {
             event_data,
             string_table,
-            meta_data,
+            metadata,
         }
     }
 
