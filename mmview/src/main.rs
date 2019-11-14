@@ -10,7 +10,7 @@ struct Opt {
 
     /// Filter to events which occured on the specified thread id
     #[structopt(short = "t", long = "thread-id")]
-    thread_id: Option<u64>,
+    thread_id: Option<u32>,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {

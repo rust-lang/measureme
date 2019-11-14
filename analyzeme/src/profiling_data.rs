@@ -204,7 +204,7 @@ impl ProfilingDataBuilder {
         &mut self,
         event_kind: &str,
         event_id: &str,
-        thread_id: u64,
+        thread_id: u32,
         start_nanos: u64,
         end_nanos: u64,
         inner: F,
@@ -230,7 +230,7 @@ impl ProfilingDataBuilder {
         &mut self,
         event_kind: &str,
         event_id: &str,
-        thread_id: u64,
+        thread_id: u32,
         timestamp_nanos: u64,
     ) -> &mut Self {
         let event_kind = self.string_table.alloc(event_kind);
@@ -307,7 +307,7 @@ mod tests {
     fn interval(
         event_kind: &'static str,
         label: &'static str,
-        thread_id: u64,
+        thread_id: u32,
         start_nanos: u64,
         end_nanos: u64,
     ) -> Event<'static> {
@@ -326,7 +326,7 @@ mod tests {
     fn instant(
         event_kind: &'static str,
         label: &'static str,
-        thread_id: u64,
+        thread_id: u32,
         timestamp_nanos: u64,
     ) -> Event<'static> {
         Event {

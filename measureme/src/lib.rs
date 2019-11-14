@@ -55,7 +55,7 @@ pub use crate::file_serialization_sink::FileSerializationSink;
 #[cfg(not(target_arch = "wasm32"))]
 pub use crate::mmap_serialization_sink::MmapSerializationSink;
 pub use crate::profiler::{Profiler, ProfilerFiles, TimingGuard};
-pub use crate::raw_event::RawEvent;
+pub use crate::raw_event::{RawEvent, MAX_INSTANT_TIMESTAMP, MAX_INTERVAL_TIMESTAMP};
 pub use crate::serialization::{Addr, ByteVecSink, SerializationSink};
 pub use crate::stringtable::{
     SerializableString, StringId, StringRef, StringTable, StringTableBuilder,

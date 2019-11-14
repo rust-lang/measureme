@@ -1,30 +1,58 @@
 use crate::stringtable::StringId;
 
+/// `RawEvent` is how events are stored on-disk. If you change this struct,
+/// make sure that you increment `file_header::CURRENT_FILE_FORMAT_VERSION`.
 #[derive(Eq, PartialEq, Debug)]
 #[repr(C)]
 pub struct RawEvent {
     pub event_kind: StringId,
     pub event_id: StringId,
-    pub thread_id: u64,
-    pub start_ns: u64,
-    pub end_ns: u64,
+    pub thread_id: u32,
+
+    // The following 96 bits store the start and the end timestamp, using
+    // 48 bits for each.
+    pub start_time_lower: u32,
+    pub end_time_lower: u32,
+    pub start_and_end_upper: u32,
 }
+
+/// `RawEvents` that have an end time stamp with this value are instant events.
+const INSTANT_TIMESTAMP_MARKER: u64 = 0xFFFF_FFFF_FFFF;
+
+/// The max instant timestamp we can represent with the 48 bits available.
+pub const MAX_INSTANT_TIMESTAMP: u64 = 0xFFFF_FFFF_FFFF;
+
+/// The max interval timestamp we can represent with the 48 bits available.
+/// The highest value is reserved for the `INSTANT_TIMESTAMP_MARKER`.
+pub const MAX_INTERVAL_TIMESTAMP: u64 = INSTANT_TIMESTAMP_MARKER - 1;
 
 impl RawEvent {
     #[inline]
     pub fn new_interval(
         event_kind: StringId,
         event_id: StringId,
-        thread_id: u64,
-        start_ns: u64,
-        end_ns: u64,
+        thread_id: u32,
+        start_nanos: u64,
+        end_nanos: u64,
     ) -> RawEvent {
+        assert!(start_nanos <= end_nanos);
+        assert!(end_nanos <= MAX_INTERVAL_TIMESTAMP);
+
+        let start_time_lower = start_nanos as u32;
+        let end_time_lower = end_nanos as u32;
+
+        let start_time_upper = (start_nanos >> 16) as u32 & 0xFFFF_0000;
+        let end_time_upper = (end_nanos >> 32) as u32;
+
+        let start_and_end_upper = start_time_upper | end_time_upper;
+
         RawEvent {
             event_kind,
             event_id,
             thread_id,
-            start_ns,
-            end_ns,
+            start_time_lower,
+            end_time_lower,
+            start_and_end_upper,
         }
     }
 
@@ -32,16 +60,40 @@ impl RawEvent {
     pub fn new_instant(
         event_kind: StringId,
         event_id: StringId,
-        thread_id: u64,
+        thread_id: u32,
         timestamp_ns: u64,
     ) -> RawEvent {
+        assert!(timestamp_ns <= MAX_INSTANT_TIMESTAMP);
+
+        let start_time_lower = timestamp_ns as u32;
+        let end_time_lower = 0xFFFF_FFFF;
+
+        let start_time_upper = (timestamp_ns >> 16) as u32;
+        let start_and_end_upper = start_time_upper | 0x0000_FFFF;
+
         RawEvent {
             event_kind,
             event_id,
             thread_id,
-            start_ns: timestamp_ns,
-            end_ns: std::u64::MAX,
+            start_time_lower,
+            end_time_lower,
+            start_and_end_upper,
         }
+    }
+
+    #[inline]
+    pub fn start_nanos(&self) -> u64 {
+        self.start_time_lower as u64 | (((self.start_and_end_upper & 0xFFFF_0000) as u64) << 16)
+    }
+
+    #[inline]
+    pub fn end_nanos(&self) -> u64 {
+        self.end_time_lower as u64 | (((self.start_and_end_upper & 0x0000_FFFF) as u64) << 32)
+    }
+
+    #[inline]
+    pub fn is_instant(&self) -> bool {
+        self.end_nanos() == INSTANT_TIMESTAMP_MARKER
     }
 }
 
@@ -51,8 +103,179 @@ impl Default for RawEvent {
             event_kind: StringId::reserved(0),
             event_id: StringId::reserved(0),
             thread_id: 0,
-            start_ns: 0,
-            end_ns: 0,
+            start_time_lower: 0,
+            end_time_lower: 0,
+            start_and_end_upper: 0,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn raw_event_has_expected_size() {
+        // A test case to prevent accidental regressions of RawEvent's size.
+        assert_eq!(std::mem::size_of::<RawEvent>(), 24);
+    }
+
+    #[test]
+    fn is_instant() {
+        assert!(
+            RawEvent::new_instant(StringId::reserved(0), StringId::reserved(0), 987, 0,)
+                .is_instant()
+        );
+
+        assert!(RawEvent::new_instant(
+            StringId::reserved(0),
+            StringId::reserved(0),
+            987,
+            MAX_INSTANT_TIMESTAMP,
+        )
+        .is_instant());
+
+        assert!(!RawEvent::new_interval(
+            StringId::reserved(0),
+            StringId::reserved(0),
+            987,
+            0,
+            MAX_INTERVAL_TIMESTAMP,
+        )
+        .is_instant());
+    }
+
+    #[test]
+    #[should_panic]
+    fn invalid_instant_timestamp() {
+        let _ = RawEvent::new_instant(
+            StringId::reserved(0),
+            StringId::reserved(0),
+            123,
+            // timestamp too large
+            MAX_INSTANT_TIMESTAMP + 1,
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn invalid_start_timestamp() {
+        let _ = RawEvent::new_interval(
+            StringId::reserved(0),
+            StringId::reserved(0),
+            123,
+            // start timestamp too large
+            MAX_INTERVAL_TIMESTAMP + 1,
+            MAX_INTERVAL_TIMESTAMP + 1,
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn invalid_end_timestamp() {
+        let _ = RawEvent::new_interval(
+            StringId::reserved(0),
+            StringId::reserved(0),
+            123,
+            0,
+            // end timestamp too large
+            MAX_INTERVAL_TIMESTAMP + 3,
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn invalid_end_timestamp2() {
+        let _ = RawEvent::new_interval(
+            StringId::reserved(0),
+            StringId::reserved(0),
+            123,
+            0,
+            INSTANT_TIMESTAMP_MARKER,
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn start_greater_than_end_timestamp() {
+        let _ = RawEvent::new_interval(
+            StringId::reserved(0),
+            StringId::reserved(0),
+            123,
+            // start timestamp greater than end timestamp
+            1,
+            0,
+        );
+    }
+
+    #[test]
+    fn start_equal_to_end_timestamp() {
+        // This is allowed, make sure we don't panic
+        let _ = RawEvent::new_interval(StringId::reserved(0), StringId::reserved(0), 123, 1, 1);
+    }
+
+    #[test]
+    fn interval_timestamp_decoding() {
+        // Check the upper limits
+        let e = RawEvent::new_interval(
+            StringId::reserved(0),
+            StringId::reserved(0),
+            1234,
+            MAX_INTERVAL_TIMESTAMP,
+            MAX_INTERVAL_TIMESTAMP,
+        );
+
+        assert_eq!(e.start_nanos(), MAX_INTERVAL_TIMESTAMP);
+        assert_eq!(e.end_nanos(), MAX_INTERVAL_TIMESTAMP);
+
+        // Check the lower limits
+        let e = RawEvent::new_interval(StringId::reserved(0), StringId::reserved(0), 1234, 0, 0);
+
+        assert_eq!(e.start_nanos(), 0);
+        assert_eq!(e.end_nanos(), 0);
+
+        // Check that end does not bleed into start
+        let e = RawEvent::new_interval(
+            StringId::reserved(0),
+            StringId::reserved(0),
+            1234,
+            0,
+            MAX_INTERVAL_TIMESTAMP,
+        );
+
+        assert_eq!(e.start_nanos(), 0);
+        assert_eq!(e.end_nanos(), MAX_INTERVAL_TIMESTAMP);
+
+        // Test some random values
+        let e = RawEvent::new_interval(
+            StringId::reserved(0),
+            StringId::reserved(0),
+            1234,
+            0x1234567890,
+            0x1234567890A,
+        );
+
+        assert_eq!(e.start_nanos(), 0x1234567890);
+        assert_eq!(e.end_nanos(), 0x1234567890A);
+    }
+
+    #[test]
+    fn instant_timestamp_decoding() {
+        assert_eq!(
+            RawEvent::new_instant(StringId::reserved(0), StringId::reserved(0), 987, 0,)
+                .start_nanos(),
+            0
+        );
+
+        assert_eq!(
+            RawEvent::new_instant(
+                StringId::reserved(0),
+                StringId::reserved(0),
+                987,
+                MAX_INSTANT_TIMESTAMP,
+            )
+            .start_nanos(),
+            MAX_INSTANT_TIMESTAMP
+        );
     }
 }
