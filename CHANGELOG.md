@@ -5,6 +5,7 @@
 - `flamegraph`: new tool that uses the `inferno` crate to generate flamegraph svg files ([GH-73])
 - `crox`: Added the `--dir` parameter to merge all events files in dir in to one trace file ([GH-84])
 - `crox`: Added possibility to add multiple `file_prefix` parameters to merge all them to one trace file ([GH-84])
+- `summarize`: Added self_time_change as percentage change of self_time from base to the `diff` sub command ([GH-87])
 
 ### Changed
 - `measureme`: Events are recorded in a more compact format ([GH-76])
@@ -50,3 +51,4 @@
 [GH-73]: https://github.com/rust-lang/measureme/pull/73
 [GH-76]: https://github.com/rust-lang/measureme/pull/76
 [GH-84]: https://github.com/rust-lang/measureme/pull/84
+[GH-87]: https://github.com/rust-lang/measureme/pull/87
