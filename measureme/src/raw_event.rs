@@ -95,6 +95,68 @@ impl RawEvent {
     pub fn is_instant(&self) -> bool {
         self.end_nanos() == INSTANT_TIMESTAMP_MARKER
     }
+
+    #[inline]
+    pub fn serialize(&self, bytes: &mut [u8]) {
+        assert!(bytes.len() == std::mem::size_of::<RawEvent>());
+
+        #[cfg(target_endian = "little")]
+        {
+            let raw_event_bytes: &[u8] = unsafe {
+                std::slice::from_raw_parts(
+                    self as *const _ as *const u8,
+                    std::mem::size_of::<RawEvent>(),
+                )
+            };
+
+            bytes.copy_from_slice(raw_event_bytes);
+        }
+
+        #[cfg(target_endian = "big")]
+        {
+            // We always emit data as little endian, which we have to do
+            // manually on big endian targets.
+            use byteorder::{LittleEndian, ByteOrder};
+
+            LittleEndian::write_u32(&mut bytes[0..], self.event_kind.as_u32());
+            LittleEndian::write_u32(&mut bytes[4..], self.event_id.as_u32());
+            LittleEndian::write_u32(&mut bytes[8..], self.thread_id);
+            LittleEndian::write_u32(&mut bytes[12..], self.start_time_lower);
+            LittleEndian::write_u32(&mut bytes[16..], self.end_time_lower);
+            LittleEndian::write_u32(&mut bytes[20..], self.start_and_end_upper);
+        }
+    }
+
+    #[inline]
+    pub fn deserialize(bytes: &[u8]) -> RawEvent {
+        assert!(bytes.len() == std::mem::size_of::<RawEvent>());
+
+        #[cfg(target_endian = "little")]
+        {
+            let mut raw_event = RawEvent::default();
+            unsafe {
+                let raw_event = std::slice::from_raw_parts_mut(
+                    &mut raw_event as *mut RawEvent as *mut u8,
+                    std::mem::size_of::<RawEvent>(),
+                );
+                raw_event.copy_from_slice(bytes);
+            };
+            raw_event
+        }
+
+        #[cfg(target_endian = "big")]
+        {
+            use byteorder::{LittleEndian, ByteOrder};
+            RawEvent {
+                event_kind: StringId::reserved(LittleEndian::read_u32(&bytes[0..])),
+                event_id: StringId::reserved(LittleEndian::read_u32(&bytes[4..])),
+                thread_id: LittleEndian::read_u32(&bytes[8..]),
+                start_time_lower: LittleEndian::read_u32(&bytes[12..]),
+                end_time_lower: LittleEndian::read_u32(&bytes[16..]),
+                start_and_end_upper: LittleEndian::read_u32(&bytes[20..]),
+            }
+        }
+    }
 }
 
 impl Default for RawEvent {

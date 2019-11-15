@@ -100,15 +100,7 @@ impl<'a> ProfilerEventIterator<'a> {
         let event_end_addr = event_start_addr.checked_add(RAW_EVENT_SIZE).unwrap();
 
         let raw_event_bytes = &self.data.event_data[event_start_addr..event_end_addr];
-
-        let mut raw_event = RawEvent::default();
-        unsafe {
-            let raw_event = std::slice::from_raw_parts_mut(
-                &mut raw_event as *mut RawEvent as *mut u8,
-                std::mem::size_of::<RawEvent>(),
-            );
-            raw_event.copy_from_slice(raw_event_bytes);
-        };
+        let raw_event = RawEvent::deserialize(raw_event_bytes);
 
         let string_table = &self.data.string_table;
 
@@ -277,17 +269,9 @@ impl ProfilingDataBuilder {
     }
 
     fn write_raw_event(&mut self, raw_event: &RawEvent) {
-        let raw_event_bytes: &[u8] = unsafe {
-            std::slice::from_raw_parts(
-                raw_event as *const _ as *const u8,
-                std::mem::size_of::<RawEvent>(),
-            )
-        };
-
         self.event_sink
             .write_atomic(std::mem::size_of::<RawEvent>(), |bytes| {
-                debug_assert_eq!(bytes.len(), std::mem::size_of::<RawEvent>());
-                bytes.copy_from_slice(raw_event_bytes);
+                raw_event.serialize(bytes);
             });
     }
 }

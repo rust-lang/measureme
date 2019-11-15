@@ -110,16 +110,7 @@ impl<S: SerializationSink> Profiler<S> {
     fn record_raw_event(&self, raw_event: &RawEvent) {
         self.event_sink
             .write_atomic(std::mem::size_of::<RawEvent>(), |bytes| {
-                debug_assert_eq!(bytes.len(), std::mem::size_of::<RawEvent>());
-
-                let raw_event_bytes: &[u8] = unsafe {
-                    std::slice::from_raw_parts(
-                        raw_event as *const _ as *const u8,
-                        std::mem::size_of::<RawEvent>(),
-                    )
-                };
-
-                bytes.copy_from_slice(raw_event_bytes);
+                raw_event.serialize(bytes);
             });
     }
 
