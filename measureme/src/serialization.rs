@@ -11,7 +11,7 @@ impl Addr {
     }
 }
 
-pub trait SerializationSink: Sized {
+pub trait SerializationSink: Sized + Send + Sync + 'static {
     fn from_path(path: &Path) -> Result<Self, Box<dyn Error>>;
 
     fn write_atomic<W>(&self, num_bytes: usize, write: W) -> Addr
