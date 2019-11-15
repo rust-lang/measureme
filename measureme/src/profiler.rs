@@ -83,7 +83,7 @@ impl<S: SerializationSink> Profiler<S> {
 
     /// Records an event with the given parameters. The event time is computed
     /// automatically.
-    pub fn record_instant_event(&self, event_kind: StringId, event_id: StringId, thread_id: u64) {
+    pub fn record_instant_event(&self, event_kind: StringId, event_id: StringId, thread_id: u32) {
         let raw_event =
             RawEvent::new_instant(event_kind, event_id, thread_id, self.nanos_since_start());
 
@@ -96,7 +96,7 @@ impl<S: SerializationSink> Profiler<S> {
         &'a self,
         event_kind: StringId,
         event_id: StringId,
-        thread_id: u64,
+        thread_id: u32,
     ) -> TimingGuard<'a, S> {
         TimingGuard {
             profiler: self,
@@ -110,16 +110,7 @@ impl<S: SerializationSink> Profiler<S> {
     fn record_raw_event(&self, raw_event: &RawEvent) {
         self.event_sink
             .write_atomic(std::mem::size_of::<RawEvent>(), |bytes| {
-                debug_assert_eq!(bytes.len(), std::mem::size_of::<RawEvent>());
-
-                let raw_event_bytes: &[u8] = unsafe {
-                    std::slice::from_raw_parts(
-                        raw_event as *const _ as *const u8,
-                        std::mem::size_of::<RawEvent>(),
-                    )
-                };
-
-                bytes.copy_from_slice(raw_event_bytes);
+                raw_event.serialize(bytes);
             });
     }
 
@@ -136,7 +127,7 @@ pub struct TimingGuard<'a, S: SerializationSink> {
     profiler: &'a Profiler<S>,
     event_id: StringId,
     event_kind: StringId,
-    thread_id: u64,
+    thread_id: u32,
     start_ns: u64,
 }
 

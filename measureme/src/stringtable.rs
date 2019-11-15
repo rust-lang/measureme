@@ -51,6 +51,11 @@ impl StringId {
     pub fn reserved(id: u32) -> StringId {
         StringId(id)
     }
+
+    #[inline]
+    pub fn as_u32(self) -> u32 {
+        self.0
+    }
 }
 
 // Tags for the binary encoding of strings

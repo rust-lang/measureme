@@ -100,15 +100,7 @@ impl<'a> ProfilerEventIterator<'a> {
         let event_end_addr = event_start_addr.checked_add(RAW_EVENT_SIZE).unwrap();
 
         let raw_event_bytes = &self.data.event_data[event_start_addr..event_end_addr];
-
-        let mut raw_event = RawEvent::default();
-        unsafe {
-            let raw_event = std::slice::from_raw_parts_mut(
-                &mut raw_event as *mut RawEvent as *mut u8,
-                std::mem::size_of::<RawEvent>(),
-            );
-            raw_event.copy_from_slice(raw_event_bytes);
-        };
+        let raw_event = RawEvent::deserialize(raw_event_bytes);
 
         let string_table = &self.data.string_table;
 
@@ -204,7 +196,7 @@ impl ProfilingDataBuilder {
         &mut self,
         event_kind: &str,
         event_id: &str,
-        thread_id: u64,
+        thread_id: u32,
         start_nanos: u64,
         end_nanos: u64,
         inner: F,
@@ -230,7 +222,7 @@ impl ProfilingDataBuilder {
         &mut self,
         event_kind: &str,
         event_id: &str,
-        thread_id: u64,
+        thread_id: u32,
         timestamp_nanos: u64,
     ) -> &mut Self {
         let event_kind = self.string_table.alloc(event_kind);
@@ -277,17 +269,9 @@ impl ProfilingDataBuilder {
     }
 
     fn write_raw_event(&mut self, raw_event: &RawEvent) {
-        let raw_event_bytes: &[u8] = unsafe {
-            std::slice::from_raw_parts(
-                raw_event as *const _ as *const u8,
-                std::mem::size_of::<RawEvent>(),
-            )
-        };
-
         self.event_sink
             .write_atomic(std::mem::size_of::<RawEvent>(), |bytes| {
-                debug_assert_eq!(bytes.len(), std::mem::size_of::<RawEvent>());
-                bytes.copy_from_slice(raw_event_bytes);
+                raw_event.serialize(bytes);
             });
     }
 }
@@ -307,7 +291,7 @@ mod tests {
     fn interval(
         event_kind: &'static str,
         label: &'static str,
-        thread_id: u64,
+        thread_id: u32,
         start_nanos: u64,
         end_nanos: u64,
     ) -> Event<'static> {
@@ -326,7 +310,7 @@ mod tests {
     fn instant(
         event_kind: &'static str,
         label: &'static str,
-        thread_id: u64,
+        thread_id: u32,
         timestamp_nanos: u64,
     ) -> Event<'static> {
         Event {

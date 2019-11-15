@@ -121,7 +121,7 @@ fn pseudo_invocation<S: SerializationSink>(
         return;
     }
 
-    let thread_id = (random % 3) as u64;
+    let thread_id = (random % 3) as u32;
 
     let (event_kind, event_id) = event_ids[random % event_ids.len()];
 

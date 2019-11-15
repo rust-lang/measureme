@@ -38,7 +38,7 @@ struct Event {
     #[serde(rename = "pid")]
     process_id: u32,
     #[serde(rename = "tid")]
-    thread_id: u64,
+    thread_id: u32,
     args: Option<FxHashMap<String, String>>,
 }
 
@@ -61,12 +61,12 @@ struct Opt {
 fn generate_thread_to_collapsed_thread_mapping(
     opt: &Opt,
     data: &ProfilingData,
-) -> FxHashMap<u64, u64> {
-    let mut thread_to_collapsed_thread: FxHashMap<u64, u64> = FxHashMap::default();
+) -> FxHashMap<u32, u32> {
+    let mut thread_to_collapsed_thread: FxHashMap<u32, u32> = FxHashMap::default();
 
     if opt.collapse_threads {
         // collect start and end times for all threads
-        let mut thread_start_and_end: FxHashMap<u64, (SystemTime, SystemTime)> =
+        let mut thread_start_and_end: FxHashMap<u32, (SystemTime, SystemTime)> =
             FxHashMap::default();
         for event in data.iter() {
             thread_start_and_end

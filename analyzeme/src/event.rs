@@ -8,7 +8,7 @@ pub struct Event<'a> {
     pub label: Cow<'a, str>,
     pub additional_data: &'a [Cow<'a, str>],
     pub timestamp: Timestamp,
-    pub thread_id: u64,
+    pub thread_id: u32,
 }
 
 impl<'a> Event<'a> {
@@ -46,12 +46,12 @@ pub enum Timestamp {
 
 impl Timestamp {
     pub fn from_raw_event(raw_event: &RawEvent, start_time: SystemTime) -> Timestamp {
-        if raw_event.end_ns == std::u64::MAX {
-            let t = start_time + Duration::from_nanos(raw_event.start_ns);
+        if raw_event.is_instant() {
+            let t = start_time + Duration::from_nanos(raw_event.start_nanos());
             Timestamp::Instant(t)
         } else {
-            let start = start_time + Duration::from_nanos(raw_event.start_ns);
-            let end = start_time + Duration::from_nanos(raw_event.end_ns);
+            let start = start_time + Duration::from_nanos(raw_event.start_nanos());
+            let end = start_time + Duration::from_nanos(raw_event.end_nanos());
             Timestamp::Interval { start, end }
         }
     }
