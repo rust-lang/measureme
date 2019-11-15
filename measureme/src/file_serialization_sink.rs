@@ -1,12 +1,19 @@
 use crate::serialization::{Addr, SerializationSink};
 use std::error::Error;
 use std::fs;
-use std::io::{BufWriter, Write};
+use std::io::{Write};
 use std::path::Path;
-use std::sync::Mutex;
+use parking_lot::Mutex;
 
 pub struct FileSerializationSink {
-    data: Mutex<(BufWriter<fs::File>, u32)>,
+    data: Mutex<Inner>,
+}
+
+struct Inner {
+    file: fs::File,
+    buffer: Vec<u8>,
+    buf_pos: usize,
+    addr: u32,
 }
 
 impl SerializationSink for FileSerializationSink {
@@ -16,7 +23,12 @@ impl SerializationSink for FileSerializationSink {
         let file = fs::File::create(path)?;
 
         Ok(FileSerializationSink {
-            data: Mutex::new((BufWriter::new(file), 0)),
+            data: Mutex::new(Inner {
+                file,
+                buffer: vec![0; 1024*512],
+                buf_pos: 0,
+                addr: 0
+            }),
         })
     }
 
@@ -25,17 +37,45 @@ impl SerializationSink for FileSerializationSink {
     where
         W: FnOnce(&mut [u8]),
     {
-        let mut buffer = vec![0; num_bytes];
-        write(buffer.as_mut_slice());
+        let mut data = self.data.lock();
+        let Inner {
+            ref mut file,
+            ref mut buffer,
+            ref mut buf_pos,
+            ref mut addr
+        } = *data;
 
-        let mut data = self.data.lock().expect("couldn't acquire lock");
-        let curr_addr = data.1;
-        let file = &mut data.0;
+        assert!(num_bytes <= buffer.len());
+        let mut buf_start = *buf_pos;
+        let mut buf_end = buf_start + num_bytes;
 
-        file.write_all(&buffer).expect("failed to write buffer");
+        if buf_end > buffer.len() {
+            file.write_all(&buffer[..buf_start]).expect("failed to write buffer");
+            buf_start = 0;
+            buf_end = num_bytes;
+        }
 
-        data.1 += num_bytes as u32;
+        write(&mut buffer[buf_start .. buf_end]);
+        *buf_pos = buf_end;
 
+        let curr_addr = *addr;
+        *addr += num_bytes as u32;
         Addr(curr_addr)
+    }
+}
+
+impl Drop for FileSerializationSink {
+    fn drop(&mut self) {
+        let mut data = self.data.lock();
+        let Inner {
+            ref mut file,
+            ref mut buffer,
+            ref mut buf_pos,
+            addr: _,
+        } = *data;
+
+        if *buf_pos > 0 {
+            file.write_all(&buffer[..*buf_pos]).expect("failed to write buffer");
+        }
     }
 }

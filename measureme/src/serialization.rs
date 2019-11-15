@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::path::Path;
-use std::sync::Mutex;
+use parking_lot::Mutex;
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub struct Addr(pub u32);
@@ -34,7 +34,7 @@ impl ByteVecSink {
     }
 
     pub fn into_bytes(self) -> Vec<u8> {
-        self.data.into_inner().unwrap()
+        self.data.into_inner()
     }
 }
 
@@ -47,7 +47,7 @@ impl SerializationSink for ByteVecSink {
     where
         W: FnOnce(&mut [u8]),
     {
-        let mut data = self.data.lock().unwrap();
+        let mut data = self.data.lock();
 
         let start = data.len();
 
