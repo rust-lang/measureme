@@ -88,6 +88,7 @@ fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error>> {
     table.add_row(row!(
         "Item",
         "Self Time",
+        "Self Time Change",
         "Item count",
         "Cache hits",
         "Blocked time",
@@ -100,19 +101,12 @@ fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error>> {
             continue;
         }
 
-        fn print_i64(i: i64) -> String {
-            if i >= 0 {
-                format!("+{}", i)
-            } else {
-                format!("{}", i)
-            }
-        }
-
         table.add_row(row![
             query_data.label,
             format!("{:.2?}", query_data.self_time),
-            print_i64(query_data.invocation_count),
-            print_i64(query_data.number_of_cache_hits),
+            format!("{:+.2}%", query_data.self_time_change),
+            format!("{:+}", query_data.invocation_count),
+            format!("{:+}", query_data.number_of_cache_hits),
             format!("{:.2?}", query_data.blocked_time),
             format!("{:.2?}", query_data.incremental_load_time),
         ]);

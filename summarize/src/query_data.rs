@@ -38,6 +38,7 @@ impl QueryData {
         QueryDataDiff {
             label: self.label.clone(),
             self_time: invert(self.self_time),
+            self_time_change: -100.0,
             number_of_cache_misses: -(self.number_of_cache_misses as i64),
             number_of_cache_hits: -(self.number_of_cache_hits as i64),
             invocation_count: -(self.invocation_count as i64),
@@ -50,6 +51,7 @@ impl QueryData {
         QueryDataDiff {
             label: self.label.clone(),
             self_time: self.self_time.into(),
+            self_time_change: std::f64::INFINITY,
             number_of_cache_misses: self.number_of_cache_misses as i64,
             number_of_cache_hits: self.number_of_cache_hits as i64,
             invocation_count: self.invocation_count as i64,
@@ -63,6 +65,7 @@ impl QueryData {
 pub struct QueryDataDiff {
     pub label: String,
     pub self_time: SignedDuration,
+    pub self_time_change: f64,
     pub number_of_cache_misses: i64,
     pub number_of_cache_hits: i64,
     pub invocation_count: i64,
@@ -87,6 +90,7 @@ impl Sub for QueryData {
         QueryDataDiff {
             label: self.label,
             self_time: sd(self.self_time) - sd(rhs.self_time),
+            self_time_change: percentage_change(rhs.self_time, self.self_time),
             number_of_cache_misses: i(self.number_of_cache_misses) - i(rhs.number_of_cache_misses),
             number_of_cache_hits: i(self.number_of_cache_hits) - i(rhs.number_of_cache_hits),
             invocation_count: i(self.invocation_count) - i(rhs.invocation_count),
@@ -94,6 +98,11 @@ impl Sub for QueryData {
             incremental_load_time: sd(self.incremental_load_time) - sd(rhs.incremental_load_time),
         }
     }
+}
+
+fn percentage_change(base: Duration, change: Duration) -> f64 {
+    let self_time_nanos = change.as_nanos() as i128 - base.as_nanos() as i128;
+    self_time_nanos as f64 / base.as_nanos() as f64 * 100.0
 }
 
 #[derive(Serialize, Deserialize)]

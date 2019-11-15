@@ -44,8 +44,8 @@ pub fn calculate_diff(base: Results, change: Results) -> DiffResults {
 
             match (b, c) {
                 (Some(b), Some(c)) => c.clone() - b.clone(),
-                (Some(b), None) => b.as_query_data_diff(),
-                (None, Some(c)) => c.invert(),
+                (Some(b), None) => b.invert(),
+                (None, Some(c)) => c.as_query_data_diff(),
                 (None, None) => unreachable!(),
             }
         })
