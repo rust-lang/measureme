@@ -1,4 +1,5 @@
-use crate::{Event, ProfilingData, Timestamp};
+use crate::timestamp::Timestamp;
+use crate::{Event, LightweightEvent, ProfilingData};
 use measureme::{Profiler, SerializationSink, StringId};
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
@@ -78,7 +79,7 @@ fn process_profiling_data(filestem: &Path, expected_events: &[Event<'static>]) {
 }
 
 fn check_profiling_data(
-    actual_events: &mut dyn Iterator<Item = Event<'_>>,
+    actual_lightweight_events: &mut dyn Iterator<Item = LightweightEvent<'_>>,
     expected_events: &mut dyn Iterator<Item = Event<'_>>,
     num_expected_events: usize,
 ) {
@@ -86,10 +87,11 @@ fn check_profiling_data(
 
     assert_eq!(
         (num_expected_events, Some(num_expected_events)),
-        actual_events.size_hint()
+        actual_lightweight_events.size_hint()
     );
 
-    for (actual_event, expected_event) in actual_events.zip(expected_events) {
+    for (actual_lightweight_event, expected_event) in actual_lightweight_events.zip(expected_events) {
+        let actual_event = actual_lightweight_event.to_event();
         assert_eq!(actual_event.event_kind, expected_event.event_kind);
         assert_eq!(actual_event.label, expected_event.label);
         assert_eq!(actual_event.additional_data, expected_event.additional_data);

@@ -264,6 +264,7 @@ impl<'st> StringRef<'st> {
 }
 
 /// Read-only version of the string table
+#[derive(Debug)]
 pub struct StringTable {
     // TODO: Replace with something lazy
     string_data: Vec<u8>,
