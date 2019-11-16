@@ -140,9 +140,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     continue;
                 }
             }
+            let full_event = event.to_event();
             let crox_event = Event {
-                name: event.label.clone().into_owned(),
-                category: event.event_kind.clone().into_owned(),
+                name: full_event.label.clone().into_owned(),
+                category: full_event.event_kind.clone().into_owned(),
                 event_type: EventType::Complete,
                 timestamp: event.timestamp.start().duration_since(UNIX_EPOCH).unwrap(),
                 duration,

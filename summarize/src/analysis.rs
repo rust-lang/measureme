@@ -128,7 +128,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
         }
     };
 
-    for current_event in data.iter().rev() {
+    for current_event in data.iter().rev().map(|lightweight_event| lightweight_event.to_event()) {
         match current_event.timestamp {
             Timestamp::Instant(_) => {
                 if &current_event.event_kind[..] == QUERY_CACHE_HIT_EVENT_KIND {

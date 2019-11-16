@@ -2,11 +2,11 @@ use rustc_hash::FxHashMap;
 use std::cmp;
 use std::time::SystemTime;
 
-use crate::{Event, ProfilingData};
+use crate::{LightweightEvent, ProfilingData};
 
 // This state is kept up-to-date while iteration over events.
 struct PerThreadState<'a> {
-    stack: Vec<Event<'a>>,
+    stack: Vec<LightweightEvent<'a>>,
     stack_id: String,
     start: SystemTime,
     end: SystemTime,
@@ -46,7 +46,7 @@ pub fn collapse_stacks<'a>(profiling_data: &ProfilingData) -> FxHashMap<String, 
             }
 
             let popped = thread.stack.pop().unwrap();
-            let new_stack_id_len = thread.stack_id.len() - (popped.label.len() + 1);
+            let new_stack_id_len = thread.stack_id.len() - (popped.to_event().label.len() + 1);
             thread.stack_id.truncate(new_stack_id_len);
         }
 
@@ -66,7 +66,7 @@ pub fn collapse_stacks<'a>(profiling_data: &ProfilingData) -> FxHashMap<String, 
 
         // Add this event to the stack_id
         thread.stack_id.push(';');
-        thread.stack_id.push_str(&current_event.label[..]);
+        thread.stack_id.push_str(&current_event.to_event().label[..]);
 
         // Update current events self time
         let self_time = counters.entry(thread.stack_id.clone()).or_default();
