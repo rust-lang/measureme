@@ -45,21 +45,34 @@ impl SerializationSink for FileSerializationSink {
             ref mut addr
         } = *data;
 
-        assert!(num_bytes <= buffer.len());
-        let mut buf_start = *buf_pos;
-        let mut buf_end = buf_start + num_bytes;
-
-        if buf_end > buffer.len() {
-            file.write_all(&buffer[..buf_start]).expect("failed to write buffer");
-            buf_start = 0;
-            buf_end = num_bytes;
-        }
-
-        write(&mut buffer[buf_start .. buf_end]);
-        *buf_pos = buf_end;
-
         let curr_addr = *addr;
         *addr += num_bytes as u32;
+
+        let buf_start = *buf_pos;
+        let buf_end = buf_start + num_bytes;
+
+        if buf_end <= buffer.len() {
+            // We have enough space in the buffer, just write the data to it.
+            write(&mut buffer[buf_start .. buf_end]);
+            *buf_pos = buf_end;
+        } else {
+            // We don't have enough space in the buffer, so flush to disk
+            file.write_all(&buffer[..buf_start]).unwrap();
+
+            if num_bytes <= buffer.len() {
+                // There's enough space in the buffer, after flushing
+                write(&mut buffer[0 .. num_bytes]);
+                *buf_pos = num_bytes;
+            } else {
+                // Even after flushing the buffer there isn't enough space, so
+                // fall back to dynamic allocation
+                let mut temp_buffer = vec![0; num_bytes];
+                write(&mut temp_buffer[..]);
+                file.write_all(&temp_buffer[..]).unwrap();
+                *buf_pos = 0;
+            }
+        }
+
         Addr(curr_addr)
     }
 }
@@ -75,7 +88,7 @@ impl Drop for FileSerializationSink {
         } = *data;
 
         if *buf_pos > 0 {
-            file.write_all(&buffer[..*buf_pos]).expect("failed to write buffer");
+            file.write_all(&buffer[..*buf_pos]).unwrap();
         }
     }
 }
