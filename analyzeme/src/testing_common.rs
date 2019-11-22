@@ -1,5 +1,5 @@
 use crate::timestamp::Timestamp;
-use crate::{Event, LightweightEvent, ProfilingData};
+use crate::{Event, ProfilingData};
 use measureme::{Profiler, SerializationSink, StringId};
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
@@ -19,12 +19,16 @@ fn mk_filestem(file_name_stem: &str) -> PathBuf {
 }
 
 // Generate some profiling data. This is the part that would run in rustc.
-fn generate_profiling_data<S: SerializationSink>(filestem: &Path) -> Vec<Event<'static>> {
+fn generate_profiling_data<S: SerializationSink>(
+    filestem: &Path,
+    num_stacks: usize,
+    num_threads: usize,
+) -> Vec<Event<'static>> {
     let profiler = Arc::new(Profiler::<S>::new(Path::new(filestem)).unwrap());
 
     let event_id_reserved = StringId::reserved(42);
 
-    let event_ids = &[
+    let event_ids = vec![
         (
             profiler.alloc_string("Generic"),
             profiler.alloc_string("SomeGenericActivity"),
@@ -39,20 +43,33 @@ fn generate_profiling_data<S: SerializationSink>(filestem: &Path) -> Vec<Event<'
     event_ids_as_str.insert(event_ids[1].0, "Query");
     event_ids_as_str.insert(event_ids[1].1, "SomeQuery");
 
-    let mut expected_events = Vec::new();
+    let threads: Vec<_> = (0.. num_threads).map(|thread_id| {
+        let event_ids = event_ids.clone();
+        let profiler = profiler.clone();
+        let event_ids_as_str = event_ids_as_str.clone();
 
-    for i in 0..10_000 {
-        // Allocate some invocation stacks
+        std::thread::spawn(move || {
+            let mut expected_events = Vec::new();
 
-        pseudo_invocation(
-            &profiler,
-            i,
-            4,
-            event_ids,
-            &event_ids_as_str,
-            &mut expected_events,
-        );
-    }
+            for i in 0..num_stacks {
+                // Allocate some invocation stacks
+
+                pseudo_invocation(
+                    &profiler,
+                    i,
+                    thread_id as u32,
+                    4,
+                    &event_ids[..],
+                    &event_ids_as_str,
+                    &mut expected_events,
+                );
+            }
+
+            expected_events
+        })
+    }).collect();
+
+    let expected_events: Vec<_> = threads.into_iter().flat_map(|t| t.join().unwrap()).collect();
 
     // An example of allocating the string contents of an event id that has
     // already been used
@@ -67,53 +84,83 @@ fn process_profiling_data(filestem: &Path, expected_events: &[Event<'static>]) {
     let profiling_data = ProfilingData::new(filestem).unwrap();
 
     check_profiling_data(
-        &mut profiling_data.iter(),
+        &mut profiling_data.iter().map(|e| e.to_event()),
         &mut expected_events.iter().cloned(),
         expected_events.len(),
     );
     check_profiling_data(
-        &mut profiling_data.iter().rev(),
+        &mut profiling_data.iter().rev().map(|e| e.to_event()),
         &mut expected_events.iter().rev().cloned(),
         expected_events.len(),
     );
 }
 
 fn check_profiling_data(
-    actual_lightweight_events: &mut dyn Iterator<Item = LightweightEvent<'_>>,
+    actual_events: &mut dyn Iterator<Item = Event<'_>>,
     expected_events: &mut dyn Iterator<Item = Event<'_>>,
     num_expected_events: usize,
 ) {
     let mut count = 0;
 
+    // This assertion makes sure that the ExactSizeIterator impl works as expected.
     assert_eq!(
         (num_expected_events, Some(num_expected_events)),
-        actual_lightweight_events.size_hint()
+        actual_events.size_hint()
     );
 
-    for (actual_lightweight_event, expected_event) in actual_lightweight_events.zip(expected_events) {
-        let actual_event = actual_lightweight_event.to_event();
-        assert_eq!(actual_event.event_kind, expected_event.event_kind);
-        assert_eq!(actual_event.label, expected_event.label);
-        assert_eq!(actual_event.additional_data, expected_event.additional_data);
-        assert_eq!(
-            actual_event.timestamp.is_instant(),
-            expected_event.timestamp.is_instant()
-        );
+    let actual_events_per_thread = collect_events_per_thread(actual_events);
+    let expected_events_per_thread = collect_events_per_thread(expected_events);
 
-        count += 1;
+    let thread_ids: Vec<_> = actual_events_per_thread.keys().collect();
+    assert_eq!(thread_ids, expected_events_per_thread.keys().collect::<Vec<_>>());
+
+    for thread_id in thread_ids {
+        let actual_events = &actual_events_per_thread[thread_id];
+        let expected_events = &expected_events_per_thread[thread_id];
+
+        assert_eq!(actual_events.len(), expected_events.len());
+
+        for (actual_event, expected_event) in actual_events.iter().zip(expected_events.iter()) {
+            assert_eq!(actual_event.event_kind, expected_event.event_kind);
+            assert_eq!(actual_event.label, expected_event.label);
+            assert_eq!(actual_event.additional_data, expected_event.additional_data);
+            assert_eq!(
+                actual_event.timestamp.is_instant(),
+                expected_event.timestamp.is_instant()
+            );
+
+            count += 1;
+        }
     }
+
     assert_eq!(count, num_expected_events);
 }
 
-pub fn run_end_to_end_serialization_test<S: SerializationSink>(file_name_stem: &str) {
+fn collect_events_per_thread<'a>(events: &mut dyn Iterator<Item = Event<'a>>) -> FxHashMap<u32, Vec<Event<'a>>> {
+    let mut per_thread: FxHashMap<_, _> = Default::default();
+
+    for event in events {
+        per_thread.entry(event.thread_id).or_insert(Vec::new()).push(event);
+    }
+
+    per_thread
+}
+
+pub fn run_serialization_bench<S: SerializationSink>(file_name_stem: &str, num_events: usize, num_threads: usize) {
     let filestem = mk_filestem(file_name_stem);
-    let expected_events = generate_profiling_data::<S>(&filestem);
+    generate_profiling_data::<S>(&filestem, num_events, num_threads);
+}
+
+pub fn run_end_to_end_serialization_test<S: SerializationSink>(file_name_stem: &str, num_threads: usize) {
+    let filestem = mk_filestem(file_name_stem);
+    let expected_events = generate_profiling_data::<S>(&filestem, 10_000, num_threads);
     process_profiling_data(&filestem, &expected_events);
 }
 
 fn pseudo_invocation<S: SerializationSink>(
     profiler: &Profiler<S>,
     random: usize,
+    thread_id: u32,
     recursions_left: usize,
     event_ids: &[(StringId, StringId)],
     event_ids_as_str: &FxHashMap<StringId, &'static str>,
@@ -123,8 +170,6 @@ fn pseudo_invocation<S: SerializationSink>(
         return;
     }
 
-    let thread_id = (random % 3) as u32;
-
     let (event_kind, event_id) = event_ids[random % event_ids.len()];
 
     let _prof_guard = profiler.start_recording_interval_event(event_kind, event_id, thread_id);
@@ -132,6 +177,7 @@ fn pseudo_invocation<S: SerializationSink>(
     pseudo_invocation(
         profiler,
         random,
+        thread_id,
         recursions_left - 1,
         event_ids,
         event_ids_as_str,
