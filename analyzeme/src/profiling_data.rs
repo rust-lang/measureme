@@ -1,12 +1,13 @@
 use crate::event::Event;
 use crate::lightweight_event::LightweightEvent;
+use crate::StringTable;
 use crate::timestamp::Timestamp;
 use measureme::file_header::{
     read_file_header, write_file_header, CURRENT_FILE_FORMAT_VERSION, FILE_HEADER_SIZE,
     FILE_MAGIC_EVENT_STREAM,
 };
 use measureme::ByteVecSink;
-use measureme::{ProfilerFiles, RawEvent, SerializationSink, StringTable, StringTableBuilder};
+use measureme::{ProfilerFiles, RawEvent, SerializationSink, StringTableBuilder};
 use serde::{Deserialize, Deserializer};
 use std::error::Error;
 use std::fs;

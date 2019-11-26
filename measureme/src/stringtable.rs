@@ -62,14 +62,10 @@
 //!
 
 use crate::file_header::{
-    read_file_header, strip_file_header, write_file_header, CURRENT_FILE_FORMAT_VERSION,
-    FILE_MAGIC_STRINGTABLE_DATA, FILE_MAGIC_STRINGTABLE_INDEX,
+    write_file_header, FILE_MAGIC_STRINGTABLE_DATA, FILE_MAGIC_STRINGTABLE_INDEX,
 };
 use crate::serialization::{Addr, SerializationSink};
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
-use rustc_hash::FxHashMap;
-use std::borrow::Cow;
-use std::error::Error;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
@@ -92,19 +88,17 @@ impl StringId {
 }
 
 // See module-level documentation for more information on the encoding.
-const TERMINATOR: u8 = 0xFF;
-const UTF8_CONTINUATION_MASK: u8 = 0b1100_0000;
-const UTF8_CONTINUATION_BYTE: u8 = 0b1000_0000;
+pub const TERMINATOR: u8 = 0xFF;
 
 // All 1s except for the two highest bits.
-const MAX_STRING_ID: u32 = 0x3FFF_FFFF;
-const STRING_ID_MASK: u32 = 0x3FFF_FFFF;
+pub const MAX_STRING_ID: u32 = 0x3FFF_FFFF;
+pub const STRING_ID_MASK: u32 = 0x3FFF_FFFF;
 
 /// The maximum id value a prereserved string may be.
 const MAX_PRE_RESERVED_STRING_ID: u32 = MAX_STRING_ID / 2;
 
 /// The id of the profile metadata string entry.
-pub(crate) const METADATA_STRING_ID: u32 = MAX_PRE_RESERVED_STRING_ID + 1;
+pub const METADATA_STRING_ID: u32 = MAX_PRE_RESERVED_STRING_ID + 1;
 
 /// Write-only version of the string table
 pub struct StringTableBuilder<S: SerializationSink> {
@@ -230,13 +224,6 @@ fn serialize_index_entry<S: SerializationSink>(sink: &S, id: StringId, addr: Add
     });
 }
 
-fn deserialize_index_entry(bytes: &[u8]) -> (StringId, Addr) {
-    (
-        StringId(LittleEndian::read_u32(&bytes[0..4])),
-        Addr(LittleEndian::read_u32(&bytes[4..8])),
-    )
-}
-
 impl<S: SerializationSink> StringTableBuilder<S> {
     pub fn new(data_sink: Arc<S>, index_sink: Arc<S>) -> StringTableBuilder<S> {
         // The first thing in every file we generate must be the file header.
@@ -282,264 +269,5 @@ impl<S: SerializationSink> StringTableBuilder<S> {
         });
 
         serialize_index_entry(&*self.index_sink, id, addr);
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct StringRef<'st> {
-    id: StringId,
-    table: &'st StringTable,
-}
-
-impl<'st> StringRef<'st> {
-    pub fn to_string(&self) -> Cow<'st, str> {
-        let mut output = String::new();
-        self.write_to_string(&mut output);
-        Cow::from(output)
-    }
-
-    pub fn write_to_string(&self, output: &mut String) {
-        let addr = self.table.index[&self.id];
-        let mut pos = addr.as_usize();
-
-        loop {
-            let byte = self.table.string_data[pos];
-
-            if byte == TERMINATOR {
-                return;
-            } else if (byte & UTF8_CONTINUATION_MASK) == UTF8_CONTINUATION_BYTE {
-                // This is a string-id
-                let id = BigEndian::read_u32(&self.table.string_data[pos..pos + 4]);
-
-                // Mask off the `0b10` prefix
-                let id = id & STRING_ID_MASK;
-
-                let string_ref = StringRef {
-                    id: StringId(id),
-                    table: self.table,
-                };
-
-                string_ref.write_to_string(output);
-
-                pos += 4;
-            } else {
-                while let Some((c, len)) = decode_utf8_char(&self.table.string_data[pos..]) {
-                    output.push(c);
-                    pos += len;
-                }
-            }
-        }
-    }
-}
-
-// Tries to decode a UTF-8 codepoint starting at the beginning of `bytes`.
-// Returns the decoded `char` and its size in bytes if it succeeds.
-// Returns `None` if `bytes` does not start with a valid UTF-8 codepoint.
-// See https://en.wikipedia.org/wiki/UTF-8 for in-depth information on the
-// encoding.
-fn decode_utf8_char(bytes: &[u8]) -> Option<(char, usize)> {
-    use std::convert::TryFrom;
-    let first_byte = bytes[0] as u32;
-    let (codepoint, len) = if (first_byte & 0b1000_0000) == 0 {
-        // The highest bit is zero, so this is a single-byte char
-        (first_byte, 1)
-    } else if (first_byte & 0b1110_0000) == 0b1100_0000 {
-        // This is a two byte character
-        let bits0 = first_byte & 0b0001_1111;
-        let bits1 = (bytes[1] & 0b0011_1111) as u32;
-
-        (bits0 << 6 | bits1, 2)
-    } else if (first_byte & 0b1111_0000) == 0b1110_0000 {
-        // This is a three byte character
-        let bits0 = first_byte & 0b0000_1111;
-        let bits1 = (bytes[1] & 0b0011_1111) as u32;
-        let bits2 = (bytes[2] & 0b0011_1111) as u32;
-
-        ((bits0 << 12) | (bits1 << 6) | bits2, 3)
-    } else if (first_byte & 0b1111_1000) == 0b1111_0000 {
-        // This is a three byte character
-        let bits0 = first_byte & 0b0000_0111;
-        let bits1 = (bytes[1] & 0b0011_1111) as u32;
-        let bits2 = (bytes[2] & 0b0011_1111) as u32;
-        let bits3 = (bytes[3] & 0b0011_1111) as u32;
-
-        ((bits0 << 18) | (bits1 << 12) | (bits2 << 6) | bits3, 4)
-    } else {
-        return None;
-    };
-
-    match char::try_from(codepoint) {
-        Ok(c) => {
-            debug_assert!({
-                let test_bytes = &mut [0u8; 8];
-                c.encode_utf8(test_bytes);
-                &test_bytes[..len] == &bytes[..len]
-            });
-
-            Some((c, len))
-        }
-        Err(e) => {
-            panic!("StringTable: Encountered invalid UTF8 char: {:?}", e);
-        }
-    }
-}
-
-/// Read-only version of the string table
-#[derive(Debug)]
-pub struct StringTable {
-    // TODO: Replace with something lazy
-    string_data: Vec<u8>,
-    index: FxHashMap<StringId, Addr>,
-}
-
-impl StringTable {
-    pub fn new(string_data: Vec<u8>, index_data: Vec<u8>) -> Result<StringTable, Box<dyn Error>> {
-        let string_data_format = read_file_header(&string_data, FILE_MAGIC_STRINGTABLE_DATA)?;
-        let index_data_format = read_file_header(&index_data, FILE_MAGIC_STRINGTABLE_INDEX)?;
-
-        if string_data_format != index_data_format {
-            Err("Mismatch between StringTable DATA and INDEX format version")?;
-        }
-
-        if string_data_format != CURRENT_FILE_FORMAT_VERSION {
-            Err(format!(
-                "StringTable file format version '{}' is not supported
-                         by this version of `measureme`.",
-                string_data_format
-            ))?;
-        }
-
-        assert!(index_data.len() % 8 == 0);
-        let index: FxHashMap<_, _> = strip_file_header(&index_data)
-            .chunks(8)
-            .map(deserialize_index_entry)
-            .collect();
-
-        Ok(StringTable { string_data, index })
-    }
-
-    #[inline]
-    pub fn get<'a>(&'a self, id: StringId) -> StringRef<'a> {
-        StringRef { id, table: self }
-    }
-    pub fn get_metadata<'a>(&'a self) -> StringRef<'a> {
-        let id = StringId(METADATA_STRING_ID);
-        self.get(id)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn simple_strings() {
-        use crate::serialization::ByteVecSink;
-
-        let data_sink = Arc::new(ByteVecSink::new());
-        let index_sink = Arc::new(ByteVecSink::new());
-
-        let expected_strings = &[
-            "abc",
-            "",
-            "xyz",
-            "g2h9284hgjv282y32983849&(*^&YIJ#R)(F83 f 23 2g4 35g5y",
-            "",
-            "",
-            "g2h9284hgjv282y32983849&35g5y",
-        ];
-
-        let mut string_ids = vec![];
-
-        {
-            let builder = StringTableBuilder::new(data_sink.clone(), index_sink.clone());
-
-            for &s in expected_strings {
-                string_ids.push(builder.alloc(s));
-            }
-        }
-
-        let data_bytes = Arc::try_unwrap(data_sink).unwrap().into_bytes();
-        let index_bytes = Arc::try_unwrap(index_sink).unwrap().into_bytes();
-
-        let string_table = StringTable::new(data_bytes, index_bytes).unwrap();
-
-        for (&id, &expected_string) in string_ids.iter().zip(expected_strings.iter()) {
-            let str_ref = string_table.get(id);
-
-            assert_eq!(str_ref.to_string(), expected_string);
-
-            let mut write_to = String::new();
-            str_ref.write_to_string(&mut write_to);
-            assert_eq!(str_ref.to_string(), write_to);
-        }
-    }
-
-    #[test]
-    fn composite_string() {
-        use crate::serialization::ByteVecSink;
-
-        let data_sink = Arc::new(ByteVecSink::new());
-        let index_sink = Arc::new(ByteVecSink::new());
-
-        let expected_strings = &[
-            "abc",                  // 0
-            "abcabc",               // 1
-            "abcabcabc",            // 2
-            "abcabcabc",            // 3
-            "abcabcabc",            // 4
-            "abcabcabcabc",         // 5
-            "xxabcabcuuuabcabcqqq", // 6
-            "xxxxxx",               // 7
-        ];
-
-        let mut string_ids = vec![];
-
-        {
-            let builder = StringTableBuilder::new(data_sink.clone(), index_sink.clone());
-
-            let r = |id| StringComponent::Ref(id);
-            let v = |s| StringComponent::Value(s);
-
-            string_ids.push(builder.alloc("abc")); // 0
-            string_ids.push(builder.alloc(&[r(string_ids[0]), r(string_ids[0])])); // 1
-            string_ids.push(builder.alloc(&[r(string_ids[0]), r(string_ids[0]), r(string_ids[0])])); // 2
-            string_ids.push(builder.alloc(&[r(string_ids[1]), r(string_ids[0])])); // 3
-            string_ids.push(builder.alloc(&[r(string_ids[0]), r(string_ids[1])])); // 4
-            string_ids.push(builder.alloc(&[r(string_ids[1]), r(string_ids[1])])); // 5
-            string_ids.push(builder.alloc(&[
-                v("xx"),
-                r(string_ids[1]),
-                v("uuu"),
-                r(string_ids[1]),
-                v("qqq"),
-            ])); // 6
-        }
-
-        let data_bytes = Arc::try_unwrap(data_sink).unwrap().into_bytes();
-        let index_bytes = Arc::try_unwrap(index_sink).unwrap().into_bytes();
-
-        let string_table = StringTable::new(data_bytes, index_bytes).unwrap();
-
-        for (&id, &expected_string) in string_ids.iter().zip(expected_strings.iter()) {
-            let str_ref = string_table.get(id);
-
-            assert_eq!(str_ref.to_string(), expected_string);
-
-            let mut write_to = String::new();
-            str_ref.write_to_string(&mut write_to);
-            assert_eq!(str_ref.to_string(), write_to);
-        }
-    }
-
-    #[test]
-    fn utf8_char_decoding() {
-        let chars = vec![('\0', 1), ('a', 1), ('Ω', 2), ('Ꜵ', 3), ('𝔉', 4)];
-
-        for (c, len) in chars {
-            let buffer = &mut [0; 4];
-            c.encode_utf8(buffer);
-            assert_eq!(Some((c, len)), decode_utf8_char(&buffer[..]));
-        }
     }
 }

@@ -46,7 +46,7 @@ mod mmap_serialization_sink;
 mod profiler;
 mod raw_event;
 mod serialization;
-mod stringtable;
+pub mod stringtable;
 
 pub mod rustc;
 
@@ -57,6 +57,4 @@ pub use crate::mmap_serialization_sink::MmapSerializationSink;
 pub use crate::profiler::{Profiler, ProfilerFiles, TimingGuard};
 pub use crate::raw_event::{RawEvent, MAX_INSTANT_TIMESTAMP, MAX_INTERVAL_TIMESTAMP};
 pub use crate::serialization::{Addr, ByteVecSink, SerializationSink};
-pub use crate::stringtable::{
-    SerializableString, StringId, StringRef, StringTable, StringTableBuilder,
-};
+pub use crate::stringtable::{SerializableString, StringComponent, StringId, StringTableBuilder};
