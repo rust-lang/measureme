@@ -10,6 +10,7 @@ use measureme::{Addr, StringId};
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
 use std::error::Error;
+use memchr::memchr;
 
 // See module-level documentation for more information on the encoding.
 const UTF8_CONTINUATION_MASK: u8 = 0b1100_0000;
@@ -30,9 +31,28 @@ pub struct StringRef<'st> {
 
 impl<'st> StringRef<'st> {
     pub fn to_string(&self) -> Cow<'st, str> {
-        let mut output = String::new();
-        self.write_to_string(&mut output);
-        Cow::from(output)
+
+        // Try to avoid the allocation, which we can do if this is a
+        // [value, 0xFF] entry.
+        let addr = self.table.index[&self.id];
+        let pos = addr.as_usize();
+        let slice_to_search = &self.table.string_data[pos..];
+
+        // Find the first 0xFF byte which which is either the sequence
+        // terminator or a byte in the middle of string id. Use `memchr` which
+        // is super fast.
+        let terminator_pos = memchr(TERMINATOR, slice_to_search).unwrap();
+
+        // Decode the bytes until the terminator. If there is a string id in
+        // between somewhere this will fail, and we fall back to the allocating
+        // path.
+        if let Ok(s) = std::str::from_utf8(&slice_to_search[..terminator_pos]) {
+            Cow::from(s)
+        } else {
+            let mut output = String::new();
+            self.write_to_string(&mut output);
+            Cow::from(output)
+        }
     }
 
     pub fn write_to_string(&self, output: &mut String) {
