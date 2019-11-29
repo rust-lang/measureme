@@ -46,7 +46,7 @@
 //!      allocated string.
 //!   2. Calling `StringTable::alloc_with_reserved_id()` and `StringId::reserved()`.
 //!
-//! Reserved strings allow you to deduplicate strings by allocating a string
+//! String IDs allow you to deduplicate strings by allocating a string
 //! once and then referring to it by id over and over. This is a useful trick
 //! for strings which are recorded many times and it can significantly reduce
 //! the size of profile trace files.

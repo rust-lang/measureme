@@ -114,7 +114,7 @@ fn decode_utf8_char(bytes: &[u8]) -> Option<(char, usize)> {
 
         ((bits0 << 12) | (bits1 << 6) | bits2, 3)
     } else if (first_byte & 0b1111_1000) == 0b1111_0000 {
-        // This is a three byte character
+        // This is a four byte character
         let bits0 = first_byte & 0b0000_0111;
         let bits1 = (bytes[1] & 0b0011_1111) as u32;
         let bits2 = (bytes[2] & 0b0011_1111) as u32;
@@ -290,12 +290,17 @@ mod tests {
 
     #[test]
     fn utf8_char_decoding() {
-        let chars = vec![('\0', 1), ('a', 1), ('Ω', 2), ('Ꜵ', 3), ('𝔉', 4)];
+        use std::convert::TryFrom;
 
-        for (c, len) in chars {
-            let buffer = &mut [0; 4];
-            c.encode_utf8(buffer);
-            assert_eq!(Some((c, len)), decode_utf8_char(&buffer[..]));
+        // Let's just test all possible codepoints because there are not that
+        // many actually.
+        for codepoint in 0..=0x10FFFFu32 {
+            if let Ok(expected_char) = char::try_from(codepoint) {
+                let buffer = &mut [0; 4];
+                let expected_len = expected_char.encode_utf8(buffer).len();
+                let expected = Some((expected_char, expected_len));
+                assert_eq!(expected, decode_utf8_char(&buffer[..]));
+            }
         }
     }
 }
