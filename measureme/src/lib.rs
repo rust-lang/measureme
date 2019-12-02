@@ -13,11 +13,10 @@
 //! To create a [`Profiler`], call the [`Profiler::new()`] function and provide a `Path` with
 //! the directory and file name for the trace files.
 //!
-//! To record an event, call the [`Profiler::record_event()`] method, passing a few arguments:
+//! To record an event, call the [`Profiler::record_instant_event()`] method, passing a few arguments:
 //!   - `event_kind`: a [`StringId`] which assigns an arbitrary category to the event
 //!   - `event_id`: a [`StringId`] which specifies the name of the event
-//!   - `thread_id`: a `u64` id of the thread which is recording this event
-//!   - `timestamp_kind`: a [`TimestampKind`] which specifies how this event should be treated by `measureme` tooling
+//!   - `thread_id`: a `u32` id of the thread which is recording this event
 //!
 //! Alternatively, events can also be recorded via the [`Profiler::start_recording_interval_event()`] method. This
 //! method records a "start" event and returns a `TimingGuard` object that will automatically record
