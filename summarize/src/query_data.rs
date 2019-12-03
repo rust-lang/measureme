@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::ops::Sub;
 use std::time::Duration;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct QueryData {
     pub label: String,
     pub self_time: Duration,

@@ -159,11 +159,25 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                     thread.stack.pop();
                 }
 
+                let current_event_duration = current_event.duration().unwrap();
+
                 // If there is something on the stack, subtract the current
                 // interval from it.
                 if let Some(current_top) = thread.stack.last() {
                     record_event_data(&current_top.label, &|data| {
-                        data.self_time -= current_event.duration().unwrap();
+                        match &current_top.event_kind[..] {
+                            QUERY_EVENT_KIND | GENERIC_ACTIVITY_EVENT_KIND => {
+                                data.self_time -= current_event_duration;
+                            }
+                            INCREMENTAL_LOAD_RESULT_EVENT_KIND => {
+                                data.incremental_load_time  -= current_event_duration;
+                            }
+                            _ => {
+                                eprintln!("Unexpectedly enountered event `{:?}`, \
+                                           while top of stack was `{:?}`. Ignoring.",
+                                           current_event, current_top);
+                            }
+                        }
                     });
                 }
 
@@ -171,7 +185,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                 match &current_event.event_kind[..] {
                     QUERY_EVENT_KIND | GENERIC_ACTIVITY_EVENT_KIND => {
                         record_event_data(&current_event.label, &|data| {
-                            data.self_time += current_event.duration().unwrap();
+                            data.self_time += current_event_duration;
                             data.number_of_cache_misses += 1;
                             data.invocation_count += 1;
                         });
@@ -179,13 +193,13 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
 
                     QUERY_BLOCKED_EVENT_KIND => {
                         record_event_data(&current_event.label, &|data| {
-                            data.blocked_time += current_event.duration().unwrap();
+                            data.blocked_time += current_event_duration;
                         });
                     }
 
                     INCREMENTAL_LOAD_RESULT_EVENT_KIND => {
                         record_event_data(&current_event.label, &|data| {
-                            data.incremental_load_time += current_event.duration().unwrap();
+                            data.incremental_load_time += current_event_duration;
                         });
                     }
 
