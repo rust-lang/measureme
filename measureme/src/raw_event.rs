@@ -116,7 +116,7 @@ impl RawEvent {
         {
             // We always emit data as little endian, which we have to do
             // manually on big endian targets.
-            use byteorder::{LittleEndian, ByteOrder};
+            use byteorder::{ByteOrder, LittleEndian};
 
             LittleEndian::write_u32(&mut bytes[0..], self.event_kind.as_u32());
             LittleEndian::write_u32(&mut bytes[4..], self.event_id.as_u32());
@@ -146,7 +146,7 @@ impl RawEvent {
 
         #[cfg(target_endian = "big")]
         {
-            use byteorder::{LittleEndian, ByteOrder};
+            use byteorder::{ByteOrder, LittleEndian};
             RawEvent {
                 event_kind: StringId::reserved(LittleEndian::read_u32(&bytes[0..])),
                 event_id: StringId::reserved(LittleEndian::read_u32(&bytes[4..])),
@@ -162,8 +162,8 @@ impl RawEvent {
 impl Default for RawEvent {
     fn default() -> Self {
         RawEvent {
-            event_kind: StringId::reserved(0),
-            event_id: StringId::reserved(0),
+            event_kind: StringId::INVALID,
+            event_id: StringId::INVALID,
             thread_id: 0,
             start_time_lower: 0,
             end_time_lower: 0,
@@ -184,22 +184,19 @@ mod tests {
 
     #[test]
     fn is_instant() {
-        assert!(
-            RawEvent::new_instant(StringId::reserved(0), StringId::reserved(0), 987, 0,)
-                .is_instant()
-        );
+        assert!(RawEvent::new_instant(StringId::INVALID, StringId::INVALID, 987, 0,).is_instant());
 
         assert!(RawEvent::new_instant(
-            StringId::reserved(0),
-            StringId::reserved(0),
+            StringId::INVALID,
+            StringId::INVALID,
             987,
             MAX_INSTANT_TIMESTAMP,
         )
         .is_instant());
 
         assert!(!RawEvent::new_interval(
-            StringId::reserved(0),
-            StringId::reserved(0),
+            StringId::INVALID,
+            StringId::INVALID,
             987,
             0,
             MAX_INTERVAL_TIMESTAMP,
@@ -211,8 +208,8 @@ mod tests {
     #[should_panic]
     fn invalid_instant_timestamp() {
         let _ = RawEvent::new_instant(
-            StringId::reserved(0),
-            StringId::reserved(0),
+            StringId::INVALID,
+            StringId::INVALID,
             123,
             // timestamp too large
             MAX_INSTANT_TIMESTAMP + 1,
@@ -223,8 +220,8 @@ mod tests {
     #[should_panic]
     fn invalid_start_timestamp() {
         let _ = RawEvent::new_interval(
-            StringId::reserved(0),
-            StringId::reserved(0),
+            StringId::INVALID,
+            StringId::INVALID,
             123,
             // start timestamp too large
             MAX_INTERVAL_TIMESTAMP + 1,
@@ -236,8 +233,8 @@ mod tests {
     #[should_panic]
     fn invalid_end_timestamp() {
         let _ = RawEvent::new_interval(
-            StringId::reserved(0),
-            StringId::reserved(0),
+            StringId::INVALID,
+            StringId::INVALID,
             123,
             0,
             // end timestamp too large
@@ -249,8 +246,8 @@ mod tests {
     #[should_panic]
     fn invalid_end_timestamp2() {
         let _ = RawEvent::new_interval(
-            StringId::reserved(0),
-            StringId::reserved(0),
+            StringId::INVALID,
+            StringId::INVALID,
             123,
             0,
             INSTANT_TIMESTAMP_MARKER,
@@ -261,8 +258,8 @@ mod tests {
     #[should_panic]
     fn start_greater_than_end_timestamp() {
         let _ = RawEvent::new_interval(
-            StringId::reserved(0),
-            StringId::reserved(0),
+            StringId::INVALID,
+            StringId::INVALID,
             123,
             // start timestamp greater than end timestamp
             1,
@@ -273,15 +270,15 @@ mod tests {
     #[test]
     fn start_equal_to_end_timestamp() {
         // This is allowed, make sure we don't panic
-        let _ = RawEvent::new_interval(StringId::reserved(0), StringId::reserved(0), 123, 1, 1);
+        let _ = RawEvent::new_interval(StringId::INVALID, StringId::INVALID, 123, 1, 1);
     }
 
     #[test]
     fn interval_timestamp_decoding() {
         // Check the upper limits
         let e = RawEvent::new_interval(
-            StringId::reserved(0),
-            StringId::reserved(0),
+            StringId::INVALID,
+            StringId::INVALID,
             1234,
             MAX_INTERVAL_TIMESTAMP,
             MAX_INTERVAL_TIMESTAMP,
@@ -291,15 +288,15 @@ mod tests {
         assert_eq!(e.end_nanos(), MAX_INTERVAL_TIMESTAMP);
 
         // Check the lower limits
-        let e = RawEvent::new_interval(StringId::reserved(0), StringId::reserved(0), 1234, 0, 0);
+        let e = RawEvent::new_interval(StringId::INVALID, StringId::INVALID, 1234, 0, 0);
 
         assert_eq!(e.start_nanos(), 0);
         assert_eq!(e.end_nanos(), 0);
 
         // Check that end does not bleed into start
         let e = RawEvent::new_interval(
-            StringId::reserved(0),
-            StringId::reserved(0),
+            StringId::INVALID,
+            StringId::INVALID,
             1234,
             0,
             MAX_INTERVAL_TIMESTAMP,
@@ -310,8 +307,8 @@ mod tests {
 
         // Test some random values
         let e = RawEvent::new_interval(
-            StringId::reserved(0),
-            StringId::reserved(0),
+            StringId::INVALID,
+            StringId::INVALID,
             1234,
             0x1234567890,
             0x1234567890A,
@@ -324,15 +321,14 @@ mod tests {
     #[test]
     fn instant_timestamp_decoding() {
         assert_eq!(
-            RawEvent::new_instant(StringId::reserved(0), StringId::reserved(0), 987, 0,)
-                .start_nanos(),
+            RawEvent::new_instant(StringId::INVALID, StringId::INVALID, 987, 0,).start_nanos(),
             0
         );
 
         assert_eq!(
             RawEvent::new_instant(
-                StringId::reserved(0),
-                StringId::reserved(0),
+                StringId::INVALID,
+                StringId::INVALID,
                 987,
                 MAX_INSTANT_TIMESTAMP,
             )

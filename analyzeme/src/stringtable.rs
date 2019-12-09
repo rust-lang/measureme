@@ -12,13 +12,9 @@ use std::borrow::Cow;
 use std::error::Error;
 use memchr::memchr;
 
-// See module-level documentation for more information on the encoding.
-const UTF8_CONTINUATION_MASK: u8 = 0b1100_0000;
-const UTF8_CONTINUATION_BYTE: u8 = 0b1000_0000;
-
 fn deserialize_index_entry(bytes: &[u8]) -> (StringId, Addr) {
     (
-        StringId::reserved(LittleEndian::read_u32(&bytes[0..4])),
+        StringId::new(LittleEndian::read_u32(&bytes[0..4])),
         Addr(LittleEndian::read_u32(&bytes[4..8])),
     )
 }
@@ -29,12 +25,29 @@ pub struct StringRef<'st> {
     table: &'st StringTable,
 }
 
+// This is the text we emit when encountering a virtual string ID that cannot
+// be resolved.
+const UNKNOWN_STRING: &str = "<unknown>";
+
 impl<'st> StringRef<'st> {
+
+    /// Expands the StringRef into an actual string. This method will
+    /// avoid allocating a `String` if it can instead return a `&str` pointing
+    /// into the raw string table data.
     pub fn to_string(&self) -> Cow<'st, str> {
 
-        // Try to avoid the allocation, which we can do if this is a
-        // [value, 0xFF] entry.
-        let addr = self.table.index[&self.id];
+        let addr = match self.get_addr() {
+            Ok(addr) => addr,
+            Err(_) => {
+                return Cow::from(UNKNOWN_STRING)
+            }
+        };
+
+        // Try to avoid the allocation, which we can do if this is
+        //
+        //  - a string with a single value component (`[value, 0xFF]`) or
+        //  - a string with a single reference component (`[string_id, 0xFF]`)
+
         let pos = addr.as_usize();
         let slice_to_search = &self.table.string_data[pos..];
 
@@ -43,12 +56,27 @@ impl<'st> StringRef<'st> {
         // is super fast.
         let terminator_pos = memchr(TERMINATOR, slice_to_search).unwrap();
 
+        // Check if this is a string containing a single StringId component
+        let first_byte = self.table.string_data[pos];
+        const STRING_ID_SIZE: usize = std::mem::size_of::<StringId>();
+        if terminator_pos == pos + STRING_ID_SIZE && is_utf8_continuation_byte(first_byte) {
+            let id = decode_string_id_from_data(&self.table.string_data[pos..pos+STRING_ID_SIZE]);
+            return StringRef {
+                id,
+                table: self.table,
+            }.to_string();
+        }
+
         // Decode the bytes until the terminator. If there is a string id in
         // between somewhere this will fail, and we fall back to the allocating
         // path.
         if let Ok(s) = std::str::from_utf8(&slice_to_search[..terminator_pos]) {
             Cow::from(s)
         } else {
+            // This is the slow path where we actually allocate a `String` on
+            // the heap and expand into that. If you suspect that there is a
+            // bug in the fast path above, you can easily check if always taking
+            // the slow path fixes the issue.
             let mut output = String::new();
             self.write_to_string(&mut output);
             Cow::from(output)
@@ -56,7 +84,15 @@ impl<'st> StringRef<'st> {
     }
 
     pub fn write_to_string(&self, output: &mut String) {
-        let addr = self.table.index[&self.id];
+
+        let addr = match self.get_addr() {
+            Ok(addr) => addr,
+            Err(_) => {
+                output.push_str(UNKNOWN_STRING);
+                return
+            }
+        };
+
         let mut pos = addr.as_usize();
 
         loop {
@@ -64,15 +100,9 @@ impl<'st> StringRef<'st> {
 
             if byte == TERMINATOR {
                 return;
-            } else if (byte & UTF8_CONTINUATION_MASK) == UTF8_CONTINUATION_BYTE {
-                // This is a string-id
-                let id = BigEndian::read_u32(&self.table.string_data[pos..pos + 4]);
-
-                // Mask off the `0b10` prefix
-                let id = id & STRING_ID_MASK;
-
+            } else if is_utf8_continuation_byte(byte) {
                 let string_ref = StringRef {
-                    id: StringId::reserved(id),
+                    id: decode_string_id_from_data(&self.table.string_data[pos..pos + 4]),
                     table: self.table,
                 };
 
@@ -87,6 +117,32 @@ impl<'st> StringRef<'st> {
             }
         }
     }
+
+    fn get_addr(&self) -> Result<Addr, ()> {
+        if self.id.is_virtual() {
+            match self.table.index.get(&self.id) {
+                Some(&addr) => Ok(addr),
+                None => Err(()),
+            }
+        } else {
+            Ok(self.id.to_addr())
+        }
+    }
+}
+
+fn is_utf8_continuation_byte(byte: u8) -> bool {
+    // See module-level documentation for more information on the encoding.
+    const UTF8_CONTINUATION_MASK: u8 = 0b1100_0000;
+    const UTF8_CONTINUATION_BYTE: u8 = 0b1000_0000;
+    (byte & UTF8_CONTINUATION_MASK) == UTF8_CONTINUATION_BYTE
+}
+
+// String IDs in the table data are encoded in big endian format, while string
+// IDs in the index are encoded in little endian format. Don't mix the two up.
+fn decode_string_id_from_data(bytes: &[u8]) -> StringId {
+    let id = BigEndian::read_u32(&bytes[0..4]);
+    // Mask off the `0b10` prefix
+    StringId::new(id & STRING_ID_MASK)
 }
 
 // Tries to decode a UTF-8 codepoint starting at the beginning of `bytes`.
@@ -181,7 +237,7 @@ impl StringTable {
     }
 
     pub fn get_metadata<'a>(&'a self) -> StringRef<'a> {
-        let id = StringId::reserved(METADATA_STRING_ID);
+        let id = StringId::new(METADATA_STRING_ID);
         self.get(id)
     }
 }

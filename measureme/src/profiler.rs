@@ -68,12 +68,21 @@ impl<S: SerializationSink> Profiler<S> {
     }
 
     #[inline(always)]
-    pub fn alloc_string_with_reserved_id<STR: SerializableString + ?Sized>(
+    pub fn map_virtual_to_concrete_string(&self, virtual_id: StringId, concrete_id: StringId) {
+        self.string_table
+            .map_virtual_to_concrete_string(virtual_id, concrete_id);
+    }
+
+    #[inline(always)]
+    pub fn bulk_map_virtual_to_single_concrete_string<I>(
         &self,
-        id: StringId,
-        s: &STR,
-    ) -> StringId {
-        self.string_table.alloc_with_reserved_id(id, s)
+        virtual_ids: I,
+        concrete_id: StringId,
+    ) where
+        I: Iterator<Item = StringId> + ExactSizeIterator,
+    {
+        self.string_table
+            .bulk_map_virtual_to_single_concrete_string(virtual_ids, concrete_id);
     }
 
     #[inline(always)]
@@ -92,6 +101,7 @@ impl<S: SerializationSink> Profiler<S> {
 
     /// Creates a "start" event and returns a `TimingGuard` that will create
     /// the corresponding "end" event when it is dropped.
+    #[inline]
     pub fn start_recording_interval_event<'a>(
         &'a self,
         event_kind: StringId,
