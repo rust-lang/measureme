@@ -1,6 +1,6 @@
+use parking_lot::Mutex;
 use std::error::Error;
 use std::path::Path;
-use parking_lot::Mutex;
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub struct Addr(pub u32);
@@ -14,9 +14,23 @@ impl Addr {
 pub trait SerializationSink: Sized + Send + Sync + 'static {
     fn from_path(path: &Path) -> Result<Self, Box<dyn Error>>;
 
+    /// Atomically write `num_bytes` to the sink. The implementation must ensure
+    /// that concurrent invocations of `write_atomic` do not conflict with each
+    /// other.
+    ///
+    /// The `write` argument is a function that must fill the output buffer
+    /// passed to it. The output buffer is guaranteed to be exactly `num_bytes`
+    /// large.
     fn write_atomic<W>(&self, num_bytes: usize, write: W) -> Addr
     where
         W: FnOnce(&mut [u8]);
+
+    /// Same as write_atomic() but might be faster in cases where bytes to be
+    /// written are already present in a buffer (as opposed to when it is
+    /// benefical to directly serialize into the output buffer).
+    fn write_bytes_atomic(&self, bytes: &[u8]) -> Addr {
+        self.write_atomic(bytes.len(), |sink| sink.copy_from_slice(bytes))
+    }
 }
 
 /// A `SerializationSink` that writes to an internal `Vec<u8>` and can be
