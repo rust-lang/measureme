@@ -26,14 +26,14 @@ fn generate_profiling_data<S: SerializationSink>(
 ) -> Vec<Event<'static>> {
     let profiler = Arc::new(Profiler::<S>::new(Path::new(filestem)).unwrap());
 
-    let event_id_reserved = StringId::reserved(42);
+    let event_id_virtual = StringId::new_virtual(42);
 
     let event_ids = vec![
         (
             profiler.alloc_string("Generic"),
             profiler.alloc_string("SomeGenericActivity"),
         ),
-        (profiler.alloc_string("Query"), event_id_reserved),
+        (profiler.alloc_string("Query"), event_id_virtual),
     ];
 
     // This and event_ids have to match!
@@ -73,7 +73,10 @@ fn generate_profiling_data<S: SerializationSink>(
 
     // An example of allocating the string contents of an event id that has
     // already been used
-    profiler.alloc_string_with_reserved_id(event_id_reserved, "SomeQuery");
+    profiler.map_virtual_to_concrete_string(
+        event_id_virtual,
+        profiler.alloc_string("SomeQuery")
+    );
 
     expected_events
 }

@@ -42,9 +42,11 @@
 //! Each string in the table is referred to via a `StringId`. `StringId`s may
 //! be generated in two ways:
 //!
-//!   1. Calling `StringTable::alloc()` which returns the `StringId` for the
-//!      allocated string.
-//!   2. Calling `StringTable::alloc_with_reserved_id()` and `StringId::reserved()`.
+//!   1. Calling `StringTableBuilder::alloc()` which returns the `StringId` for
+//!      the allocated string.
+//!   2. Calling `StringId::new_virtual()` to create a "virtual" `StringId` that
+//!      later can be mapped to an actual string via
+//!      `StringTableBuilder::map_virtual_to_concrete_string()`.
 //!
 //! String IDs allow you to deduplicate strings by allocating a string
 //! once and then referring to it by id over and over. This is a useful trick
@@ -53,10 +55,10 @@
 //!
 //! `StringId`s are partitioned according to type:
 //!
-//! > [0 .. MAX_PRE_RESERVED_STRING_ID, METADATA_STRING_ID, .. ]
+//! > [0 .. MAX_VIRTUAL_STRING_ID, METADATA_STRING_ID, .. ]
 //!
-//! From `0` to `MAX_PRE_RESERVED_STRING_ID` are the allowed values for reserved strings.
-//! After `MAX_PRE_RESERVED_STRING_ID`, there is one string id (`METADATA_STRING_ID`) which is used
+//! From `0` to `MAX_VIRTUAL_STRING_ID` are the allowed values for virtual strings.
+//! After `MAX_VIRTUAL_STRING_ID`, there is one string id (`METADATA_STRING_ID`) which is used
 //! internally by `measureme` to record additional metadata about the profiling session.
 //! After `METADATA_STRING_ID` are all other `StringId` values.
 //!
@@ -66,24 +68,52 @@ use crate::file_header::{
 };
 use crate::serialization::{Addr, SerializationSink};
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
-/// A `StringId` is used to identify a string in the `StringTable`.
+/// A `StringId` is used to identify a string in the `StringTable`. It is
+/// either a regular `StringId`, meaning that it contains the absolute address
+/// of a string within the string table data. Or it is "virtual", which means
+/// that the address it points to is resolved via the string table index data,
+/// that maps virtual `StringId`s to addresses.
 #[derive(Clone, Copy, Eq, PartialEq, Debug, Hash)]
 #[repr(C)]
 pub struct StringId(u32);
 
 impl StringId {
+    pub const INVALID: StringId = StringId(INVALID_STRING_ID);
+
     #[inline]
-    pub fn reserved(id: u32) -> StringId {
-        assert!(id == id & STRING_ID_MASK);
+    pub fn new(id: u32) -> StringId {
+        assert!(id <= MAX_STRING_ID);
         StringId(id)
+    }
+
+    #[inline]
+    pub fn new_virtual(id: u32) -> StringId {
+        assert!(id <= MAX_USER_VIRTUAL_STRING_ID);
+        StringId(id)
+    }
+
+    #[inline]
+    pub fn is_virtual(self) -> bool {
+        self.0 <= METADATA_STRING_ID
     }
 
     #[inline]
     pub fn as_u32(self) -> u32 {
         self.0
+    }
+
+    #[inline]
+    pub fn from_addr(addr: Addr) -> StringId {
+        let id = addr.0 + FIRST_REGULAR_STRING_ID;
+        StringId::new(id)
+    }
+
+    #[inline]
+    pub fn to_addr(self) -> Addr {
+        assert!(self.0 >= FIRST_REGULAR_STRING_ID);
+        Addr(self.0 - FIRST_REGULAR_STRING_ID)
     }
 }
 
@@ -94,17 +124,21 @@ pub const TERMINATOR: u8 = 0xFF;
 pub const MAX_STRING_ID: u32 = 0x3FFF_FFFF;
 pub const STRING_ID_MASK: u32 = 0x3FFF_FFFF;
 
-/// The maximum id value a prereserved string may be.
-const MAX_PRE_RESERVED_STRING_ID: u32 = MAX_STRING_ID / 2;
+/// The maximum id value a virtual string may be.
+const MAX_USER_VIRTUAL_STRING_ID: u32 = 100_000_000;
 
 /// The id of the profile metadata string entry.
-pub const METADATA_STRING_ID: u32 = MAX_PRE_RESERVED_STRING_ID + 1;
+pub const METADATA_STRING_ID: u32 = MAX_USER_VIRTUAL_STRING_ID + 1;
+
+/// Some random string ID that we make sure cannot be generated or assigned to.
+const INVALID_STRING_ID: u32 = METADATA_STRING_ID + 1;
+
+pub const FIRST_REGULAR_STRING_ID: u32 = INVALID_STRING_ID + 1;
 
 /// Write-only version of the string table
 pub struct StringTableBuilder<S: SerializationSink> {
     data_sink: Arc<S>,
     index_sink: Arc<S>,
-    id_counter: AtomicU32, // initialized to METADATA_STRING_ID + 1
 }
 
 /// Anything that implements `SerializableString` can be written to a
@@ -233,41 +267,63 @@ impl<S: SerializationSink> StringTableBuilder<S> {
         StringTableBuilder {
             data_sink,
             index_sink,
-            id_counter: AtomicU32::new(METADATA_STRING_ID + 1),
         }
     }
 
-    pub fn alloc_with_reserved_id<STR: SerializableString + ?Sized>(
-        &self,
-        id: StringId,
-        s: &STR,
-    ) -> StringId {
-        assert!(id.0 <= MAX_PRE_RESERVED_STRING_ID);
-        self.alloc_unchecked(id, s);
-        id
+    /// Creates a mapping so that `virtual_id` will resolve to the contents of
+    /// `concrete_id` when reading the string table.
+    pub fn map_virtual_to_concrete_string(&self, virtual_id: StringId, concrete_id: StringId) {
+        // This assertion does not use `is_virtual` on purpose because that
+        // would also allow to overwrite `METADATA_STRING_ID`.
+        assert!(virtual_id.0 <= MAX_USER_VIRTUAL_STRING_ID);
+        serialize_index_entry(&*self.index_sink, virtual_id, concrete_id.to_addr());
     }
 
-    pub(crate) fn alloc_metadata<STR: SerializableString + ?Sized>(&self, s: &STR) -> StringId {
-        let id = StringId(METADATA_STRING_ID);
-        self.alloc_unchecked(id, s);
-        id
+    pub fn bulk_map_virtual_to_single_concrete_string<I>(
+        &self,
+        virtual_ids: I,
+        concrete_id: StringId,
+    ) where
+        I: Iterator<Item = StringId> + ExactSizeIterator,
+    {
+        // TODO: Index data encoding could have special bulk mode that assigns
+        //       multiple StringIds to the same addr, so we don't have to repeat
+        //       the `concrete_id` over and over.
+
+        type MappingEntry = [u32; 2];
+        assert!(std::mem::size_of::<MappingEntry>() == 8);
+
+        let to_addr_le = concrete_id.to_addr().0.to_le();
+
+        let serialized: Vec<MappingEntry> = virtual_ids
+            .map(|from| {
+                let id = from.0;
+                assert!(id <= MAX_USER_VIRTUAL_STRING_ID);
+                [id.to_le(), to_addr_le]
+            })
+            .collect();
+
+        let num_bytes = serialized.len() * std::mem::size_of::<MappingEntry>();
+        let byte_ptr = serialized.as_ptr() as *const u8;
+
+        let bytes = unsafe { std::slice::from_raw_parts(byte_ptr, num_bytes) };
+
+        self.index_sink.write_bytes_atomic(bytes);
+    }
+
+    pub(crate) fn alloc_metadata<STR: SerializableString + ?Sized>(&self, s: &STR) {
+        let concrete_id = self.alloc(s);
+        let virtual_id = StringId(METADATA_STRING_ID);
+        assert!(virtual_id.is_virtual());
+        serialize_index_entry(&*self.index_sink, virtual_id, concrete_id.to_addr());
     }
 
     pub fn alloc<STR: SerializableString + ?Sized>(&self, s: &STR) -> StringId {
-        let id = StringId(self.id_counter.fetch_add(1, Ordering::SeqCst));
-        assert!(id.0 > METADATA_STRING_ID);
-        assert!(id.0 <= MAX_STRING_ID);
-        self.alloc_unchecked(id, s);
-        id
-    }
-
-    #[inline]
-    fn alloc_unchecked<STR: SerializableString + ?Sized>(&self, id: StringId, s: &STR) {
         let size_in_bytes = s.serialized_size();
         let addr = self.data_sink.write_atomic(size_in_bytes, |mem| {
             s.serialize(mem);
         });
 
-        serialize_index_entry(&*self.index_sink, id, addr);
+        StringId::from_addr(addr)
     }
 }
