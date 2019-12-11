@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0] - 2019-12-11
+### Added
+- `measureme`: Added `SerializationSink::write_bytes_atomic` that optimizes handling of existing buffers ([GH-97])
+
+### Changed
+- `summarize`: Fixed a crash when incr_cache_load events would have child events ([GH-93])
+- `measureme`: Replaced notion of "reserved" StringIds with simpler "virtual" StringIds ([GH-98])
+
 ## [0.5.0] - 2019-12-02
 ### Added
 - `flamegraph`: new tool that uses the `inferno` crate to generate flamegraph svg files ([GH-73])
@@ -54,3 +62,6 @@
 [GH-84]: https://github.com/rust-lang/measureme/pull/84
 [GH-87]: https://github.com/rust-lang/measureme/pull/87
 [GH-90]: https://github.com/rust-lang/measureme/pull/90
+[GH-93]: https://github.com/rust-lang/measureme/pull/93
+[GH-97]: https://github.com/rust-lang/measureme/pull/97
+[GH-98]: https://github.com/rust-lang/measureme/pull/98
