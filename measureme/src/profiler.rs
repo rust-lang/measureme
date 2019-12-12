@@ -155,3 +155,15 @@ impl<'a, S: SerializationSink> Drop for TimingGuard<'a, S> {
         self.profiler.record_raw_event(&raw_event);
     }
 }
+
+impl<'a, S: SerializationSink> TimingGuard<'a, S> {
+
+    /// This method set a new `event_id` right before actually recording the
+    /// event.
+    #[inline]
+    pub fn finish_with_override_event_id(mut self, event_id: StringId) {
+        self.event_id = event_id;
+        // Let's be explicit about it: Dropping the guard will record the event.
+        drop(self)
+    }
+}
