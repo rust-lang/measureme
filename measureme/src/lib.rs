@@ -37,6 +37,7 @@
 
 #![deny(warnings)]
 
+mod event_id;
 pub mod file_header;
 #[cfg(any(not(target_arch = "wasm32"), target_os = "wasi"))]
 mod file_serialization_sink;
@@ -49,6 +50,7 @@ pub mod stringtable;
 
 pub mod rustc;
 
+pub use crate::event_id::EventIdBuilder;
 #[cfg(any(not(target_arch = "wasm32"), target_os = "wasi"))]
 pub use crate::file_serialization_sink::FileSerializationSink;
 #[cfg(not(target_arch = "wasm32"))]

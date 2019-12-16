@@ -1,6 +1,6 @@
 use crate::timestamp::Timestamp;
 use crate::{Event, ProfilingData};
-use measureme::{Profiler, SerializationSink, StringId};
+use measureme::{EventIdBuilder, Profiler, SerializationSink, StringId};
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
 use std::default::Default;
@@ -18,6 +18,27 @@ fn mk_filestem(file_name_stem: &str) -> PathBuf {
     path
 }
 
+#[derive(Clone)]
+struct ExpectedEvent {
+    kind: Cow<'static, str>,
+    label: Cow<'static, str>,
+    args: Vec<Cow<'static, str>>,
+}
+
+impl ExpectedEvent {
+    fn new(
+        kind: &'static str,
+        label: &'static str,
+        args: &[&'static str]
+    ) -> ExpectedEvent {
+        ExpectedEvent {
+            kind: Cow::from(kind),
+            label: Cow::from(label),
+            args: args.iter().map(|&x| Cow::from(x)).collect(),
+        }
+    }
+}
+
 // Generate some profiling data. This is the part that would run in rustc.
 fn generate_profiling_data<S: SerializationSink>(
     filestem: &Path,
@@ -28,25 +49,34 @@ fn generate_profiling_data<S: SerializationSink>(
 
     let event_id_virtual = StringId::new_virtual(42);
 
+    let event_id_builder = EventIdBuilder::new(&profiler);
+
     let event_ids = vec![
         (
             profiler.alloc_string("Generic"),
             profiler.alloc_string("SomeGenericActivity"),
         ),
         (profiler.alloc_string("Query"), event_id_virtual),
+        (
+            profiler.alloc_string("QueryWithArg"),
+            event_id_builder.from_label_and_arg(
+                profiler.alloc_string("AQueryWithArg"),
+                profiler.alloc_string("some_arg")
+            ),
+        ),
     ];
 
     // This and event_ids have to match!
-    let mut event_ids_as_str: FxHashMap<_, _> = Default::default();
-    event_ids_as_str.insert(event_ids[0].0, "Generic");
-    event_ids_as_str.insert(event_ids[0].1, "SomeGenericActivity");
-    event_ids_as_str.insert(event_ids[1].0, "Query");
-    event_ids_as_str.insert(event_ids[1].1, "SomeQuery");
+    let expected_events_templates = vec![
+        ExpectedEvent::new("Generic", "SomeGenericActivity", &[]),
+        ExpectedEvent::new("Query", "SomeQuery", &[]),
+        ExpectedEvent::new("QueryWithArg", "AQueryWithArg", &["some_arg"]),
+    ];
 
     let threads: Vec<_> = (0.. num_threads).map(|thread_id| {
         let event_ids = event_ids.clone();
         let profiler = profiler.clone();
-        let event_ids_as_str = event_ids_as_str.clone();
+        let expected_events_templates = expected_events_templates.clone();
 
         std::thread::spawn(move || {
             let mut expected_events = Vec::new();
@@ -60,7 +90,7 @@ fn generate_profiling_data<S: SerializationSink>(
                     thread_id as u32,
                     4,
                     &event_ids[..],
-                    &event_ids_as_str,
+                    &expected_events_templates,
                     &mut expected_events,
                 );
             }
@@ -166,14 +196,16 @@ fn pseudo_invocation<S: SerializationSink>(
     thread_id: u32,
     recursions_left: usize,
     event_ids: &[(StringId, StringId)],
-    event_ids_as_str: &FxHashMap<StringId, &'static str>,
+    expected_events_templates: &[ExpectedEvent],
     expected_events: &mut Vec<Event<'static>>,
 ) {
     if recursions_left == 0 {
         return;
     }
 
-    let (event_kind, event_id) = event_ids[random % event_ids.len()];
+    let random_event_index = random % event_ids.len();
+
+    let (event_kind, event_id) = event_ids[random_event_index];
 
     let _prof_guard = profiler.start_recording_interval_event(event_kind, event_id, thread_id);
 
@@ -183,19 +215,19 @@ fn pseudo_invocation<S: SerializationSink>(
         thread_id,
         recursions_left - 1,
         event_ids,
-        event_ids_as_str,
+        expected_events_templates,
         expected_events,
     );
 
     expected_events.push(Event {
-        event_kind: Cow::from(event_ids_as_str[&event_kind]),
-        label: Cow::from(event_ids_as_str[&event_id]),
-        additional_data: &[],
+        event_kind: expected_events_templates[random_event_index].kind.clone(),
+        label: expected_events_templates[random_event_index].label.clone(),
+        additional_data: expected_events_templates[random_event_index].args.clone(),
+        thread_id,
         // We can't test this anyway:
         timestamp: Timestamp::Interval {
             start: SystemTime::UNIX_EPOCH,
             end: SystemTime::UNIX_EPOCH,
         },
-        thread_id,
     });
 }
