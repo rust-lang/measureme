@@ -37,7 +37,7 @@
 
 #![deny(warnings)]
 
-mod event_id;
+pub mod event_id;
 pub mod file_header;
 #[cfg(any(not(target_arch = "wasm32"), target_os = "wasi"))]
 mod file_serialization_sink;

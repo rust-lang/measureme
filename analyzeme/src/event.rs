@@ -3,9 +3,6 @@ use memchr::memchr;
 use std::borrow::Cow;
 use std::time::Duration;
 
-const SEPARATOR: u8 = 0x1E;
-const ARG_TAG: u8 = 0x11;
-
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct Event<'a> {
     pub event_kind: Cow<'a, str>,
@@ -78,6 +75,8 @@ struct Parser<'a> {
     pos: usize,
 }
 
+const SEPARATOR_BYTE: u8 = measureme::event_id::SEPARATOR_BYTE.as_bytes()[0];
+
 impl<'a> Parser<'a> {
     fn new(full_text: Cow<'a, [u8]>) -> Parser<'a> {
         Parser { full_text, pos: 0 }
@@ -95,7 +94,7 @@ impl<'a> Parser<'a> {
     fn parse_separator_terminated_text(&mut self) -> Result<Cow<'a, str>, String> {
         let start = self.pos;
 
-        let end = memchr(SEPARATOR, &self.full_text[start..])
+        let end = memchr(SEPARATOR_BYTE, &self.full_text[start..])
             .map(|pos| pos + start)
             .unwrap_or(self.full_text.len());
 
@@ -105,27 +104,23 @@ impl<'a> Parser<'a> {
 
         self.pos = end;
 
+        if self.full_text[start .. end].iter().any(u8::is_ascii_control) {
+            return self.err("Found ASCII control character in <text>");
+        }
+
         Ok(self.substring(start, end))
     }
 
     fn parse_arg(&mut self) -> Result<Cow<'a, str>, String> {
-        if self.peek() != SEPARATOR {
+        if self.peek() != SEPARATOR_BYTE {
             return self.err(&format!(
                 "Expected '\\x{:x}' char at start of <argument>",
-                SEPARATOR
+                SEPARATOR_BYTE
             ));
         }
 
         self.pos += 1;
-        let tag = self.peek();
-
-        match tag {
-            ARG_TAG => {
-                self.pos += 1;
-                self.parse_separator_terminated_text()
-            }
-            other => self.err(&format!("Unexpected argument tag '{:x}'", other)),
-        }
+        self.parse_separator_terminated_text()
     }
 
     fn err<T>(&self, message: &str) -> Result<T, String> {
@@ -163,7 +158,7 @@ mod tests {
 
     #[test]
     fn parse_event_id_one_arg() {
-        let (label, args) = Event::parse_event_id(Cow::from("foo\x1e\x11my_arg"));
+        let (label, args) = Event::parse_event_id(Cow::from("foo\x1emy_arg"));
 
         assert_eq!(label, "foo");
         assert_eq!(args, vec![Cow::from("my_arg")]);
@@ -172,7 +167,7 @@ mod tests {
     #[test]
     fn parse_event_id_n_args() {
         let (label, args) =
-            Event::parse_event_id(Cow::from("foo\x1e\x11arg1\x1e\x11arg2\x1e\x11arg3"));
+            Event::parse_event_id(Cow::from("foo\x1earg1\x1earg2\x1earg3"));
 
         assert_eq!(label, "foo");
         assert_eq!(

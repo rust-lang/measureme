@@ -5,13 +5,17 @@ use crate::{Profiler, SerializationSink, StringComponent, StringId};
 /// ```ignore
 ///   <event_id> = <label> {<argument>}
 ///   <label> = <text>
-///   <argument> = '\x1E' '\x11' <text>
-///   <text> = regex([^0x1E]+) // Anything but the separator byte
+///   <argument> = '\x1E' <text>
+///   <text> = regex([^[[:cntrl:]]]+) // Anything but ASCII control characters
 ///  ```
 ///
 /// This means there's always a "label", followed by an optional list of
 /// arguments. Future versions my support other optional suffixes (with a tag
 /// other than '\x11' after the '\x1E' separator), such as a "category".
+
+
+/// The byte used to separate arguments from the label and each other.
+pub const SEPARATOR_BYTE: &str = "\x1E";
 
 pub struct EventIdBuilder<'p, S: SerializationSink> {
     profiler: &'p Profiler<S>,
@@ -32,7 +36,7 @@ impl<'p, S: SerializationSink> EventIdBuilder<'p, S> {
             // Label
             StringComponent::Ref(label),
             // Seperator and start tag for arg
-            StringComponent::Value("\x1E\x11"),
+            StringComponent::Value(SEPARATOR_BYTE),
             // Arg string id
             StringComponent::Ref(arg),
         ])
