@@ -1,13 +1,13 @@
 use crate::event::Event;
 use crate::lightweight_event::LightweightEvent;
-use crate::StringTable;
 use crate::timestamp::Timestamp;
+use crate::StringTable;
 use measureme::file_header::{
     read_file_header, write_file_header, CURRENT_FILE_FORMAT_VERSION, FILE_HEADER_SIZE,
     FILE_MAGIC_EVENT_STREAM,
 };
 use measureme::ByteVecSink;
-use measureme::{ProfilerFiles, RawEvent, SerializationSink, StringTableBuilder};
+use measureme::{EventId, ProfilerFiles, RawEvent, SerializationSink, StringTableBuilder};
 use serde::{Deserialize, Deserializer};
 use std::error::Error;
 use std::fs;
@@ -94,10 +94,16 @@ impl ProfilingData {
 
         let timestamp = Timestamp::from_raw_event(&raw_event, self.metadata.start_time);
 
+        let event_id = string_table
+            .get(raw_event.event_id.to_string_id())
+            .to_string();
+        // Parse out the label and arguments from the `event_id`.
+        let (label, additional_data) = Event::parse_event_id(event_id);
+
         Event {
             event_kind: string_table.get(raw_event.event_kind).to_string(),
-            label: string_table.get(raw_event.event_id).to_string(),
-            additional_data: &[],
+            label,
+            additional_data,
             timestamp,
             thread_id: raw_event.thread_id,
         }
@@ -226,7 +232,7 @@ impl ProfilingDataBuilder {
         F: FnOnce(&mut Self),
     {
         let event_kind = self.string_table.alloc(event_kind);
-        let event_id = self.string_table.alloc(event_id);
+        let event_id = EventId::from_label(self.string_table.alloc(event_id));
 
         inner(self);
 
@@ -247,7 +253,7 @@ impl ProfilingDataBuilder {
         timestamp_nanos: u64,
     ) -> &mut Self {
         let event_kind = self.string_table.alloc(event_kind);
-        let event_id = self.string_table.alloc(event_id);
+        let event_id = EventId::from_label(self.string_table.alloc(event_id));
 
         let raw_event = RawEvent::new_instant(event_kind, event_id, thread_id, timestamp_nanos);
 
@@ -319,7 +325,7 @@ mod tests {
         Event {
             event_kind: Cow::from(event_kind),
             label: Cow::from(label),
-            additional_data: &[],
+            additional_data: Vec::new(),
             timestamp: Timestamp::Interval {
                 start: SystemTime::UNIX_EPOCH + Duration::from_nanos(start_nanos),
                 end: SystemTime::UNIX_EPOCH + Duration::from_nanos(end_nanos),
@@ -337,7 +343,7 @@ mod tests {
         Event {
             event_kind: Cow::from(event_kind),
             label: Cow::from(label),
-            additional_data: &[],
+            additional_data: Vec::new(),
             timestamp: Timestamp::Instant(
                 SystemTime::UNIX_EPOCH + Duration::from_nanos(timestamp_nanos),
             ),
@@ -399,7 +405,6 @@ mod tests {
         assert_eq!(events[0].to_event(), full_interval("k1", "id1", 0, 10, 100));
         assert_eq!(events[1].to_event(), full_interval("k2", "id2", 1, 100, 110));
         assert_eq!(events[2].to_event(), full_interval("k3", "id3", 0, 120, 140));
-
     }
 
     #[test]

@@ -7,10 +7,10 @@ use measureme::file_header::{
 };
 use measureme::stringtable::{METADATA_STRING_ID, STRING_ID_MASK, TERMINATOR};
 use measureme::{Addr, StringId};
+use memchr::memchr;
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
 use std::error::Error;
-use memchr::memchr;
 
 fn deserialize_index_entry(bytes: &[u8]) -> (StringId, Addr) {
     (

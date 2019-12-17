@@ -1,3 +1,4 @@
+use crate::event_id::EventId;
 use crate::stringtable::StringId;
 
 /// `RawEvent` is how events are stored on-disk. If you change this struct,
@@ -6,7 +7,7 @@ use crate::stringtable::StringId;
 #[repr(C)]
 pub struct RawEvent {
     pub event_kind: StringId,
-    pub event_id: StringId,
+    pub event_id: EventId,
     pub thread_id: u32,
 
     // The following 96 bits store the start and the end timestamp, using
@@ -30,7 +31,7 @@ impl RawEvent {
     #[inline]
     pub fn new_interval(
         event_kind: StringId,
-        event_id: StringId,
+        event_id: EventId,
         thread_id: u32,
         start_nanos: u64,
         end_nanos: u64,
@@ -59,7 +60,7 @@ impl RawEvent {
     #[inline]
     pub fn new_instant(
         event_kind: StringId,
-        event_id: StringId,
+        event_id: EventId,
         thread_id: u32,
         timestamp_ns: u64,
     ) -> RawEvent {
@@ -163,7 +164,7 @@ impl Default for RawEvent {
     fn default() -> Self {
         RawEvent {
             event_kind: StringId::INVALID,
-            event_id: StringId::INVALID,
+            event_id: EventId::INVALID,
             thread_id: 0,
             start_time_lower: 0,
             end_time_lower: 0,
@@ -184,11 +185,11 @@ mod tests {
 
     #[test]
     fn is_instant() {
-        assert!(RawEvent::new_instant(StringId::INVALID, StringId::INVALID, 987, 0,).is_instant());
+        assert!(RawEvent::new_instant(StringId::INVALID, EventId::INVALID, 987, 0,).is_instant());
 
         assert!(RawEvent::new_instant(
             StringId::INVALID,
-            StringId::INVALID,
+            EventId::INVALID,
             987,
             MAX_INSTANT_TIMESTAMP,
         )
@@ -196,7 +197,7 @@ mod tests {
 
         assert!(!RawEvent::new_interval(
             StringId::INVALID,
-            StringId::INVALID,
+            EventId::INVALID,
             987,
             0,
             MAX_INTERVAL_TIMESTAMP,
@@ -209,7 +210,7 @@ mod tests {
     fn invalid_instant_timestamp() {
         let _ = RawEvent::new_instant(
             StringId::INVALID,
-            StringId::INVALID,
+            EventId::INVALID,
             123,
             // timestamp too large
             MAX_INSTANT_TIMESTAMP + 1,
@@ -221,7 +222,7 @@ mod tests {
     fn invalid_start_timestamp() {
         let _ = RawEvent::new_interval(
             StringId::INVALID,
-            StringId::INVALID,
+            EventId::INVALID,
             123,
             // start timestamp too large
             MAX_INTERVAL_TIMESTAMP + 1,
@@ -234,7 +235,7 @@ mod tests {
     fn invalid_end_timestamp() {
         let _ = RawEvent::new_interval(
             StringId::INVALID,
-            StringId::INVALID,
+            EventId::INVALID,
             123,
             0,
             // end timestamp too large
@@ -247,7 +248,7 @@ mod tests {
     fn invalid_end_timestamp2() {
         let _ = RawEvent::new_interval(
             StringId::INVALID,
-            StringId::INVALID,
+            EventId::INVALID,
             123,
             0,
             INSTANT_TIMESTAMP_MARKER,
@@ -259,7 +260,7 @@ mod tests {
     fn start_greater_than_end_timestamp() {
         let _ = RawEvent::new_interval(
             StringId::INVALID,
-            StringId::INVALID,
+            EventId::INVALID,
             123,
             // start timestamp greater than end timestamp
             1,
@@ -270,7 +271,7 @@ mod tests {
     #[test]
     fn start_equal_to_end_timestamp() {
         // This is allowed, make sure we don't panic
-        let _ = RawEvent::new_interval(StringId::INVALID, StringId::INVALID, 123, 1, 1);
+        let _ = RawEvent::new_interval(StringId::INVALID, EventId::INVALID, 123, 1, 1);
     }
 
     #[test]
@@ -278,7 +279,7 @@ mod tests {
         // Check the upper limits
         let e = RawEvent::new_interval(
             StringId::INVALID,
-            StringId::INVALID,
+            EventId::INVALID,
             1234,
             MAX_INTERVAL_TIMESTAMP,
             MAX_INTERVAL_TIMESTAMP,
@@ -288,7 +289,7 @@ mod tests {
         assert_eq!(e.end_nanos(), MAX_INTERVAL_TIMESTAMP);
 
         // Check the lower limits
-        let e = RawEvent::new_interval(StringId::INVALID, StringId::INVALID, 1234, 0, 0);
+        let e = RawEvent::new_interval(StringId::INVALID, EventId::INVALID, 1234, 0, 0);
 
         assert_eq!(e.start_nanos(), 0);
         assert_eq!(e.end_nanos(), 0);
@@ -296,7 +297,7 @@ mod tests {
         // Check that end does not bleed into start
         let e = RawEvent::new_interval(
             StringId::INVALID,
-            StringId::INVALID,
+            EventId::INVALID,
             1234,
             0,
             MAX_INTERVAL_TIMESTAMP,
@@ -308,7 +309,7 @@ mod tests {
         // Test some random values
         let e = RawEvent::new_interval(
             StringId::INVALID,
-            StringId::INVALID,
+            EventId::INVALID,
             1234,
             0x1234567890,
             0x1234567890A,
@@ -321,14 +322,14 @@ mod tests {
     #[test]
     fn instant_timestamp_decoding() {
         assert_eq!(
-            RawEvent::new_instant(StringId::INVALID, StringId::INVALID, 987, 0,).start_nanos(),
+            RawEvent::new_instant(StringId::INVALID, EventId::INVALID, 987, 0,).start_nanos(),
             0
         );
 
         assert_eq!(
             RawEvent::new_instant(
                 StringId::INVALID,
-                StringId::INVALID,
+                EventId::INVALID,
                 987,
                 MAX_INSTANT_TIMESTAMP,
             )
