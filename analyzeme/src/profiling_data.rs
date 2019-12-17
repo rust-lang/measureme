@@ -7,7 +7,7 @@ use measureme::file_header::{
     FILE_MAGIC_EVENT_STREAM,
 };
 use measureme::ByteVecSink;
-use measureme::{ProfilerFiles, RawEvent, SerializationSink, StringTableBuilder};
+use measureme::{EventId, ProfilerFiles, RawEvent, SerializationSink, StringTableBuilder};
 use serde::{Deserialize, Deserializer};
 use std::error::Error;
 use std::fs;
@@ -94,7 +94,9 @@ impl ProfilingData {
 
         let timestamp = Timestamp::from_raw_event(&raw_event, self.metadata.start_time);
 
-        let event_id = string_table.get(raw_event.event_id).to_string();
+        let event_id = string_table
+            .get(raw_event.event_id.to_string_id())
+            .to_string();
         // Parse out the label and arguments from the `event_id`.
         let (label, additional_data) = Event::parse_event_id(event_id);
 
@@ -230,7 +232,7 @@ impl ProfilingDataBuilder {
         F: FnOnce(&mut Self),
     {
         let event_kind = self.string_table.alloc(event_kind);
-        let event_id = self.string_table.alloc(event_id);
+        let event_id = EventId::from_label(self.string_table.alloc(event_id));
 
         inner(self);
 
@@ -251,7 +253,7 @@ impl ProfilingDataBuilder {
         timestamp_nanos: u64,
     ) -> &mut Self {
         let event_kind = self.string_table.alloc(event_kind);
-        let event_id = self.string_table.alloc(event_id);
+        let event_id = EventId::from_label(self.string_table.alloc(event_id));
 
         let raw_event = RawEvent::new_instant(event_kind, event_id, thread_id, timestamp_nanos);
 

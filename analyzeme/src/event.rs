@@ -104,7 +104,7 @@ impl<'a> Parser<'a> {
 
         self.pos = end;
 
-        if self.full_text[start .. end].iter().any(u8::is_ascii_control) {
+        if self.full_text[start..end].iter().any(u8::is_ascii_control) {
             return self.err("Found ASCII control character in <text>");
         }
 
@@ -166,8 +166,7 @@ mod tests {
 
     #[test]
     fn parse_event_id_n_args() {
-        let (label, args) =
-            Event::parse_event_id(Cow::from("foo\x1earg1\x1earg2\x1earg3"));
+        let (label, args) = Event::parse_event_id(Cow::from("foo\x1earg1\x1earg2\x1earg3"));
 
         assert_eq!(label, "foo");
         assert_eq!(

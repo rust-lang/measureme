@@ -1,6 +1,6 @@
 use crate::timestamp::Timestamp;
 use crate::{Event, ProfilingData};
-use measureme::{EventIdBuilder, Profiler, SerializationSink, StringId};
+use measureme::{EventId, EventIdBuilder, Profiler, SerializationSink, StringId};
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
 use std::default::Default;
@@ -26,11 +26,7 @@ struct ExpectedEvent {
 }
 
 impl ExpectedEvent {
-    fn new(
-        kind: &'static str,
-        label: &'static str,
-        args: &[&'static str]
-    ) -> ExpectedEvent {
+    fn new(kind: &'static str, label: &'static str, args: &[&'static str]) -> ExpectedEvent {
         ExpectedEvent {
             kind: Cow::from(kind),
             label: Cow::from(label),
@@ -47,21 +43,20 @@ fn generate_profiling_data<S: SerializationSink>(
 ) -> Vec<Event<'static>> {
     let profiler = Arc::new(Profiler::<S>::new(Path::new(filestem)).unwrap());
 
-    let event_id_virtual = StringId::new_virtual(42);
-
+    let event_id_virtual = EventId::from_label(StringId::new_virtual(42));
     let event_id_builder = EventIdBuilder::new(&profiler);
 
-    let event_ids = vec![
+    let event_ids: Vec<(StringId, EventId)> = vec![
         (
             profiler.alloc_string("Generic"),
-            profiler.alloc_string("SomeGenericActivity"),
+            EventId::from_label(profiler.alloc_string("SomeGenericActivity")),
         ),
         (profiler.alloc_string("Query"), event_id_virtual),
         (
             profiler.alloc_string("QueryWithArg"),
             event_id_builder.from_label_and_arg(
                 profiler.alloc_string("AQueryWithArg"),
-                profiler.alloc_string("some_arg")
+                profiler.alloc_string("some_arg"),
             ),
         ),
     ];
@@ -104,7 +99,7 @@ fn generate_profiling_data<S: SerializationSink>(
     // An example of allocating the string contents of an event id that has
     // already been used
     profiler.map_virtual_to_concrete_string(
-        event_id_virtual,
+        event_id_virtual.to_string_id(),
         profiler.alloc_string("SomeQuery")
     );
 
@@ -195,7 +190,7 @@ fn pseudo_invocation<S: SerializationSink>(
     random: usize,
     thread_id: u32,
     recursions_left: usize,
-    event_ids: &[(StringId, StringId)],
+    event_ids: &[(StringId, EventId)],
     expected_events_templates: &[ExpectedEvent],
     expected_events: &mut Vec<Event<'static>>,
 ) {

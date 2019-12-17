@@ -50,7 +50,7 @@ pub mod stringtable;
 
 pub mod rustc;
 
-pub use crate::event_id::EventIdBuilder;
+pub use crate::event_id::{EventId, EventIdBuilder};
 #[cfg(any(not(target_arch = "wasm32"), target_os = "wasi"))]
 pub use crate::file_serialization_sink::FileSerializationSink;
 #[cfg(not(target_arch = "wasm32"))]
