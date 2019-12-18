@@ -6,6 +6,6 @@ edition = "2018"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-measureme = { path = "../measureme" }
 analyzeme = { path = "../analyzeme" }
+measureme = { path = "../measureme" }
 structopt = "0.2"
