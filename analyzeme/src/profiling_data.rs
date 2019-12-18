@@ -309,6 +309,7 @@ fn event_index_to_addr(event_index: usize) -> usize {
     FILE_HEADER_SIZE + event_index * mem::size_of::<RawEvent>()
 }
 
+#[rustfmt::skip]
 #[cfg(test)]
 mod tests {
     use super::*;

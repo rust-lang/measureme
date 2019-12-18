@@ -68,39 +68,44 @@ fn generate_profiling_data<S: SerializationSink>(
         ExpectedEvent::new("QueryWithArg", "AQueryWithArg", &["some_arg"]),
     ];
 
-    let threads: Vec<_> = (0.. num_threads).map(|thread_id| {
-        let event_ids = event_ids.clone();
-        let profiler = profiler.clone();
-        let expected_events_templates = expected_events_templates.clone();
+    let threads: Vec<_> = (0..num_threads)
+        .map(|thread_id| {
+            let event_ids = event_ids.clone();
+            let profiler = profiler.clone();
+            let expected_events_templates = expected_events_templates.clone();
 
-        std::thread::spawn(move || {
-            let mut expected_events = Vec::new();
+            std::thread::spawn(move || {
+                let mut expected_events = Vec::new();
 
-            for i in 0..num_stacks {
-                // Allocate some invocation stacks
+                for i in 0..num_stacks {
+                    // Allocate some invocation stacks
 
-                pseudo_invocation(
-                    &profiler,
-                    i,
-                    thread_id as u32,
-                    4,
-                    &event_ids[..],
-                    &expected_events_templates,
-                    &mut expected_events,
-                );
-            }
+                    pseudo_invocation(
+                        &profiler,
+                        i,
+                        thread_id as u32,
+                        4,
+                        &event_ids[..],
+                        &expected_events_templates,
+                        &mut expected_events,
+                    );
+                }
 
-            expected_events
+                expected_events
+            })
         })
-    }).collect();
+        .collect();
 
-    let expected_events: Vec<_> = threads.into_iter().flat_map(|t| t.join().unwrap()).collect();
+    let expected_events: Vec<_> = threads
+        .into_iter()
+        .flat_map(|t| t.join().unwrap())
+        .collect();
 
     // An example of allocating the string contents of an event id that has
     // already been used
     profiler.map_virtual_to_concrete_string(
         event_id_virtual.to_string_id(),
-        profiler.alloc_string("SomeQuery")
+        profiler.alloc_string("SomeQuery"),
     );
 
     expected_events
@@ -140,7 +145,10 @@ fn check_profiling_data(
     let expected_events_per_thread = collect_events_per_thread(expected_events);
 
     let thread_ids: Vec<_> = actual_events_per_thread.keys().collect();
-    assert_eq!(thread_ids, expected_events_per_thread.keys().collect::<Vec<_>>());
+    assert_eq!(
+        thread_ids,
+        expected_events_per_thread.keys().collect::<Vec<_>>()
+    );
 
     for thread_id in thread_ids {
         let actual_events = &actual_events_per_thread[thread_id];
@@ -164,22 +172,34 @@ fn check_profiling_data(
     assert_eq!(count, num_expected_events);
 }
 
-fn collect_events_per_thread<'a>(events: &mut dyn Iterator<Item = Event<'a>>) -> FxHashMap<u32, Vec<Event<'a>>> {
+fn collect_events_per_thread<'a>(
+    events: &mut dyn Iterator<Item = Event<'a>>,
+) -> FxHashMap<u32, Vec<Event<'a>>> {
     let mut per_thread: FxHashMap<_, _> = Default::default();
 
     for event in events {
-        per_thread.entry(event.thread_id).or_insert(Vec::new()).push(event);
+        per_thread
+            .entry(event.thread_id)
+            .or_insert(Vec::new())
+            .push(event);
     }
 
     per_thread
 }
 
-pub fn run_serialization_bench<S: SerializationSink>(file_name_stem: &str, num_events: usize, num_threads: usize) {
+pub fn run_serialization_bench<S: SerializationSink>(
+    file_name_stem: &str,
+    num_events: usize,
+    num_threads: usize,
+) {
     let filestem = mk_filestem(file_name_stem);
     generate_profiling_data::<S>(&filestem, num_events, num_threads);
 }
 
-pub fn run_end_to_end_serialization_test<S: SerializationSink>(file_name_stem: &str, num_threads: usize) {
+pub fn run_end_to_end_serialization_test<S: SerializationSink>(
+    file_name_stem: &str,
+    num_threads: usize,
+) {
     let filestem = mk_filestem(file_name_stem);
     let expected_events = generate_profiling_data::<S>(&filestem, 10_000, num_threads);
     process_profiling_data(&filestem, &expected_events);

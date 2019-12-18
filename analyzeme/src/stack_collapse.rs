@@ -66,7 +66,9 @@ pub fn collapse_stacks<'a>(profiling_data: &ProfilingData) -> FxHashMap<String, 
 
         // Add this event to the stack_id
         thread.stack_id.push(';');
-        thread.stack_id.push_str(&current_event.to_event().label[..]);
+        thread
+            .stack_id
+            .push_str(&current_event.to_event().label[..]);
 
         // Update current events self time
         let self_time = counters.entry(thread.stack_id.clone()).or_default();
