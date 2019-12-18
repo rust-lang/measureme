@@ -128,7 +128,11 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
         }
     };
 
-    for current_event in data.iter().rev().map(|lightweight_event| lightweight_event.to_event()) {
+    for current_event in data
+        .iter()
+        .rev()
+        .map(|lightweight_event| lightweight_event.to_event())
+    {
         match current_event.timestamp {
             Timestamp::Instant(_) => {
                 if &current_event.event_kind[..] == QUERY_CACHE_HIT_EVENT_KIND {
@@ -164,21 +168,24 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                 // If there is something on the stack, subtract the current
                 // interval from it.
                 if let Some(current_top) = thread.stack.last() {
-                    record_event_data(&current_top.label, &|data| {
-                        match &current_top.event_kind[..] {
+                    record_event_data(
+                        &current_top.label,
+                        &|data| match &current_top.event_kind[..] {
                             QUERY_EVENT_KIND | GENERIC_ACTIVITY_EVENT_KIND => {
                                 data.self_time -= current_event_duration;
                             }
                             INCREMENTAL_LOAD_RESULT_EVENT_KIND => {
-                                data.incremental_load_time  -= current_event_duration;
+                                data.incremental_load_time -= current_event_duration;
                             }
                             _ => {
-                                eprintln!("Unexpectedly enountered event `{:?}`, \
-                                           while top of stack was `{:?}`. Ignoring.",
-                                           current_event, current_top);
+                                eprintln!(
+                                    "Unexpectedly enountered event `{:?}`, \
+                                     while top of stack was `{:?}`. Ignoring.",
+                                    current_event, current_top
+                                );
                             }
-                        }
-                    });
+                        },
+                    );
                 }
 
                 // Update counters for the current event

@@ -59,10 +59,10 @@ impl<'a> PartialEq for LightweightEvent<'a> {
             timestamp: other_timestamp,
         } = *other;
 
-        std::ptr::eq(data, other_data) &&
-            event_index == other_event_index &&
-            thread_id == other_thread_id &&
-            timestamp == other_timestamp
+        std::ptr::eq(data, other_data)
+            && event_index == other_event_index
+            && thread_id == other_thread_id
+            && timestamp == other_timestamp
     }
 }
 

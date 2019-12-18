@@ -30,17 +30,13 @@ pub struct StringRef<'st> {
 const UNKNOWN_STRING: &str = "<unknown>";
 
 impl<'st> StringRef<'st> {
-
     /// Expands the StringRef into an actual string. This method will
     /// avoid allocating a `String` if it can instead return a `&str` pointing
     /// into the raw string table data.
     pub fn to_string(&self) -> Cow<'st, str> {
-
         let addr = match self.get_addr() {
             Ok(addr) => addr,
-            Err(_) => {
-                return Cow::from(UNKNOWN_STRING)
-            }
+            Err(_) => return Cow::from(UNKNOWN_STRING),
         };
 
         // Try to avoid the allocation, which we can do if this is
@@ -60,11 +56,12 @@ impl<'st> StringRef<'st> {
         let first_byte = self.table.string_data[pos];
         const STRING_ID_SIZE: usize = std::mem::size_of::<StringId>();
         if terminator_pos == pos + STRING_ID_SIZE && is_utf8_continuation_byte(first_byte) {
-            let id = decode_string_id_from_data(&self.table.string_data[pos..pos+STRING_ID_SIZE]);
+            let id = decode_string_id_from_data(&self.table.string_data[pos..pos + STRING_ID_SIZE]);
             return StringRef {
                 id,
                 table: self.table,
-            }.to_string();
+            }
+            .to_string();
         }
 
         // Decode the bytes until the terminator. If there is a string id in
@@ -84,12 +81,11 @@ impl<'st> StringRef<'st> {
     }
 
     pub fn write_to_string(&self, output: &mut String) {
-
         let addr = match self.get_addr() {
             Ok(addr) => addr,
             Err(_) => {
                 output.push_str(UNKNOWN_STRING);
-                return
+                return;
             }
         };
 
