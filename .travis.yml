@@ -1,5 +1,15 @@
 language: rust
+before_install:
+  - rustup target add powerpc64-unknown-linux-gnu
 rust:
   - stable
   - beta
   - nightly
+fast_finish: true
+env:
+  - CARGO_INCREMENTAL=0
+install: skip
+script:
+  - cargo check --verbose --target powerpc64-unknown-linux-gnu --lib --bins --tests || exit 1
+  - cargo build --verbose --all || exit 1
+  - cargo test --verbose --all
