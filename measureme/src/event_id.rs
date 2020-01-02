@@ -44,6 +44,13 @@ impl EventId {
     pub fn from_virtual(virtual_id: StringId) -> EventId {
         EventId(virtual_id)
     }
+
+    /// Create an EventId from a raw u32 value. Only used internally for
+    /// deserialization.
+    #[inline]
+    pub fn from_u32(raw_id: u32) -> EventId {
+        EventId(StringId::new(raw_id))
+    }
 }
 
 pub struct EventIdBuilder<'p, S: SerializationSink> {
