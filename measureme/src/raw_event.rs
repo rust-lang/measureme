@@ -149,8 +149,8 @@ impl RawEvent {
         {
             use byteorder::{ByteOrder, LittleEndian};
             RawEvent {
-                event_kind: StringId::reserved(LittleEndian::read_u32(&bytes[0..])),
-                event_id: StringId::reserved(LittleEndian::read_u32(&bytes[4..])),
+                event_kind: StringId::new(LittleEndian::read_u32(&bytes[0..])),
+                event_id: EventId::from_u32(LittleEndian::read_u32(&bytes[4..])),
                 thread_id: LittleEndian::read_u32(&bytes[8..]),
                 start_time_lower: LittleEndian::read_u32(&bytes[12..]),
                 end_time_lower: LittleEndian::read_u32(&bytes[16..]),
