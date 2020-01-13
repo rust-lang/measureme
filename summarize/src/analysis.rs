@@ -194,6 +194,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                     QUERY_EVENT_KIND | GENERIC_ACTIVITY_EVENT_KIND => {
                         record_event_data(&current_event.label, &|data| {
                             data.self_time += current_event_duration;
+                            data.time += current_event_duration;
                             data.number_of_cache_misses += 1;
                             data.invocation_count += 1;
                         });
@@ -202,6 +203,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                     QUERY_BLOCKED_EVENT_KIND => {
                         record_event_data(&current_event.label, &|data| {
                             data.self_time += current_event_duration;
+                            data.time += current_event_duration;
                             data.blocked_time += current_event_duration;
                         });
                     }
@@ -209,6 +211,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                     INCREMENTAL_LOAD_RESULT_EVENT_KIND => {
                         record_event_data(&current_event.label, &|data| {
                             data.self_time += current_event_duration;
+                            data.time += current_event_duration;
                             data.incremental_load_time += current_event_duration;
                         });
                     }
@@ -493,6 +496,7 @@ mod tests {
 
         assert_eq!(results.query_data_by_label("e1").self_time, Duration::from_nanos(100));
         assert_eq!(results.query_data_by_label("e1").invocation_count, 3);
+        assert_eq!(results.query_data_by_label("e1").time, Duration::from_nanos(180));
     }
 
     #[test]
@@ -514,6 +518,7 @@ mod tests {
 
         assert_eq!(results.query_data_by_label("q1").self_time, Duration::from_nanos(230));
         assert_eq!(results.query_data_by_label("q1").blocked_time, Duration::from_nanos(130));
+        assert_eq!(results.query_data_by_label("q1").time, Duration::from_nanos(230));
     }
 
     #[test]
@@ -535,5 +540,6 @@ mod tests {
 
         assert_eq!(results.query_data_by_label("q1").self_time, Duration::from_nanos(230));
         assert_eq!(results.query_data_by_label("q1").incremental_load_time, Duration::from_nanos(230));
+        assert_eq!(results.query_data_by_label("q1").time, Duration::from_nanos(230));
     }
 }
