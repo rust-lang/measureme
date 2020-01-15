@@ -6,6 +6,7 @@ use std::time::Duration;
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct QueryData {
     pub label: String,
+    pub time: Duration,
     pub self_time: Duration,
     pub number_of_cache_misses: usize,
     pub number_of_cache_hits: usize,
@@ -18,6 +19,7 @@ impl QueryData {
     pub fn new(label: String) -> QueryData {
         QueryData {
             label,
+            time: Duration::from_nanos(0),
             self_time: Duration::from_nanos(0),
             number_of_cache_misses: 0,
             number_of_cache_hits: 0,
@@ -37,6 +39,8 @@ impl QueryData {
 
         QueryDataDiff {
             label: self.label.clone(),
+            time: invert(self.time),
+            time_change: -100.0,
             self_time: invert(self.self_time),
             self_time_change: -100.0,
             number_of_cache_misses: -(self.number_of_cache_misses as i64),
@@ -50,6 +54,8 @@ impl QueryData {
     pub fn as_query_data_diff(&self) -> QueryDataDiff {
         QueryDataDiff {
             label: self.label.clone(),
+            time: self.time.into(),
+            time_change: std::f64::INFINITY,
             self_time: self.self_time.into(),
             self_time_change: std::f64::INFINITY,
             number_of_cache_misses: self.number_of_cache_misses as i64,
@@ -64,6 +70,8 @@ impl QueryData {
 #[derive(Serialize, Deserialize)]
 pub struct QueryDataDiff {
     pub label: String,
+    pub time: SignedDuration,
+    pub time_change: f64,
     pub self_time: SignedDuration,
     pub self_time_change: f64,
     pub number_of_cache_misses: i64,
@@ -89,6 +97,8 @@ impl Sub for QueryData {
 
         QueryDataDiff {
             label: self.label,
+            time: sd(self.time) - sd(rhs.time),
+            time_change: percentage_change(rhs.time, self.time),
             self_time: sd(self.self_time) - sd(rhs.self_time),
             self_time_change: percentage_change(rhs.self_time, self.self_time),
             number_of_cache_misses: i(self.number_of_cache_misses) - i(rhs.number_of_cache_misses),
@@ -101,8 +111,8 @@ impl Sub for QueryData {
 }
 
 fn percentage_change(base: Duration, change: Duration) -> f64 {
-    let self_time_nanos = change.as_nanos() as i128 - base.as_nanos() as i128;
-    self_time_nanos as f64 / base.as_nanos() as f64 * 100.0
+    let nanos = change.as_nanos() as i128 - base.as_nanos() as i128;
+    nanos as f64 / base.as_nanos() as f64 * 100.0
 }
 
 #[derive(Serialize, Deserialize)]
