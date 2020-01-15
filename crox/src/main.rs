@@ -116,6 +116,21 @@ fn generate_thread_to_collapsed_thread_mapping(
     thread_to_collapsed_thread
 }
 
+fn get_args(full_event: &analyzeme::Event) -> Option<FxHashMap<String, String>> {
+    if !full_event.additional_data.is_empty() {
+        Some(
+            full_event
+                .additional_data
+                .iter()
+                .enumerate()
+                .map(|(i, arg)| (format!("arg{}", i).to_string(), arg.to_string()))
+                .collect(),
+        )
+    } else {
+        None
+    }
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
@@ -151,7 +166,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 thread_id: *thread_to_collapsed_thread
                     .get(&event.thread_id)
                     .unwrap_or(&event.thread_id),
-                args: None,
+                args: get_args(&full_event),
             };
             seq.serialize_element(&crox_event)?;
         }
