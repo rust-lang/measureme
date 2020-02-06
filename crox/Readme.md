@@ -6,7 +6,7 @@ Crox (chromium oxide) is a tool to turn trace files from `measureme` into files 
 
 ## Getting started
 
-1. Obtain a sample recorded using `measurme`.
+1. Obtain a sample recorded using `measureme`.
 For example, using the self-profiler in `rustc`:
 
 ```
