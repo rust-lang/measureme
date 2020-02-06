@@ -1,6 +1,6 @@
 # Crox
 
-Crox (chromium oxide) is a tool to turn trace files from `measurme` into files that can be visualized by the Chromium performance tools.
+Crox (chromium oxide) is a tool to turn trace files from `measureme` into files that can be visualized by the Chromium performance tools.
 
 ![Sample image of Chrome Profiler displaying measureme data](../docs/assets/crox_sample.png)
 
