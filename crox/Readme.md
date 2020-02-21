@@ -16,7 +16,10 @@ $ cargo rustc -- -Z self-profile
 2. Run `crox` on the output file:
 
 ```
-$ /path/to/crox pid-{pid}
+$ # Install crox if you haven't done so yet.
+$ cargo install --git https://github.com/rust-lang/measureme crox
+
+$ crox {crate name}-{pid}
 ```
 
 3. Open Chrome
