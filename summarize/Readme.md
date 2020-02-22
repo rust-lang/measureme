@@ -4,17 +4,11 @@ Summarize is a tool to produce a human readable summary of `measureme` profiling
 
 ## Installing summarize
 
-To use this tool you will first want to build it. To do this follow the steps
-below:
+To use this tool you will first want to install it:
 
 ```bash
-$ git clone https://github.com/rust-lang/measureme.git
-$ cd measureme/summarize
-$ cargo +nightly build --release
+$ cargo install --git https://github.com/rust-lang/measureme summarize
 ```
-
-This will compile the `summarize` binary which we will need later. It will be located in
-the `measureme/target/release` folder (ie. not in the `summarize` folder).
 
 ## Profiling the nightly compiler
 
@@ -39,11 +33,11 @@ have three files in your directory named `pid-{pid}.events`, `pid-{pid}.string_d
 `pid-{pid}.string_index`, which contain the profiler data. (If you just got a
 `regex.profile_events.json` file instead, your compiler is too old.)
 
-You can now use the `summarize` tool we compiled in the previous section to view the
+You can now use the `summarize` tool we installed in the previous section to view the
 contents of these files:
 
 ```bash
-$ /path/to/measureme/target/release/summarize summarize id-{pid}
+$ summarize summarize id-{pid}
 +------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
 | Item                   | Self time | % of total time | Item count | Cache hits | Blocked time | Incremental load time |
 +------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
@@ -98,7 +92,7 @@ as before: (with regex as example)
 $ git clone https://github.com/rust-lang/regex.git
 $ cd regex
 $ cargo +mytoolchain rustc -- -Z self-profile
-$ /path/to/measureme/target/release/summarize summarize pid-{pid}
+$ summarize summarize pid-{pid}
 +------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
 | Item                   | Self time | % of total time | Item count | Cache hits | Blocked time | Incremental load time |
 +------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
@@ -152,7 +146,7 @@ The `diff` sub command allows you to compare the performance of two different pr
 The output is a table like that of the `summarize` sub command but it instead shows the differences in each metric.
 
 ```bash
-$ /path/to/measureme/target/release/summarize diff base-profile changed-profile
+$ summarize diff base-profile changed-profile
 +---------------------------+--------------+------------+------------+--------------+-----------------------+
 | Item                      | Self Time    | Item count | Cache hits | Blocked time | Incremental load time |
 +---------------------------+--------------+------------+------------+--------------+-----------------------+

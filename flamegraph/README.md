@@ -5,13 +5,17 @@ flamegraph is a tool to produce [Flame Graph](https://github.com/brendangregg/Fl
 ## Example
 
 ```bash
+# Install flamegraph if you haven't done so yet.
+
+$ cargo install --git https://github.com/rust-lang/measureme flamegraph
+
 $ git clone https://github.com/rust-lang/regex.git
 
 $ cd regex
 
 $ cargo rustc -- -Z self-profile
 
-$ flamegraph pid-{pid}
+$ flamegraph regex-{pid}
 
 $ open rustc.svg
 ```
