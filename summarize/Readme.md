@@ -76,7 +76,7 @@ You can also profile your own custom build of rustc. First you'll have to clone 
 [here][compiling-rust], but if you've never built rustc before, we suggest starting with
 
 [rust-repo]: https://github.com/rust-lang/rust
-[compiling-rust]: https://rust-lang.github.io/rustc-dev-guide/building/how-to-build-and-run.html
+[compiling-rust]: https://rustc-dev-guide.rust-lang.org/building/how-to-build-and-run.html
 
 ```bash
 $ git clone https://github.com/rust-lang/rust.git
@@ -135,7 +135,7 @@ summarize the information for that event.
  * The `Incremental load time` is the time spent loading the result of a query from a
    previous incremental build. This is analogous to `Cache hits`.
 
-[query]: https://rust-lang.github.io/rustc-dev-guide/query.html
+[query]: https://rustc-dev-guide.rust-lang.org/query.html
 
 The table is sorted by `Self time` descending.
 
