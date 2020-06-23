@@ -179,11 +179,10 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                                 data.incremental_load_time -= current_event_duration;
                             }
                             _ => {
-                                eprintln!(
-                                    "Unexpectedly enountered event `{:?}`, \
-                                     while top of stack was `{:?}`. Ignoring.",
-                                    current_event, current_top
-                                );
+                                // Data sources other than rustc will use their own event kinds so
+                                // just treat this like a GENERIC_ACTIVITY except that we don't
+                                // track cache misses since those may not apply to all data sources.
+                                data.self_time -= current_event_duration;
                             }
                         },
                     );
@@ -216,11 +215,15 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                         });
                     }
 
-                    unknown_event_kind => {
-                        eprintln!(
-                            "Ignoring event with unknown event kind `{}`",
-                            unknown_event_kind
-                        );
+                    _ => {
+                        // Data sources other than rustc will use their own event kinds so just
+                        // treat this like a GENERIC_ACTIVITY except that we don't track cache
+                        // misses since those may not apply to all data sources.
+                        record_event_data(&current_event.label, &|data| {
+                            data.self_time += current_event_duration;
+                            data.time += current_event_duration;
+                            data.invocation_count += 1;
+                        });
                     }
                 };
 
