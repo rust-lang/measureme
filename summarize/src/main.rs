@@ -5,9 +5,9 @@ use analyzeme::ProfilingData;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
-use prettytable::Table;
+use prettytable::{Cell, Row, Table};
 use serde::Serialize;
 use structopt::StructOpt;
 
@@ -151,16 +151,49 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error>> {
 
     let mut table = Table::new();
 
-    table.add_row(row![
-        "Item",
-        "Self time",
-        "% of total time",
-        "Time",
-        "Item count",
-        "Cache hits",
-        "Blocked time",
-        "Incremental load time",
-    ]);
+    let mut has_cache_hits = false;
+    let mut has_blocked_time = false;
+    let mut has_incremental_load_time = false;
+
+    let duration_zero = Duration::from_secs(0);
+    for r in &results.query_data {
+        if r.number_of_cache_hits > 0 {
+            has_cache_hits = true;
+        }
+        if r.blocked_time > duration_zero {
+            has_blocked_time = true;
+        }
+        if r.incremental_load_time > duration_zero {
+            has_incremental_load_time = true;
+        }
+
+        if has_cache_hits && has_blocked_time && has_incremental_load_time {
+            break;
+        }
+    }
+
+    // Don't show the cache hits, blocked time or incremental load time unless there are values
+    // to display.
+    let columns = &[
+        ("Item", true),
+        ("Self time", true),
+        ("% of total time", true),
+        ("Time", true),
+        ("Item count", true),
+        ("Cache hits", has_cache_hits),
+        ("Blocked time", has_blocked_time),
+        ("Incremental load time", has_incremental_load_time),
+    ];
+
+    fn filter_cells(cells: &[(&str, bool)]) -> Vec<Cell> {
+        cells
+            .iter()
+            .filter(|(_, show)| *show)
+            .map(|(cell, _)| Cell::new(cell))
+            .collect()
+    }
+
+    table.add_row(Row::new(filter_cells(columns)));
 
     let total_time = results.total_time.as_nanos() as f64;
     let mut percent_total_time: f64 = 0.0;
@@ -173,16 +206,27 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error>> {
 
         percent_total_time = percent_total_time + curr_percent;
 
-        table.add_row(row![
-            query_data.label,
-            format!("{:.2?}", query_data.self_time),
-            format!("{:.3}", curr_percent),
-            format!("{:.2?}", query_data.time),
-            format!("{}", query_data.invocation_count),
-            format!("{}", query_data.number_of_cache_hits),
-            format!("{:.2?}", query_data.blocked_time),
-            format!("{:.2?}", query_data.incremental_load_time),
-        ]);
+        // Don't show the cache hits, blocked time or incremental load time columns unless there is
+        // data to show.
+        table.add_row(Row::new(filter_cells(&[
+            (&query_data.label, true),
+            (&format!("{:.2?}", query_data.self_time), true),
+            (&format!("{:.3}", curr_percent), true),
+            (&format!("{:.2?}", query_data.time), true),
+            (&format!("{}", query_data.invocation_count), true),
+            (
+                &format!("{}", query_data.number_of_cache_hits),
+                has_cache_hits,
+            ),
+            (
+                &format!("{:.2?}", query_data.blocked_time),
+                has_blocked_time,
+            ),
+            (
+                &format!("{:.2?}", query_data.incremental_load_time),
+                has_incremental_load_time,
+            ),
+        ])));
     }
 
     table.printstd();
