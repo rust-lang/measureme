@@ -13,3 +13,4 @@ script:
   - cargo check --verbose --target powerpc64-unknown-linux-gnu --lib --bins --tests || exit 1
   - cargo build --verbose --all || exit 1
   - cargo test --verbose --all
+  - cargo doc --verbose --all
