@@ -1,11 +1,11 @@
 [workspace]
 
 members = [
+    "analyzeme",
     "crox",
+    "flamegraph",
     "measureme",
     "mmview",
     "stack_collapse",
     "summarize",
-    "analyzeme",
-    "flamegraph",
 ]
