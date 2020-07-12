@@ -17,7 +17,7 @@ struct Inner {
 }
 
 impl SerializationSink for FileSerializationSink {
-    fn from_path(path: &Path) -> Result<Self, Box<dyn Error>> {
+    fn from_path(path: &Path) -> Result<Self, Box<dyn Error + Send + Sync>> {
         fs::create_dir_all(path.parent().unwrap())?;
 
         let file = fs::File::create(path)?;

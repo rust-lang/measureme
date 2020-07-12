@@ -12,7 +12,7 @@ impl Addr {
 }
 
 pub trait SerializationSink: Sized + Send + Sync + 'static {
-    fn from_path(path: &Path) -> Result<Self, Box<dyn Error>>;
+    fn from_path(path: &Path) -> Result<Self, Box<dyn Error + Send + Sync>>;
 
     /// Atomically write `num_bytes` to the sink. The implementation must ensure
     /// that concurrent invocations of `write_atomic` do not conflict with each
@@ -53,7 +53,7 @@ impl ByteVecSink {
 }
 
 impl SerializationSink for ByteVecSink {
-    fn from_path(_path: &Path) -> Result<Self, Box<dyn Error>> {
+    fn from_path(_path: &Path) -> Result<Self, Box<dyn Error + Send + Sync>> {
         unimplemented!()
     }
 
