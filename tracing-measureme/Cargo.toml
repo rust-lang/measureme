@@ -1,0 +1,19 @@
+[package]
+name = "tracing-measureme"
+version = "0.1.0"
+authors = ["Simonas Kazlauskas <tracing-measureme@kazlauskas.me>"]
+edition = "2018"
+description = "Tracing subscriber that outputs measureme"
+license = "MIT OR Apache-2.0"
+documentation = "https://docs.rs/tracing-measureme"
+homepage = "https://github.com/rust-lang/measureme"
+repository = "https://github.com/rust-lang/measureme"
+
+[dependencies]
+measureme = { version = "0.7.1", path = "../measureme" }
+tracing-core = { version = "0.1", default-features = false }
+tracing-subscriber = { version = "0.2", default-features = false, features = ["registry"] }
+thread-id = { version = "3" }
+
+[dev-dependencies]
+tracing = { version = "0.1", default-features = false, features = ["std"] }
