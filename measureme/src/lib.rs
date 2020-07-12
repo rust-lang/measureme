@@ -13,29 +13,32 @@
 //! To create a [`Profiler`], call the [`Profiler::new()`] function and provide a `Path` with
 //! the directory and file name for the trace files.
 //!
-//! To record an event, call the [`Profiler::record_instant_event()`] method, passing a few arguments:
+//! To record an event, call the [`Profiler::record_instant_event()`] method, passing a few
+//! arguments:
 //!   - `event_kind`: a [`StringId`] which assigns an arbitrary category to the event
 //!   - `event_id`: a [`StringId`] which specifies the name of the event
 //!   - `thread_id`: a `u32` id of the thread which is recording this event
 //!
-//! Alternatively, events can also be recorded via the [`Profiler::start_recording_interval_event()`] method. This
-//! method records a "start" event and returns a `TimingGuard` object that will automatically record
-//! the corresponding "end" event when it is dropped.
+//! Alternatively, events can also be recorded via the
+//! [`Profiler::start_recording_interval_event()`] method. This method records a "start" event and
+//! returns a `TimingGuard` object that will automatically record the corresponding "end" event
+//! when it is dropped.
 //!
 //! To create a [`StringId`], call one of the string allocation methods:
-//!   - [`Profiler::alloc_string()`]: allocates a string and returns the [`StringId`] that refers to it
-//!   - [`Profiler::alloc_string_with_reserved_id()`]: allocates a string using the specified [`StringId`].
-//!     It is up to the caller to make sure the specified [`StringId`] hasn't already been used.
+//!   - [`Profiler::alloc_string()`]: allocates a string and returns the [`StringId`] that refers
+//!     to it
 //!
-//! [`Profiler`]: struct.Profiler.html
-//! [`Profiler::alloc_string()`]: struct.Profiler.html#method.alloc_string
-//! [`Profiler::alloc_string_with_reserved_id()`]: struct.Profiler.html#method.alloc_string_with_reserved_id
-//! [`Profiler::new()`]: struct.Profiler.html#method.new
-//! [`Profiler::record_event()`]: struct.Profiler.html#method.record_event
-//! [`Profiler::start_recording_interval_event()`]: struct.Profiler.html#method.start_recording_interval_event
-//! [`StringId`]: struct.StringId.html
-
-#![deny(warnings)]
+//! [`Profiler`]: Profiler
+//! [`Profiler::alloc_string()`]: Profiler::alloc_string
+//! [`Profiler::alloc_string_with_reserved_id()`]: Profiler::alloc_string_with_reserved_id
+//! [`Profiler::new()`]: Profiler::new
+//! [`Profiler::record_event()`]: Profiler::record_event
+//! [`Profiler::start_recording_interval_event()`]: Profiler::start_recording_interval_event
+//! [`StringId`]: StringId
+#![deny(
+    warnings,
+    intra_doc_link_resolution_failure,
+)]
 
 pub mod event_id;
 pub mod file_header;
