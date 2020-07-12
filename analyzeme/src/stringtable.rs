@@ -120,6 +120,8 @@ impl<'st> StringRef<'st> {
                 Some(&addr) => Ok(addr),
                 None => Err(()),
             }
+        } else if self.id == StringId::INVALID {
+            Err(())
         } else {
             Ok(self.id.to_addr())
         }

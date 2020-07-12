@@ -127,8 +127,7 @@ impl<S: SerializationSink> Profiler<S> {
     }
 
     fn nanos_since_start(&self) -> u64 {
-        let duration_since_start = self.start_time.elapsed();
-        duration_since_start.as_secs() * 1_000_000_000 + duration_since_start.subsec_nanos() as u64
+        self.start_time.elapsed().as_nanos() as _
     }
 }
 
