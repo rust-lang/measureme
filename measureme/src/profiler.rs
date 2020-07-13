@@ -15,11 +15,11 @@ pub struct ProfilerFiles {
 }
 
 impl ProfilerFiles {
-    pub fn new(path_stem: &Path) -> ProfilerFiles {
+    pub fn new<P: AsRef<Path>>(path_stem: P) -> ProfilerFiles {
         ProfilerFiles {
-            events_file: path_stem.with_extension("events"),
-            string_data_file: path_stem.with_extension("string_data"),
-            string_index_file: path_stem.with_extension("string_index"),
+            events_file: path_stem.as_ref().with_extension("events"),
+            string_data_file: path_stem.as_ref().with_extension("string_data"),
+            string_index_file: path_stem.as_ref().with_extension("string_index"),
         }
     }
 }
@@ -31,8 +31,9 @@ pub struct Profiler<S: SerializationSink> {
 }
 
 impl<S: SerializationSink> Profiler<S> {
-    pub fn new(path_stem: &Path) -> Result<Profiler<S>, Box<dyn Error>> {
-        let paths = ProfilerFiles::new(path_stem);
+    pub fn new<P: AsRef<Path>>(path_stem: P)
+    -> Result<Profiler<S>, Box<dyn Error + Send + Sync>> {
+        let paths = ProfilerFiles::new(path_stem.as_ref());
         let event_sink = Arc::new(S::from_path(&paths.events_file)?);
 
         // The first thing in every file we generate must be the file header.
@@ -126,8 +127,7 @@ impl<S: SerializationSink> Profiler<S> {
     }
 
     fn nanos_since_start(&self) -> u64 {
-        let duration_since_start = self.start_time.elapsed();
-        duration_since_start.as_secs() * 1_000_000_000 + duration_since_start.subsec_nanos() as u64
+        self.start_time.elapsed().as_nanos() as _
     }
 }
 

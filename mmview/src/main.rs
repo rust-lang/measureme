@@ -18,16 +18,17 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let data = ProfilingData::new(&opt.file_prefix)?;
 
-    let global_start_time = data.iter().map(|e| e.timestamp.start()).min().unwrap();
-
-    for event in data.iter() {
-        if let Some(thread_id) = opt.thread_id {
-            if event.thread_id != thread_id {
-                continue;
+    if let Some(global_start_time) = data.iter().map(|e| e.timestamp.start()).min() {
+        for event in data.iter() {
+            if let Some(thread_id) = opt.thread_id {
+                if event.thread_id != thread_id {
+                    continue;
+                }
             }
+            print_event(&event.to_event(), global_start_time);
         }
-
-        print_event(&event.to_event(), global_start_time);
+    } else {
+        eprintln!("No events.");
     }
 
     Ok(())

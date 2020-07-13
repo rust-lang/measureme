@@ -13,7 +13,7 @@ pub struct MmapSerializationSink {
 }
 
 impl SerializationSink for MmapSerializationSink {
-    fn from_path(path: &Path) -> Result<Self, Box<dyn Error>> {
+    fn from_path(path: &Path) -> Result<Self, Box<dyn Error + Send + Sync>> {
         // Lazily allocate 1 GB :O
         let file_size = 1 << 30;
 
