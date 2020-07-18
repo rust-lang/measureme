@@ -1,11 +1,13 @@
 use crate::{Profiler, SerializationSink, StringComponent, StringId};
 
-/// Event IDs are strings conforming to the following grammar:
+/// Event IDs are strings conforming to the following (eBNF) grammar:
 ///
 /// ```ignore
 ///   <event_id> = <label> {<argument>}
 ///   <label> = <text>
-///   <argument> = '\x1E' <text>
+///   <argument> = ['\x1D' <argument_name>] '\x1E' <argument_value>
+///   <argument_name> = <text>
+///   <argument_value> = <text>
 ///   <text> = regex([^[[:cntrl:]]]+) // Anything but ASCII control characters
 ///  ```
 ///
@@ -13,8 +15,10 @@ use crate::{Profiler, SerializationSink, StringComponent, StringId};
 /// arguments. Future versions my support other optional suffixes (with a tag
 /// other than '\x11' after the '\x1E' separator), such as a "category".
 
-/// The byte used to separate arguments from the label and each other.
-pub const SEPARATOR_BYTE: &str = "\x1E";
+/// The byte used to denote the following text is an argument value.
+pub const ARGUMENT_VALUE_TAG_BYTE: &str = "\x1E";
+/// The byte used to denote the following text is an argument name.
+pub const ARGUMENT_NAME_TAG_BYTE: &str = "\x1D";
 
 /// An `EventId` is a `StringId` with the additional guarantee that the
 /// corresponding string conforms to the event_id grammar.
@@ -73,7 +77,7 @@ impl<'p, S: SerializationSink> EventIdBuilder<'p, S> {
             // Label
             StringComponent::Ref(label),
             // Seperator and start tag for arg
-            StringComponent::Value(SEPARATOR_BYTE),
+            StringComponent::Value(ARGUMENT_VALUE_TAG_BYTE),
             // Arg string id
             StringComponent::Ref(arg),
         ]))

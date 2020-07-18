@@ -21,7 +21,7 @@ mod stringtable;
 pub mod testing_common;
 mod timestamp;
 
-pub use crate::event::Event;
+pub use crate::event::{Event, Argument};
 pub use crate::lightweight_event::LightweightEvent;
 pub use crate::profiling_data::{ProfilingData, ProfilingDataBuilder};
 pub use crate::stack_collapse::collapse_stacks;

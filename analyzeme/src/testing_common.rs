@@ -1,5 +1,5 @@
 use crate::timestamp::Timestamp;
-use crate::{Event, ProfilingData};
+use crate::{Event, Argument, ProfilingData};
 use measureme::{EventId, EventIdBuilder, Profiler, SerializationSink, StringId};
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
@@ -22,15 +22,16 @@ fn mk_filestem(file_name_stem: &str) -> PathBuf {
 struct ExpectedEvent {
     kind: Cow<'static, str>,
     label: Cow<'static, str>,
-    args: Vec<Cow<'static, str>>,
+    args: Vec<Argument<'static>>,
 }
 
 impl ExpectedEvent {
-    fn new(kind: &'static str, label: &'static str, args: &[&'static str]) -> ExpectedEvent {
+    fn new(kind: &'static str, label: &'static str, args: &[Argument<'static>])
+    -> ExpectedEvent {
         ExpectedEvent {
             kind: Cow::from(kind),
             label: Cow::from(label),
-            args: args.iter().map(|&x| Cow::from(x)).collect(),
+            args: args.to_vec(),
         }
     }
 }
@@ -65,7 +66,7 @@ fn generate_profiling_data<S: SerializationSink>(
     let expected_events_templates = vec![
         ExpectedEvent::new("Generic", "SomeGenericActivity", &[]),
         ExpectedEvent::new("Query", "SomeQuery", &[]),
-        ExpectedEvent::new("QueryWithArg", "AQueryWithArg", &["some_arg"]),
+        ExpectedEvent::new("QueryWithArg", "AQueryWithArg", &[Argument::new("some_arg")]),
     ];
 
     let threads: Vec<_> = (0..num_threads)

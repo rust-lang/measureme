@@ -123,7 +123,11 @@ fn get_args(full_event: &analyzeme::Event) -> Option<FxHashMap<String, String>> 
                 .additional_data
                 .iter()
                 .enumerate()
-                .map(|(i, arg)| (format!("arg{}", i).to_string(), arg.to_string()))
+                .map(|(i, arg)| (if let Some(name) = &arg.name {
+                    name.to_string()
+                } else {
+                    format!("arg{}", i).to_string()
+                }, arg.value.to_string()))
                 .collect(),
         )
     } else {
