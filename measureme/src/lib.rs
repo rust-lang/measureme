@@ -37,7 +37,12 @@
 //! [`StringId`]: StringId
 #![allow(renamed_and_removed_lints)] // intra_doc_link_resolution_failure is renamed on nightly
 #![deny(warnings, intra_doc_link_resolution_failure)]
+#![cfg_attr(feature = "nightly", feature(asm))]
 
+#[macro_use]
+extern crate log;
+
+pub mod counters;
 pub mod event_id;
 pub mod file_header;
 mod profiler;
