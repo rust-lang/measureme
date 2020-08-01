@@ -35,6 +35,7 @@
 //! [`Profiler::record_event()`]: Profiler::record_event
 //! [`Profiler::start_recording_interval_event()`]: Profiler::start_recording_interval_event
 //! [`StringId`]: StringId
+#![allow(renamed_and_removed_lints)] // intra_doc_link_resolution_failure is renamed on nightly
 #![deny(
     warnings,
     intra_doc_link_resolution_failure,
