@@ -80,7 +80,7 @@ You can also profile your own custom build of rustc. First you'll have to clone 
 
 ```bash
 $ git clone https://github.com/rust-lang/rust.git
-$ ./x.py build
+$ ./x.py build --stage 2
 # This will take a while...
 $ rustup toolchain link mytoolchain build/x86_64-unknown-linux-gnu/stage2
 ```
