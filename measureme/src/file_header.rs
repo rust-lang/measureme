@@ -3,7 +3,7 @@
 //! number.
 
 use crate::serialization::SerializationSink;
-use byteorder::{ByteOrder, LittleEndian};
+use std::convert::TryInto;
 use std::error::Error;
 
 pub const CURRENT_FILE_FORMAT_VERSION: u32 = 5;
@@ -22,7 +22,7 @@ pub fn write_file_header<S: SerializationSink>(s: &S, file_magic: &[u8; 4]) {
 
     s.write_atomic(FILE_HEADER_SIZE, |bytes| {
         bytes[0..4].copy_from_slice(file_magic);
-        LittleEndian::write_u32(&mut bytes[4..8], CURRENT_FILE_FORMAT_VERSION);
+        bytes[4..8].copy_from_slice(&CURRENT_FILE_FORMAT_VERSION.to_le_bytes());
     });
 }
 
@@ -44,7 +44,7 @@ pub fn read_file_header(bytes: &[u8], expected_magic: &[u8; 4]) -> Result<u32, B
         return Err(From::from(msg));
     }
 
-    Ok(LittleEndian::read_u32(&bytes[4..8]))
+    Ok(u32::from_le_bytes(bytes[4..8].try_into().unwrap()))
 }
 
 pub fn strip_file_header(data: &[u8]) -> &[u8] {

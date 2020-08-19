@@ -1,6 +1,5 @@
 //! See module-level documentation `measureme::stringtable`.
 
-use byteorder::{BigEndian, ByteOrder, LittleEndian};
 use measureme::file_header::{
     read_file_header, strip_file_header, CURRENT_FILE_FORMAT_VERSION, FILE_MAGIC_STRINGTABLE_DATA,
     FILE_MAGIC_STRINGTABLE_INDEX,
@@ -10,12 +9,13 @@ use measureme::{Addr, StringId};
 use memchr::memchr;
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
+use std::convert::TryInto;
 use std::error::Error;
 
 fn deserialize_index_entry(bytes: &[u8]) -> (StringId, Addr) {
     (
-        StringId::new(LittleEndian::read_u32(&bytes[0..4])),
-        Addr(LittleEndian::read_u32(&bytes[4..8])),
+        StringId::new(u32::from_le_bytes(bytes[0..4].try_into().unwrap())),
+        Addr(u32::from_le_bytes(bytes[4..8].try_into().unwrap())),
     )
 }
 
@@ -138,7 +138,7 @@ fn is_utf8_continuation_byte(byte: u8) -> bool {
 // String IDs in the table data are encoded in big endian format, while string
 // IDs in the index are encoded in little endian format. Don't mix the two up.
 fn decode_string_id_from_data(bytes: &[u8]) -> StringId {
-    let id = BigEndian::read_u32(&bytes[0..4]);
+    let id = u32::from_be_bytes(bytes[0..4].try_into().unwrap());
     // Mask off the `0b10` prefix
     StringId::new(id & STRING_ID_MASK)
 }

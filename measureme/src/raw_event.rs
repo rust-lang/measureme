@@ -1,5 +1,7 @@
 use crate::event_id::EventId;
 use crate::stringtable::StringId;
+#[cfg(target_endian = "big")]
+use std::convert::TryInto;
 
 /// `RawEvent` is how events are stored on-disk. If you change this struct,
 /// make sure that you increment `file_header::CURRENT_FILE_FORMAT_VERSION`.
@@ -117,14 +119,12 @@ impl RawEvent {
         {
             // We always emit data as little endian, which we have to do
             // manually on big endian targets.
-            use byteorder::{ByteOrder, LittleEndian};
-
-            LittleEndian::write_u32(&mut bytes[0..], self.event_kind.as_u32());
-            LittleEndian::write_u32(&mut bytes[4..], self.event_id.as_u32());
-            LittleEndian::write_u32(&mut bytes[8..], self.thread_id);
-            LittleEndian::write_u32(&mut bytes[12..], self.start_time_lower);
-            LittleEndian::write_u32(&mut bytes[16..], self.end_time_lower);
-            LittleEndian::write_u32(&mut bytes[20..], self.start_and_end_upper);
+            bytes[0..4].copy_from_slice(&self.event_kind.as_u32().to_le_bytes());
+            bytes[4..8].copy_from_slice(&self.event_id.as_u32().to_le_bytes());
+            bytes[8..12].copy_from_slice(&self.thread_id.to_le_bytes());
+            bytes[12..16].copy_from_slice(&self.start_time_lower.to_le_bytes());
+            bytes[16..20].copy_from_slice(&self.end_time_lower.to_le_bytes());
+            bytes[20..24].copy_from_slice(&self.start_and_end_upper.to_le_bytes());
         }
     }
 
@@ -147,14 +147,13 @@ impl RawEvent {
 
         #[cfg(target_endian = "big")]
         {
-            use byteorder::{ByteOrder, LittleEndian};
             RawEvent {
-                event_kind: StringId::new(LittleEndian::read_u32(&bytes[0..])),
-                event_id: EventId::from_u32(LittleEndian::read_u32(&bytes[4..])),
-                thread_id: LittleEndian::read_u32(&bytes[8..]),
-                start_time_lower: LittleEndian::read_u32(&bytes[12..]),
-                end_time_lower: LittleEndian::read_u32(&bytes[16..]),
-                start_and_end_upper: LittleEndian::read_u32(&bytes[20..]),
+                event_kind: StringId::new(u32::from_le_bytes(bytes[0..4].try_into().unwrap())),
+                event_id: EventId::from_u32(u32::from_le_bytes(bytes[4..8].try_into().unwrap())),
+                thread_id: u32::from_le_bytes(bytes[8..12].try_into().unwrap()),
+                start_time_lower: u32::from_le_bytes(bytes[12..16].try_into().unwrap()),
+                end_time_lower: u32::from_le_bytes(bytes[16..20].try_into().unwrap()),
+                start_and_end_upper: u32::from_le_bytes(bytes[20..24].try_into().unwrap()),
             }
         }
     }
