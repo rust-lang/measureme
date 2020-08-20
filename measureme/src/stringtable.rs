@@ -67,7 +67,6 @@ use crate::file_header::{
     write_file_header, FILE_MAGIC_STRINGTABLE_DATA, FILE_MAGIC_STRINGTABLE_INDEX,
 };
 use crate::serialization::{Addr, SerializationSink};
-// use byteorder::{BigEndian, ByteOrder};
 use std::sync::Arc;
 
 /// A `StringId` is used to identify a string in the `StringTable`. It is
