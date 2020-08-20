@@ -13,7 +13,6 @@ repository = "https://github.com/rust-lang/measureme"
 travis-ci = { repository = "rust-lang/measureme" }
 
 [dependencies]
-byteorder = "1.2.7"
 rustc-hash = "1.0.1"
 parking_lot = "0.11.0"
 
