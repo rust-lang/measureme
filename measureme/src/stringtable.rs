@@ -67,7 +67,6 @@ use crate::file_header::{
     write_file_header, FILE_MAGIC_STRINGTABLE_DATA, FILE_MAGIC_STRINGTABLE_INDEX,
 };
 use crate::serialization::{Addr, SerializationSink};
-use byteorder::{BigEndian, ByteOrder, LittleEndian};
 use std::sync::Arc;
 
 /// A `StringId` is used to identify a string in the `StringTable`. It is
@@ -190,7 +189,7 @@ impl<'s> StringComponent<'s> {
                 assert!(string_id.0 == string_id.0 & STRING_ID_MASK);
                 let tagged = string_id.0 | (1u32 << 31);
 
-                BigEndian::write_u32(&mut bytes[0..4], tagged);
+                &mut bytes[0..4].copy_from_slice(&tagged.to_be_bytes());
                 &mut bytes[4..]
             }
         }
@@ -253,8 +252,8 @@ impl_serializable_string_for_fixed_size!(16);
 
 fn serialize_index_entry<S: SerializationSink>(sink: &S, id: StringId, addr: Addr) {
     sink.write_atomic(8, |bytes| {
-        LittleEndian::write_u32(&mut bytes[0..4], id.0);
-        LittleEndian::write_u32(&mut bytes[4..8], addr.0);
+        bytes[0..4].copy_from_slice(&id.0.to_le_bytes());
+        bytes[4..8].copy_from_slice(&addr.0.to_le_bytes());
     });
 }
 

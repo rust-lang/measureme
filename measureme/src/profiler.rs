@@ -31,8 +31,7 @@ pub struct Profiler<S: SerializationSink> {
 }
 
 impl<S: SerializationSink> Profiler<S> {
-    pub fn new<P: AsRef<Path>>(path_stem: P)
-    -> Result<Profiler<S>, Box<dyn Error + Send + Sync>> {
+    pub fn new<P: AsRef<Path>>(path_stem: P) -> Result<Profiler<S>, Box<dyn Error + Send + Sync>> {
         let paths = ProfilerFiles::new(path_stem.as_ref());
         let event_sink = Arc::new(S::from_path(&paths.events_file)?);
 
