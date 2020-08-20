@@ -41,7 +41,13 @@ fn system_time_to_micros_since(t: SystemTime, since: SystemTime) -> u128 {
 }
 
 fn print_event(event: &Event<'_>, global_start_time: SystemTime) {
-    let additional_data = event.additional_data.join(",");
+    let additional_data = event.additional_data.iter().map(|arg| {
+        if let Some(name) = &arg.name {
+            format!("{} = {}", name, arg.value)
+        } else {
+            arg.value.to_string()
+        }
+    }).collect::<Vec<_>>().join(", ");
 
     let timestamp = match event.timestamp {
         Timestamp::Instant(t) => {

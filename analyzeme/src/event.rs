@@ -1,13 +1,28 @@
 use crate::timestamp::Timestamp;
-use memchr::memchr;
 use std::borrow::Cow;
 use std::time::Duration;
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+pub struct Argument<'a> {
+    pub name: Option<Cow<'a, str>>,
+    pub value: Cow<'a, str>,
+}
+
+impl<'a> Argument<'a> {
+    pub fn new(value: &'a str) -> Self {
+        Self { name: None, value: Cow::from(value) }
+    }
+
+    pub fn new_named(name: &'a str, value: &'a str) -> Self {
+        Self { name: Some(Cow::from(name)), value: Cow::from(value) }
+    }
+}
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct Event<'a> {
     pub event_kind: Cow<'a, str>,
     pub label: Cow<'a, str>,
-    pub additional_data: Vec<Cow<'a, str>>,
+    pub additional_data: Vec<Argument<'a>>,
     pub timestamp: Timestamp,
     pub thread_id: u32,
 }
@@ -38,7 +53,7 @@ impl<'a> Event<'a> {
         }
     }
 
-    pub(crate) fn parse_event_id(event_id: Cow<'a, str>) -> (Cow<'a, str>, Vec<Cow<'a, str>>) {
+    pub(crate) fn parse_event_id(event_id: Cow<'a, str>) -> (Cow<'a, str>, Vec<Argument<'a>>) {
         let event_id = match event_id {
             Cow::Owned(s) => Cow::Owned(s.into_bytes()),
             Cow::Borrowed(s) => Cow::Borrowed(s.as_bytes()),
@@ -75,52 +90,58 @@ struct Parser<'a> {
     pos: usize,
 }
 
-const SEPARATOR_BYTE: u8 = measureme::event_id::SEPARATOR_BYTE.as_bytes()[0];
+const ARGUMENT_VALUE_TAG_BYTE: u8 = measureme::event_id::ARGUMENT_VALUE_TAG_BYTE.as_bytes()[0];
+const ARGUMENT_NAME_TAG_BYTE: u8 = measureme::event_id::ARGUMENT_NAME_TAG_BYTE.as_bytes()[0];
 
 impl<'a> Parser<'a> {
     fn new(full_text: Cow<'a, [u8]>) -> Parser<'a> {
         Parser { full_text, pos: 0 }
     }
 
-    fn peek(&self) -> u8 {
-        self.full_text[self.pos]
-    }
-
     fn parse_label(&mut self) -> Result<Cow<'a, str>, String> {
         assert!(self.pos == 0);
-        self.parse_separator_terminated_text()
+        let text = self.parse_text()?;
+        if text.is_empty() {
+            return self.err("<label> is empty");
+        } else {
+            Ok(text)
+        }
     }
 
-    fn parse_separator_terminated_text(&mut self) -> Result<Cow<'a, str>, String> {
+    fn parse_text(&mut self) -> Result<Cow<'a, str>, String> {
         let start = self.pos;
-
-        let end = memchr(SEPARATOR_BYTE, &self.full_text[start..])
-            .map(|pos| pos + start)
-            .unwrap_or(self.full_text.len());
-
-        if start == end {
-            return self.err("Zero-length <text>");
-        }
-
-        self.pos = end;
-
-        if self.full_text[start..end].iter().any(u8::is_ascii_control) {
-            return self.err("Found ASCII control character in <text>");
-        }
-
-        Ok(self.substring(start, end))
+        self.pos += self.full_text[start..]
+            .iter()
+            .take_while(|c| !u8::is_ascii_control(c))
+            .count();
+        Ok(self.substring(start, self.pos))
     }
 
-    fn parse_arg(&mut self) -> Result<Cow<'a, str>, String> {
-        if self.peek() != SEPARATOR_BYTE {
-            return self.err(&format!(
-                "Expected '\\x{:x}' char at start of <argument>",
-                SEPARATOR_BYTE
-            ));
+    fn parse_arg(&mut self) -> Result<Argument<'a>, String> {
+        let name = if let Some(&byte) = self.full_text.get(self.pos) {
+            if byte == ARGUMENT_NAME_TAG_BYTE {
+                self.pos += 1;
+                Some(self.parse_text()?)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        let value = if let Some(&byte) = self.full_text.get(self.pos) {
+            if byte == ARGUMENT_VALUE_TAG_BYTE {
+                self.pos += 1;
+                Some(self.parse_text()?)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        match (name, value) {
+            (name, Some(value)) => Ok(Argument { name, value }),
+            (_, None) => self.err("Unable to parse required <argument_value>"),
         }
-
-        self.pos += 1;
-        self.parse_separator_terminated_text()
     }
 
     fn err<T>(&self, message: &str) -> Result<T, String> {
@@ -161,7 +182,7 @@ mod tests {
         let (label, args) = Event::parse_event_id(Cow::from("foo\x1emy_arg"));
 
         assert_eq!(label, "foo");
-        assert_eq!(args, vec![Cow::from("my_arg")]);
+        assert_eq!(args, vec![Argument::new("my_arg")]);
     }
 
     #[test]
@@ -171,7 +192,21 @@ mod tests {
         assert_eq!(label, "foo");
         assert_eq!(
             args,
-            vec![Cow::from("arg1"), Cow::from("arg2"), Cow::from("arg3")]
+            vec![Argument::new("arg1"), Argument::new("arg2"), Argument::new("arg3")]
+        );
+    }
+
+    #[test]
+    fn parse_event_id_n_named_args() {
+        let (label, args) = Event::parse_event_id(Cow::from("foo\x1darg1\x1eval1\x1darg2\x1eval2"));
+
+        assert_eq!(label, "foo");
+        assert_eq!(
+            args,
+            vec![
+                Argument::new_named("arg1", "val1"),
+                Argument::new_named("arg2", "val2"),
+            ]
         );
     }
 }
