@@ -26,7 +26,7 @@ fn main() {
 
     let mut versions: BTreeMap<PathBuf, String> = BTreeMap::new();
 
-    let version_regex = Regex::new("version\\s*=\\s*\"(.*)\"").unwrap();
+    let version_regex = Regex::new("version\\s*=\\s*\"(\\d+\\.\\d+\\.\\d+)\"").unwrap();
 
     for entry in glob("./*/Cargo.toml").expect("Failed to read glob pattern") {
         let cargo_toml_path = entry.unwrap();
