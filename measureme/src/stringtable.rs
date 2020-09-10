@@ -285,7 +285,7 @@ impl<S: SerializationSink> StringTableBuilder<S> {
     ) where
         I: Iterator<Item = StringId> + ExactSizeIterator,
     {
-        // TODO: Index data encoding could have special bulk mode that assigns
+        // TODO: Index data encoding could have a special bulk mode that assigns
         //       multiple StringIds to the same addr, so we don't have to repeat
         //       the `concrete_id` over and over.
 
