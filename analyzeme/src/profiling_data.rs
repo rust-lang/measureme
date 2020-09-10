@@ -131,7 +131,7 @@ impl ProfilingData {
 
         LightweightEvent {
             data: self,
-            event_index: event_index,
+            event_index,
             timestamp,
             thread_id: raw_event.thread_id,
         }
