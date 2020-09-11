@@ -27,7 +27,7 @@ impl ProfilerFiles {
 
 pub struct Profiler {
     event_sink: Arc<FileSerializationSink>,
-    string_table: StringTableBuilder<FileSerializationSink>,
+    string_table: StringTableBuilder,
     start_time: Instant,
 }
 

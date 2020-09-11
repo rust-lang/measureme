@@ -204,7 +204,7 @@ pub struct ProfilingDataBuilder {
     event_sink: FileSerializationSink,
     string_table_data_sink: Arc<FileSerializationSink>,
     string_table_index_sink: Arc<FileSerializationSink>,
-    string_table: StringTableBuilder<FileSerializationSink>,
+    string_table: StringTableBuilder,
 }
 
 impl ProfilingDataBuilder {
