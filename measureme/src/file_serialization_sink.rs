@@ -1,4 +1,4 @@
-use crate::serialization::{Addr, SerializationSink};
+use crate::serialization::Addr;
 use parking_lot::Mutex;
 use std::error::Error;
 use std::fmt::Debug;
@@ -69,10 +69,8 @@ impl FileSerializationSink {
         // Then we can create a copy of the data written so far.
         file.drain_bytes()
     }
-}
 
-impl SerializationSink for FileSerializationSink {
-    fn from_path(path: &Path) -> Result<Self, Box<dyn Error + Send + Sync>> {
+    pub fn from_path(path: &Path) -> Result<Self, Box<dyn Error + Send + Sync>> {
         fs::create_dir_all(path.parent().unwrap())?;
 
         let file = fs::File::create(path)?;
@@ -88,7 +86,7 @@ impl SerializationSink for FileSerializationSink {
     }
 
     #[inline]
-    fn write_atomic<W>(&self, num_bytes: usize, write: W) -> Addr
+    pub fn write_atomic<W>(&self, num_bytes: usize, write: W) -> Addr
     where
         W: FnOnce(&mut [u8]),
     {
@@ -131,7 +129,7 @@ impl SerializationSink for FileSerializationSink {
         Addr(curr_addr)
     }
 
-    fn write_bytes_atomic(&self, bytes: &[u8]) -> Addr {
+    pub fn write_bytes_atomic(&self, bytes: &[u8]) -> Addr {
         if bytes.len() < 128 {
             // For "small" pieces of data, use the regular implementation so we
             // don't repeatedly flush an almost empty buffer to disk.

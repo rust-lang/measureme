@@ -6,9 +6,7 @@ use measureme::file_header::{
     read_file_header, write_file_header, CURRENT_FILE_FORMAT_VERSION, FILE_HEADER_SIZE,
     FILE_MAGIC_EVENT_STREAM,
 };
-use measureme::{
-    EventId, FileSerializationSink, ProfilerFiles, RawEvent, SerializationSink, StringTableBuilder,
-};
+use measureme::{EventId, FileSerializationSink, ProfilerFiles, RawEvent, StringTableBuilder};
 use serde::{Deserialize, Deserializer};
 use std::error::Error;
 use std::fs;
