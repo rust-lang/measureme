@@ -54,11 +54,11 @@ pub fn strip_file_header(data: &[u8]) -> &[u8] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::serialization::ByteVecSink;
+    use crate::file_serialization_sink::FileSerializationSink;
 
     #[test]
     fn roundtrip() {
-        let data_sink = ByteVecSink::new();
+        let data_sink = FileSerializationSink::new_in_memory();
 
         write_file_header(&data_sink, FILE_MAGIC_EVENT_STREAM);
 
@@ -72,7 +72,7 @@ mod tests {
 
     #[test]
     fn invalid_magic() {
-        let data_sink = ByteVecSink::new();
+        let data_sink = FileSerializationSink::new_in_memory();
         write_file_header(&data_sink, FILE_MAGIC_STRINGTABLE_DATA);
         let mut data = data_sink.into_bytes();
 
@@ -83,7 +83,7 @@ mod tests {
 
     #[test]
     fn other_version() {
-        let data_sink = ByteVecSink::new();
+        let data_sink = FileSerializationSink::new_in_memory();
 
         write_file_header(&data_sink, FILE_MAGIC_STRINGTABLE_INDEX);
 

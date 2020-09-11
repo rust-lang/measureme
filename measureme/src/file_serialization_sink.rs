@@ -1,19 +1,74 @@
 use crate::serialization::{Addr, SerializationSink};
 use parking_lot::Mutex;
 use std::error::Error;
+use std::fmt::Debug;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
 
+#[derive(Debug)]
 pub struct FileSerializationSink {
     data: Mutex<Inner>,
 }
 
+/// The `BackingStorage` is what the data gets written to.
+trait BackingStorage: Write + Send + Debug {
+    fn drain_bytes(&mut self) -> Vec<u8>;
+}
+
+impl BackingStorage for fs::File {
+    fn drain_bytes(&mut self) -> Vec<u8> {
+        unimplemented!()
+    }
+}
+
+impl BackingStorage for Vec<u8> {
+    fn drain_bytes(&mut self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        std::mem::swap(&mut bytes, self);
+        bytes
+    }
+}
+
+#[derive(Debug)]
 struct Inner {
-    file: fs::File,
+    file: Box<dyn BackingStorage>,
     buffer: Vec<u8>,
     buf_pos: usize,
     addr: u32,
+}
+
+impl FileSerializationSink {
+    pub fn new_in_memory() -> FileSerializationSink {
+        FileSerializationSink {
+            data: Mutex::new(Inner {
+                file: Box::new(Vec::new()),
+                buffer: vec![0; 1024 * 512],
+                buf_pos: 0,
+                addr: 0,
+            }),
+        }
+    }
+
+    /// Create a copy of all data written so far. This method meant to be used
+    /// for writing unit tests. It will panic if the underlying `BackingStorage`
+    /// does not implement `extract_bytes`.
+    pub fn into_bytes(self) -> Vec<u8> {
+        let mut data = self.data.lock();
+        let Inner {
+            ref mut file,
+            ref mut buffer,
+            ref mut buf_pos,
+            addr: _,
+        } = *data;
+
+        // We need to flush the buffer first.
+        file.write_all(&buffer[..*buf_pos]).unwrap();
+        *buf_pos = 0;
+
+        // Then we can create a copy of the data written so far.
+        file.drain_bytes()
+    }
 }
 
 impl SerializationSink for FileSerializationSink {
@@ -24,7 +79,7 @@ impl SerializationSink for FileSerializationSink {
 
         Ok(FileSerializationSink {
             data: Mutex::new(Inner {
-                file,
+                file: Box::new(file),
                 buffer: vec![0; 1024 * 512],
                 buf_pos: 0,
                 addr: 0,

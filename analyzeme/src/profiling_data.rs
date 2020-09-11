@@ -6,8 +6,9 @@ use measureme::file_header::{
     read_file_header, write_file_header, CURRENT_FILE_FORMAT_VERSION, FILE_HEADER_SIZE,
     FILE_MAGIC_EVENT_STREAM,
 };
-use measureme::ByteVecSink;
-use measureme::{EventId, ProfilerFiles, RawEvent, SerializationSink, StringTableBuilder};
+use measureme::{
+    EventId, FileSerializationSink, ProfilerFiles, RawEvent, SerializationSink, StringTableBuilder,
+};
 use serde::{Deserialize, Deserializer};
 use std::error::Error;
 use std::fs;
@@ -200,17 +201,17 @@ impl<'a> DoubleEndedIterator for ProfilerEventIterator<'a> {
 /// implementation might not be efficient, which why it should only be used for
 /// writing tests and other things that are not performance sensitive.
 pub struct ProfilingDataBuilder {
-    event_sink: ByteVecSink,
-    string_table_data_sink: Arc<ByteVecSink>,
-    string_table_index_sink: Arc<ByteVecSink>,
-    string_table: StringTableBuilder<ByteVecSink>,
+    event_sink: FileSerializationSink,
+    string_table_data_sink: Arc<FileSerializationSink>,
+    string_table_index_sink: Arc<FileSerializationSink>,
+    string_table: StringTableBuilder<FileSerializationSink>,
 }
 
 impl ProfilingDataBuilder {
     pub fn new() -> ProfilingDataBuilder {
-        let event_sink = ByteVecSink::new();
-        let string_table_data_sink = Arc::new(ByteVecSink::new());
-        let string_table_index_sink = Arc::new(ByteVecSink::new());
+        let event_sink = FileSerializationSink::new_in_memory();
+        let string_table_data_sink = Arc::new(FileSerializationSink::new_in_memory());
+        let string_table_index_sink = Arc::new(FileSerializationSink::new_in_memory());
 
         // The first thing in every file we generate must be the file header.
         write_file_header(&event_sink, FILE_MAGIC_EVENT_STREAM);
