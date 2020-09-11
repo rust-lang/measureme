@@ -1,5 +1,6 @@
 use crate::event_id::EventId;
 use crate::file_header::{write_file_header, FILE_MAGIC_EVENT_STREAM};
+use crate::file_serialization_sink::FileSerializationSink;
 use crate::raw_event::RawEvent;
 use crate::serialization::SerializationSink;
 use crate::stringtable::{SerializableString, StringId, StringTableBuilder};
@@ -24,23 +25,23 @@ impl ProfilerFiles {
     }
 }
 
-pub struct Profiler<S: SerializationSink> {
-    event_sink: Arc<S>,
-    string_table: StringTableBuilder<S>,
+pub struct Profiler {
+    event_sink: Arc<FileSerializationSink>,
+    string_table: StringTableBuilder<FileSerializationSink>,
     start_time: Instant,
 }
 
-impl<S: SerializationSink> Profiler<S> {
-    pub fn new<P: AsRef<Path>>(path_stem: P) -> Result<Profiler<S>, Box<dyn Error + Send + Sync>> {
+impl Profiler {
+    pub fn new<P: AsRef<Path>>(path_stem: P) -> Result<Profiler, Box<dyn Error + Send + Sync>> {
         let paths = ProfilerFiles::new(path_stem.as_ref());
-        let event_sink = Arc::new(S::from_path(&paths.events_file)?);
+        let event_sink = Arc::new(SerializationSink::from_path(&paths.events_file)?);
 
         // The first thing in every file we generate must be the file header.
         write_file_header(&*event_sink, FILE_MAGIC_EVENT_STREAM);
 
         let string_table = StringTableBuilder::new(
-            Arc::new(S::from_path(&paths.string_data_file)?),
-            Arc::new(S::from_path(&paths.string_index_file)?),
+            Arc::new(SerializationSink::from_path(&paths.string_data_file)?),
+            Arc::new(SerializationSink::from_path(&paths.string_index_file)?),
         );
 
         let profiler = Profiler {
@@ -108,7 +109,7 @@ impl<S: SerializationSink> Profiler<S> {
         event_kind: StringId,
         event_id: EventId,
         thread_id: u32,
-    ) -> TimingGuard<'a, S> {
+    ) -> TimingGuard<'a> {
         TimingGuard {
             profiler: self,
             event_id,
@@ -133,15 +134,15 @@ impl<S: SerializationSink> Profiler<S> {
 /// When dropped, this `TimingGuard` will record an "end" event in the
 /// `Profiler` it was created by.
 #[must_use]
-pub struct TimingGuard<'a, S: SerializationSink> {
-    profiler: &'a Profiler<S>,
+pub struct TimingGuard<'a> {
+    profiler: &'a Profiler,
     event_id: EventId,
     event_kind: StringId,
     thread_id: u32,
     start_ns: u64,
 }
 
-impl<'a, S: SerializationSink> Drop for TimingGuard<'a, S> {
+impl<'a> Drop for TimingGuard<'a> {
     #[inline]
     fn drop(&mut self) {
         let raw_event = RawEvent::new_interval(
@@ -156,7 +157,7 @@ impl<'a, S: SerializationSink> Drop for TimingGuard<'a, S> {
     }
 }
 
-impl<'a, S: SerializationSink> TimingGuard<'a, S> {
+impl<'a> TimingGuard<'a> {
     /// This method set a new `event_id` right before actually recording the
     /// event.
     #[inline]
