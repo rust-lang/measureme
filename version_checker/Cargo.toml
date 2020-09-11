@@ -1,0 +1,10 @@
+[package]
+name = "version_checker"
+version = "0.7.1"
+authors = ["Michael Woerister <michaelwoerister@posteo>"]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+regex = "1"
+glob = "0.3.0"

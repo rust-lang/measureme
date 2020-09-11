@@ -10,6 +10,7 @@ env:
   - CARGO_INCREMENTAL=0
 install: skip
 script:
+  - cargo run --bin version_checker || exit 1
   - cargo check --verbose --target powerpc64-unknown-linux-gnu --lib --bins --tests || exit 1
   - cargo build --verbose --all || exit 1
   - cargo test --verbose --all

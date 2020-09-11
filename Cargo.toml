@@ -8,4 +8,5 @@ members = [
     "mmview",
     "stack_collapse",
     "summarize",
+    "version_checker",
 ]
