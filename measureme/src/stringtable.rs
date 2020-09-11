@@ -66,8 +66,8 @@
 use crate::file_header::{
     write_file_header, FILE_MAGIC_STRINGTABLE_DATA, FILE_MAGIC_STRINGTABLE_INDEX,
 };
-use crate::file_serialization_sink::FileSerializationSink;
 use crate::serialization::Addr;
+use crate::serialization::SerializationSink;
 use std::sync::Arc;
 
 /// A `StringId` is used to identify a string in the `StringTable`. It is
@@ -137,8 +137,8 @@ pub const FIRST_REGULAR_STRING_ID: u32 = INVALID_STRING_ID + 1;
 
 /// Write-only version of the string table
 pub struct StringTableBuilder {
-    data_sink: Arc<FileSerializationSink>,
-    index_sink: Arc<FileSerializationSink>,
+    data_sink: Arc<SerializationSink>,
+    index_sink: Arc<SerializationSink>,
 }
 
 /// Anything that implements `SerializableString` can be written to a
@@ -251,7 +251,7 @@ impl_serializable_string_for_fixed_size!(14);
 impl_serializable_string_for_fixed_size!(15);
 impl_serializable_string_for_fixed_size!(16);
 
-fn serialize_index_entry(sink: &FileSerializationSink, id: StringId, addr: Addr) {
+fn serialize_index_entry(sink: &SerializationSink, id: StringId, addr: Addr) {
     sink.write_atomic(8, |bytes| {
         bytes[0..4].copy_from_slice(&id.0.to_le_bytes());
         bytes[4..8].copy_from_slice(&addr.0.to_le_bytes());
@@ -260,8 +260,8 @@ fn serialize_index_entry(sink: &FileSerializationSink, id: StringId, addr: Addr)
 
 impl StringTableBuilder {
     pub fn new(
-        data_sink: Arc<FileSerializationSink>,
-        index_sink: Arc<FileSerializationSink>,
+        data_sink: Arc<SerializationSink>,
+        index_sink: Arc<SerializationSink>,
     ) -> StringTableBuilder {
         // The first thing in every file we generate must be the file header.
         write_file_header(&*data_sink, FILE_MAGIC_STRINGTABLE_DATA);

@@ -40,9 +40,6 @@
 
 pub mod event_id;
 pub mod file_header;
-#[cfg(any(not(target_arch = "wasm32"), target_os = "wasi"))]
-mod file_serialization_sink;
-#[cfg(not(target_arch = "wasm32"))]
 mod profiler;
 mod raw_event;
 mod serialization;
@@ -51,10 +48,7 @@ pub mod stringtable;
 pub mod rustc;
 
 pub use crate::event_id::{EventId, EventIdBuilder};
-#[cfg(any(not(target_arch = "wasm32"), target_os = "wasi"))]
-pub use crate::file_serialization_sink::FileSerializationSink;
-#[cfg(not(target_arch = "wasm32"))]
 pub use crate::profiler::{Profiler, ProfilerFiles, TimingGuard};
 pub use crate::raw_event::{RawEvent, MAX_INSTANT_TIMESTAMP, MAX_INTERVAL_TIMESTAMP};
-pub use crate::serialization::Addr;
+pub use crate::serialization::{Addr, SerializationSink};
 pub use crate::stringtable::{SerializableString, StringComponent, StringId, StringTableBuilder};

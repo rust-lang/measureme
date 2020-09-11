@@ -1,7 +1,7 @@
 use crate::event_id::EventId;
 use crate::file_header::{write_file_header, FILE_MAGIC_EVENT_STREAM};
-use crate::file_serialization_sink::FileSerializationSink;
 use crate::raw_event::RawEvent;
+use crate::serialization::SerializationSink;
 use crate::stringtable::{SerializableString, StringId, StringTableBuilder};
 use std::error::Error;
 use std::path::{Path, PathBuf};
@@ -25,7 +25,7 @@ impl ProfilerFiles {
 }
 
 pub struct Profiler {
-    event_sink: Arc<FileSerializationSink>,
+    event_sink: Arc<SerializationSink>,
     string_table: StringTableBuilder,
     start_time: Instant,
 }
@@ -33,14 +33,14 @@ pub struct Profiler {
 impl Profiler {
     pub fn new<P: AsRef<Path>>(path_stem: P) -> Result<Profiler, Box<dyn Error + Send + Sync>> {
         let paths = ProfilerFiles::new(path_stem.as_ref());
-        let event_sink = Arc::new(FileSerializationSink::from_path(&paths.events_file)?);
+        let event_sink = Arc::new(SerializationSink::from_path(&paths.events_file)?);
 
         // The first thing in every file we generate must be the file header.
         write_file_header(&*event_sink, FILE_MAGIC_EVENT_STREAM);
 
         let string_table = StringTableBuilder::new(
-            Arc::new(FileSerializationSink::from_path(&paths.string_data_file)?),
-            Arc::new(FileSerializationSink::from_path(&paths.string_index_file)?),
+            Arc::new(SerializationSink::from_path(&paths.string_data_file)?),
+            Arc::new(SerializationSink::from_path(&paths.string_index_file)?),
         );
 
         let profiler = Profiler {
