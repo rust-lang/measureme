@@ -21,6 +21,10 @@ pub struct SerializationSink {
 
 /// The `BackingStorage` is what the data gets written to.
 trait BackingStorage: Write + Send + Debug {
+    /// Moves all data written so far out into a `Vec<u8>`. This method only
+    /// exists so we can write unit tests that don't need to touch the
+    /// file system. The method is allowed to unconditionally panic for
+    /// non-test implementations.
     fn drain_bytes(&mut self) -> Vec<u8>;
 }
 
