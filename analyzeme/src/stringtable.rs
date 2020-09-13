@@ -243,13 +243,13 @@ impl StringTable {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use measureme::{ByteVecSink, StringComponent, StringTableBuilder};
+    use measureme::{SerializationSink, StringComponent, StringTableBuilder};
     use std::sync::Arc;
 
     #[test]
     fn simple_strings() {
-        let data_sink = Arc::new(ByteVecSink::new());
-        let index_sink = Arc::new(ByteVecSink::new());
+        let data_sink = Arc::new(SerializationSink::new_in_memory());
+        let index_sink = Arc::new(SerializationSink::new_in_memory());
 
         let expected_strings = &[
             "abc",
@@ -289,8 +289,8 @@ mod tests {
 
     #[test]
     fn composite_string() {
-        let data_sink = Arc::new(ByteVecSink::new());
-        let index_sink = Arc::new(ByteVecSink::new());
+        let data_sink = Arc::new(SerializationSink::new_in_memory());
+        let index_sink = Arc::new(SerializationSink::new_in_memory());
 
         let expected_strings = &[
             "abc",                  // 0

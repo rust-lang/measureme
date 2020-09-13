@@ -1,5 +1,8 @@
 use parking_lot::Mutex;
 use std::error::Error;
+use std::fmt::Debug;
+use std::fs;
+use std::io::Write;
 use std::path::Path;
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
@@ -11,70 +14,176 @@ impl Addr {
     }
 }
 
-pub trait SerializationSink: Sized + Send + Sync + 'static {
-    fn from_path(path: &Path) -> Result<Self, Box<dyn Error + Send + Sync>>;
+#[derive(Debug)]
+pub struct SerializationSink {
+    data: Mutex<Inner>,
+}
 
-    /// Atomically write `num_bytes` to the sink. The implementation must ensure
-    /// that concurrent invocations of `write_atomic` do not conflict with each
-    /// other.
-    ///
-    /// The `write` argument is a function that must fill the output buffer
-    /// passed to it. The output buffer is guaranteed to be exactly `num_bytes`
-    /// large.
-    fn write_atomic<W>(&self, num_bytes: usize, write: W) -> Addr
-    where
-        W: FnOnce(&mut [u8]);
+/// The `BackingStorage` is what the data gets written to.
+trait BackingStorage: Write + Send + Debug {
+    /// Moves all data written so far out into a `Vec<u8>`. This method only
+    /// exists so we can write unit tests that don't need to touch the
+    /// file system. The method is allowed to unconditionally panic for
+    /// non-test implementations.
+    fn drain_bytes(&mut self) -> Vec<u8>;
+}
 
-    /// Same as write_atomic() but might be faster in cases where bytes to be
-    /// written are already present in a buffer (as opposed to when it is
-    /// benefical to directly serialize into the output buffer).
-    fn write_bytes_atomic(&self, bytes: &[u8]) -> Addr {
-        self.write_atomic(bytes.len(), |sink| sink.copy_from_slice(bytes))
+impl BackingStorage for fs::File {
+    fn drain_bytes(&mut self) -> Vec<u8> {
+        unimplemented!()
     }
 }
 
-/// A `SerializationSink` that writes to an internal `Vec<u8>` and can be
-/// converted into this raw `Vec<u8>`. This implementation is only meant to be
-/// used for testing and is not very efficient.
-pub struct ByteVecSink {
-    data: Mutex<Vec<u8>>,
+impl BackingStorage for Vec<u8> {
+    fn drain_bytes(&mut self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        std::mem::swap(&mut bytes, self);
+        bytes
+    }
 }
 
-impl ByteVecSink {
-    pub fn new() -> ByteVecSink {
-        ByteVecSink {
-            data: Mutex::new(Vec::new()),
+#[derive(Debug)]
+struct Inner {
+    file: Box<dyn BackingStorage>,
+    buffer: Vec<u8>,
+    buf_pos: usize,
+    addr: u32,
+}
+
+impl SerializationSink {
+    pub fn new_in_memory() -> SerializationSink {
+        SerializationSink {
+            data: Mutex::new(Inner {
+                file: Box::new(Vec::new()),
+                buffer: vec![0; 1024 * 512],
+                buf_pos: 0,
+                addr: 0,
+            }),
         }
     }
 
+    /// Create a copy of all data written so far. This method meant to be used
+    /// for writing unit tests. It will panic if the underlying `BackingStorage`
+    /// does not implement `extract_bytes`.
     pub fn into_bytes(self) -> Vec<u8> {
-        self.data.into_inner()
-    }
-}
+        let mut data = self.data.lock();
+        let Inner {
+            ref mut file,
+            ref mut buffer,
+            ref mut buf_pos,
+            addr: _,
+        } = *data;
 
-impl SerializationSink for ByteVecSink {
-    fn from_path(_path: &Path) -> Result<Self, Box<dyn Error + Send + Sync>> {
-        unimplemented!()
+        // We need to flush the buffer first.
+        file.write_all(&buffer[..*buf_pos]).unwrap();
+        *buf_pos = 0;
+
+        // Then we can create a copy of the data written so far.
+        file.drain_bytes()
     }
 
-    fn write_atomic<W>(&self, num_bytes: usize, write: W) -> Addr
+    pub fn from_path(path: &Path) -> Result<Self, Box<dyn Error + Send + Sync>> {
+        fs::create_dir_all(path.parent().unwrap())?;
+
+        let file = fs::File::create(path)?;
+
+        Ok(SerializationSink {
+            data: Mutex::new(Inner {
+                file: Box::new(file),
+                buffer: vec![0; 1024 * 512],
+                buf_pos: 0,
+                addr: 0,
+            }),
+        })
+    }
+
+    #[inline]
+    pub fn write_atomic<W>(&self, num_bytes: usize, write: W) -> Addr
     where
         W: FnOnce(&mut [u8]),
     {
         let mut data = self.data.lock();
+        let Inner {
+            ref mut file,
+            ref mut buffer,
+            ref mut buf_pos,
+            ref mut addr,
+        } = *data;
 
-        let start = data.len();
+        let curr_addr = *addr;
+        *addr += num_bytes as u32;
 
-        data.resize(start + num_bytes, 0);
+        let buf_start = *buf_pos;
+        let buf_end = buf_start + num_bytes;
 
-        write(&mut data[start..]);
+        if buf_end <= buffer.len() {
+            // We have enough space in the buffer, just write the data to it.
+            write(&mut buffer[buf_start..buf_end]);
+            *buf_pos = buf_end;
+        } else {
+            // We don't have enough space in the buffer, so flush to disk
+            file.write_all(&buffer[..buf_start]).unwrap();
 
-        Addr(start as u32)
+            if num_bytes <= buffer.len() {
+                // There's enough space in the buffer, after flushing
+                write(&mut buffer[0..num_bytes]);
+                *buf_pos = num_bytes;
+            } else {
+                // Even after flushing the buffer there isn't enough space, so
+                // fall back to dynamic allocation
+                let mut temp_buffer = vec![0; num_bytes];
+                write(&mut temp_buffer[..]);
+                file.write_all(&temp_buffer[..]).unwrap();
+                *buf_pos = 0;
+            }
+        }
+
+        Addr(curr_addr)
+    }
+
+    pub fn write_bytes_atomic(&self, bytes: &[u8]) -> Addr {
+        if bytes.len() < 128 {
+            // For "small" pieces of data, use the regular implementation so we
+            // don't repeatedly flush an almost empty buffer to disk.
+            return self.write_atomic(bytes.len(), |sink| sink.copy_from_slice(bytes));
+        }
+
+        let mut data = self.data.lock();
+        let Inner {
+            ref mut file,
+            ref mut buffer,
+            ref mut buf_pos,
+            ref mut addr,
+        } = *data;
+
+        let curr_addr = *addr;
+        *addr += bytes.len() as u32;
+
+        if *buf_pos > 0 {
+            // There's something in the buffer, flush it to disk
+            file.write_all(&buffer[..*buf_pos]).unwrap();
+            *buf_pos = 0;
+        }
+
+        // Now write the whole input to disk, skipping the write buffer
+        file.write_all(bytes).unwrap();
+
+        Addr(curr_addr)
     }
 }
 
-impl std::fmt::Debug for ByteVecSink {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ByteVecSink")
+impl Drop for SerializationSink {
+    fn drop(&mut self) {
+        let mut data = self.data.lock();
+        let Inner {
+            ref mut file,
+            ref mut buffer,
+            ref mut buf_pos,
+            addr: _,
+        } = *data;
+
+        if *buf_pos > 0 {
+            file.write_all(&buffer[..*buf_pos]).unwrap();
+        }
     }
 }

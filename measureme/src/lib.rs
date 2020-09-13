@@ -36,17 +36,10 @@
 //! [`Profiler::start_recording_interval_event()`]: Profiler::start_recording_interval_event
 //! [`StringId`]: StringId
 #![allow(renamed_and_removed_lints)] // intra_doc_link_resolution_failure is renamed on nightly
-#![deny(
-    warnings,
-    intra_doc_link_resolution_failure,
-)]
+#![deny(warnings, intra_doc_link_resolution_failure)]
 
 pub mod event_id;
 pub mod file_header;
-#[cfg(any(not(target_arch = "wasm32"), target_os = "wasi"))]
-mod file_serialization_sink;
-#[cfg(not(target_arch = "wasm32"))]
-mod mmap_serialization_sink;
 mod profiler;
 mod raw_event;
 mod serialization;
@@ -55,11 +48,7 @@ pub mod stringtable;
 pub mod rustc;
 
 pub use crate::event_id::{EventId, EventIdBuilder};
-#[cfg(any(not(target_arch = "wasm32"), target_os = "wasi"))]
-pub use crate::file_serialization_sink::FileSerializationSink;
-#[cfg(not(target_arch = "wasm32"))]
-pub use crate::mmap_serialization_sink::MmapSerializationSink;
 pub use crate::profiler::{Profiler, ProfilerFiles, TimingGuard};
 pub use crate::raw_event::{RawEvent, MAX_INSTANT_TIMESTAMP, MAX_INTERVAL_TIMESTAMP};
-pub use crate::serialization::{Addr, ByteVecSink, SerializationSink};
+pub use crate::serialization::{Addr, SerializationSink};
 pub use crate::stringtable::{SerializableString, StringComponent, StringId, StringTableBuilder};
