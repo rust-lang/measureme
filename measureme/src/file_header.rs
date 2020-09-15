@@ -5,7 +5,7 @@ use crate::SerializationSink;
 use std::convert::TryInto;
 use std::error::Error;
 
-pub const CURRENT_FILE_FORMAT_VERSION: u32 = 5;
+pub const CURRENT_FILE_FORMAT_VERSION: u32 = 6;
 pub const FILE_MAGIC_EVENT_STREAM: &[u8; 4] = b"MMES";
 pub const FILE_MAGIC_STRINGTABLE_DATA: &[u8; 4] = b"MMSD";
 pub const FILE_MAGIC_STRINGTABLE_INDEX: &[u8; 4] = b"MMSI";
@@ -53,11 +53,11 @@ pub fn strip_file_header(data: &[u8]) -> &[u8] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::SerializationSink;
+    use crate::{PageTag, SerializationSinkBuilder};
 
     #[test]
     fn roundtrip() {
-        let data_sink = SerializationSink::new_in_memory();
+        let data_sink = SerializationSinkBuilder::new_in_memory().new_sink(PageTag::Events);
 
         write_file_header(&data_sink, FILE_MAGIC_EVENT_STREAM);
 
@@ -71,7 +71,7 @@ mod tests {
 
     #[test]
     fn invalid_magic() {
-        let data_sink = SerializationSink::new_in_memory();
+        let data_sink = SerializationSinkBuilder::new_in_memory().new_sink(PageTag::Events);
         write_file_header(&data_sink, FILE_MAGIC_STRINGTABLE_DATA);
         let mut data = data_sink.into_bytes();
 
@@ -82,7 +82,7 @@ mod tests {
 
     #[test]
     fn other_version() {
-        let data_sink = SerializationSink::new_in_memory();
+        let data_sink = SerializationSinkBuilder::new_in_memory().new_sink(PageTag::Events);
 
         write_file_header(&data_sink, FILE_MAGIC_STRINGTABLE_INDEX);
 

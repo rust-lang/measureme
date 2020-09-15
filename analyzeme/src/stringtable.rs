@@ -243,13 +243,14 @@ impl StringTable {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use measureme::{SerializationSink, StringComponent, StringTableBuilder};
+    use measureme::{PageTag, SerializationSinkBuilder, StringComponent, StringTableBuilder};
     use std::sync::Arc;
 
     #[test]
     fn simple_strings() {
-        let data_sink = Arc::new(SerializationSink::new_in_memory());
-        let index_sink = Arc::new(SerializationSink::new_in_memory());
+        let sink_builder = SerializationSinkBuilder::new_in_memory();
+        let data_sink = Arc::new(sink_builder.new_sink(PageTag::StringData));
+        let index_sink = Arc::new(sink_builder.new_sink(PageTag::StringIndex));
 
         let expected_strings = &[
             "abc",
@@ -289,8 +290,9 @@ mod tests {
 
     #[test]
     fn composite_string() {
-        let data_sink = Arc::new(SerializationSink::new_in_memory());
-        let index_sink = Arc::new(SerializationSink::new_in_memory());
+        let sink_builder = SerializationSinkBuilder::new_in_memory();
+        let data_sink = Arc::new(sink_builder.new_sink(PageTag::StringData));
+        let index_sink = Arc::new(sink_builder.new_sink(PageTag::StringIndex));
 
         let expected_strings = &[
             "abc",                  // 0

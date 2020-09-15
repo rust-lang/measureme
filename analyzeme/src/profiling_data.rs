@@ -6,7 +6,10 @@ use measureme::file_header::{
     read_file_header, write_file_header, CURRENT_FILE_FORMAT_VERSION, FILE_HEADER_SIZE,
     FILE_MAGIC_EVENT_STREAM,
 };
-use measureme::{EventId, ProfilerFiles, RawEvent, SerializationSink, StringTableBuilder};
+use measureme::{
+    EventId, PageTag, ProfilerFiles, RawEvent, SerializationSink, SerializationSinkBuilder,
+    StringTableBuilder,
+};
 use serde::{Deserialize, Deserializer};
 use std::error::Error;
 use std::fs;
@@ -46,12 +49,26 @@ impl ProfilingData {
     pub fn new(path_stem: &Path) -> Result<ProfilingData, Box<dyn Error>> {
         let paths = ProfilerFiles::new(path_stem);
 
-        let string_data = fs::read(paths.string_data_file).expect("couldn't read string_data file");
-        let index_data =
-            fs::read(paths.string_index_file).expect("couldn't read string_index file");
-        let event_data = fs::read(paths.events_file).expect("couldn't read events file");
+        let paged_path = path_stem.with_extension("mm_raw");
 
-        ProfilingData::from_buffers(string_data, index_data, event_data)
+        if paged_path.exists() {
+            let data = fs::read(paged_path).expect("couldn't read paged file");
+            let mut split_data = measureme::split_streams(&data[..]);
+
+            let string_data = split_data.remove(&PageTag::StringData).unwrap();
+            let index_data = split_data.remove(&PageTag::StringIndex).unwrap();
+            let event_data = split_data.remove(&PageTag::Events).unwrap();
+
+            ProfilingData::from_buffers(string_data, index_data, event_data)
+        } else {
+            let string_data =
+                fs::read(paths.string_data_file).expect("couldn't read string_data file");
+            let index_data =
+                fs::read(paths.string_index_file).expect("couldn't read string_index file");
+            let event_data = fs::read(paths.events_file).expect("couldn't read events file");
+
+            ProfilingData::from_buffers(string_data, index_data, event_data)
+        }
     }
 
     pub fn from_buffers(
@@ -207,9 +224,11 @@ pub struct ProfilingDataBuilder {
 
 impl ProfilingDataBuilder {
     pub fn new() -> ProfilingDataBuilder {
-        let event_sink = SerializationSink::new_in_memory();
-        let string_table_data_sink = Arc::new(SerializationSink::new_in_memory());
-        let string_table_index_sink = Arc::new(SerializationSink::new_in_memory());
+        let sink_builder = SerializationSinkBuilder::new_in_memory();
+
+        let event_sink = sink_builder.new_sink(PageTag::Events);
+        let string_table_data_sink = Arc::new(sink_builder.new_sink(PageTag::StringData));
+        let string_table_index_sink = Arc::new(sink_builder.new_sink(PageTag::StringIndex));
 
         // The first thing in every file we generate must be the file header.
         write_file_header(&event_sink, FILE_MAGIC_EVENT_STREAM);

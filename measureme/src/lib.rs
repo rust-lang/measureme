@@ -50,5 +50,7 @@ pub mod rustc;
 pub use crate::event_id::{EventId, EventIdBuilder};
 pub use crate::profiler::{Profiler, ProfilerFiles, TimingGuard};
 pub use crate::raw_event::{RawEvent, MAX_INSTANT_TIMESTAMP, MAX_INTERVAL_TIMESTAMP};
-pub use crate::serialization::{Addr, SerializationSink};
+pub use crate::serialization::{
+    split_streams, Addr, PageTag, SerializationSink, SerializationSinkBuilder,
+};
 pub use crate::stringtable::{SerializableString, StringComponent, StringId, StringTableBuilder};
