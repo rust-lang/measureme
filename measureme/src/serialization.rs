@@ -20,31 +20,49 @@ pub struct SerializationSink {
 }
 
 /// The `BackingStorage` is what the data gets written to.
-trait BackingStorage: Write + Send + Debug {
-    /// Moves all data written so far out into a `Vec<u8>`. This method only
-    /// exists so we can write unit tests that don't need to touch the
-    /// file system. The method is allowed to unconditionally panic for
-    /// non-test implementations.
-    fn drain_bytes(&mut self) -> Vec<u8>;
+#[derive(Debug)]
+enum BackingStorage {
+    File(fs::File),
+    Memory(Vec<u8>),
 }
 
-impl BackingStorage for fs::File {
-    fn drain_bytes(&mut self) -> Vec<u8> {
-        unimplemented!()
+impl BackingStorage {
+    /// Moves all data written so far out into a `Vec<u8>`. This method only
+    /// exists so we can write unit tests that don't need to touch the
+    /// file system. The method will panic if `self` is `BackingStorage::Memory`.
+    fn into_bytes(self) -> Vec<u8> {
+        match self {
+            BackingStorage::File(_) => {
+                panic!("into_bytes() is not supported for BackingStorage::File")
+            }
+            BackingStorage::Memory(data) => data,
+        }
     }
 }
 
-impl BackingStorage for Vec<u8> {
-    fn drain_bytes(&mut self) -> Vec<u8> {
-        let mut bytes = Vec::new();
-        std::mem::swap(&mut bytes, self);
-        bytes
+impl Write for BackingStorage {
+    #[inline]
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match *self {
+            BackingStorage::File(ref mut file) => file.write(buf),
+            BackingStorage::Memory(ref mut vec) => vec.write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        match *self {
+            BackingStorage::File(ref mut file) => file.flush(),
+            BackingStorage::Memory(_) => {
+                // Nothing to do
+                Ok(())
+            }
+        }
     }
 }
 
 #[derive(Debug)]
 struct Inner {
-    file: Box<dyn BackingStorage>,
+    file: BackingStorage,
     buffer: Vec<u8>,
     buf_pos: usize,
     addr: u32,
@@ -54,7 +72,7 @@ impl SerializationSink {
     pub fn new_in_memory() -> SerializationSink {
         SerializationSink {
             data: Mutex::new(Inner {
-                file: Box::new(Vec::new()),
+                file: BackingStorage::Memory(Vec::new()),
                 buffer: vec![0; 1024 * 512],
                 buf_pos: 0,
                 addr: 0,
@@ -65,21 +83,30 @@ impl SerializationSink {
     /// Create a copy of all data written so far. This method meant to be used
     /// for writing unit tests. It will panic if the underlying `BackingStorage`
     /// does not implement `extract_bytes`.
-    pub fn into_bytes(self) -> Vec<u8> {
-        let mut data = self.data.lock();
+    pub fn into_bytes(mut self) -> Vec<u8> {
+        // Swap out the contains of `self` with something that can safely be
+        // dropped without side effects.
+        let mut data = Mutex::new(Inner {
+            file: BackingStorage::Memory(Vec::new()),
+            buffer: Vec::new(),
+            buf_pos: 0,
+            addr: 0,
+        });
+        std::mem::swap(&mut self.data, &mut data);
+
+        // Extract the data from the mutex.
         let Inner {
-            ref mut file,
-            ref mut buffer,
-            ref mut buf_pos,
+            mut file,
+            buffer,
+            buf_pos,
             addr: _,
-        } = *data;
+        } = data.into_inner();
 
-        // We need to flush the buffer first.
-        file.write_all(&buffer[..*buf_pos]).unwrap();
-        *buf_pos = 0;
+        // Flush the buffer, so all data written so far is in `file`.
+        file.write_all(&buffer[..buf_pos]).unwrap();
 
-        // Then we can create a copy of the data written so far.
-        file.drain_bytes()
+        // Then extract the actual bytes.
+        file.into_bytes()
     }
 
     pub fn from_path(path: &Path) -> Result<Self, Box<dyn Error + Send + Sync>> {
@@ -89,7 +116,7 @@ impl SerializationSink {
 
         Ok(SerializationSink {
             data: Mutex::new(Inner {
-                file: Box::new(file),
+                file: BackingStorage::File(file),
                 buffer: vec![0; 1024 * 512],
                 buf_pos: 0,
                 addr: 0,
