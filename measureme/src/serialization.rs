@@ -1,13 +1,44 @@
+/// This module implements the "container" file format that `measureme` uses for
+/// storing things on disk. The format supports storing three independent
+/// streams of data: one for events, one for string data, and one for string
+/// index data (in theory it could support an arbitrary number of separate
+/// streams but three is all we need). The data of each stream is split into
+/// "pages", where each page has a small header designating what kind of
+/// data it is (i.e. event, string data, or string index), and the length of
+/// the page.
+///
+/// Pages of different kinds can be arbitrarily interleaved. The headers allow
+/// for reconstructing each of the streams later on. An example file might thus
+/// look like this:
+///
+/// ```ignore
+/// | file header | page (events) | page (string data) | page (events) | page (string index) |
+/// ```
+///
+/// The exact encoding of a page is:
+///
+/// | byte slice              | contents                                |
+/// |-------------------------|-----------------------------------------|
+/// | &[0 .. 1]               | page tag                                |
+/// | &[1 .. 5]               | page size as little endian u32          |
+/// | &[5 .. (5 + page_size)] | page contents (exactly page_size bytes) |
+///
+/// A page is immediately followed by the next page, without any padding.
 use parking_lot::Mutex;
+use rustc_hash::FxHashMap;
+use std::cmp::min;
 use std::convert::TryInto;
 use std::error::Error;
 use std::fmt::Debug;
 use std::fs;
 use std::io::Write;
 use std::sync::Arc;
-use std::{cmp::min, collections::HashMap};
 
 const MAX_PAGE_SIZE: usize = 256 * 1024;
+
+/// The number of bytes we consider enough to warrant their own page when
+/// deciding whether to flush a partially full buffer. Actual pages may need
+/// to be smaller, e.g. when writing the tail of the data stream.
 const MIN_PAGE_SIZE: usize = MAX_PAGE_SIZE / 2;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -31,6 +62,13 @@ impl std::convert::TryFrom<u8> for PageTag {
     }
 }
 
+/// An address within a data stream. Each data stream has its own address space,
+/// i.e. the first piece of data written to the events stream will have
+/// `Addr(0)` and the first piece of data written to the string data stream
+/// will *also* have `Addr(0)`.
+//
+// TODO: Evaluate if it makes sense to add a type tag to `Addr` in order to
+//       prevent accidental use of `Addr` values with the wrong address space.
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub struct Addr(pub u32);
 
@@ -74,7 +112,8 @@ impl SerializationSinkBuilder {
     }
 }
 
-/// The `BackingStorage` is what the data gets written to.
+/// The `BackingStorage` is what the data gets written to. Usually that is a
+/// file but for testing purposes it can also be an in-memory vec of bytes.
 #[derive(Debug)]
 enum BackingStorage {
     File(fs::File),
@@ -101,6 +140,7 @@ impl Write for BackingStorage {
     }
 }
 
+/// This struct allows to treat `SerializationSink` as `std::io::Write`.
 pub struct StdWriteAdapter<'a>(&'a SerializationSink);
 
 impl<'a> Write for StdWriteAdapter<'a> {
@@ -132,10 +172,16 @@ struct SerializationSinkInner {
     addr: u32,
 }
 
+/// This state is shared between all `SerializationSink`s writing to the same
+/// backing storage (e.g. the same file).
 #[derive(Clone, Debug)]
 struct SharedState(Arc<Mutex<BackingStorage>>);
 
 impl SharedState {
+    /// Copies out the contents of all pages with the given tag and
+    /// concatenates them into a single byte vec. This method is only meant to
+    /// be used for testing and will panic if the underlying backing storage is
+    /// a file instead of in memory.
     fn copy_bytes_with_page_tag(&self, page_tag: PageTag) -> Vec<u8> {
         let data = self.0.lock();
         let data = match *data {
@@ -143,12 +189,31 @@ impl SharedState {
             BackingStorage::Memory(ref data) => data,
         };
 
-        split_streams(data).remove(&page_tag).unwrap()
+        split_streams(data).remove(&page_tag).unwrap_or(Vec::new())
     }
 }
 
-pub fn split_streams(paged_data: &[u8]) -> HashMap<PageTag, Vec<u8>> {
-    let mut result: HashMap<PageTag, Vec<u8>> = HashMap::new();
+/// This function reconstructs the individual data streams from their paged
+/// version.
+///
+/// For example, if `E` denotes the page header of an events page, `S` denotes
+/// the header of a string data page, and lower case letters denote page
+/// contents then a paged stream could look like:
+///
+/// ```ignore
+/// s = Eabcd_Sopq_Eef_Eghi_Srst
+/// ```
+///
+/// and `split_streams` would result in the following set of streams:
+///
+/// ```ignore
+/// split_streams(s) = {
+///     events: [abcdefghi],
+///     string_data: [opqrst],
+/// }
+/// ```
+pub fn split_streams(paged_data: &[u8]) -> FxHashMap<PageTag, Vec<u8>> {
+    let mut result: FxHashMap<PageTag, Vec<u8>> = FxHashMap::default();
 
     let mut pos = 0;
     while pos < paged_data.len() {
@@ -170,13 +235,17 @@ pub fn split_streams(paged_data: &[u8]) -> HashMap<PageTag, Vec<u8>> {
 }
 
 impl SerializationSink {
-    fn flush(&self, buffer: &mut Vec<u8>) {
-        self.write_page(&buffer[..]);
-        buffer.clear();
-    }
-
+    /// Writes `bytes` as a single page to the shared backing storage. The
+    /// method will first write the page header (consisting of the page tag and
+    /// the number of bytes in the page) and then the page contents
+    /// (i.e. `bytes`).
     fn write_page(&self, bytes: &[u8]) {
         if bytes.len() > 0 {
+            // We explicitly don't assert `bytes.len() >= MIN_PAGE_SIZE` because
+            // `MIN_PAGE_SIZE` is just a recommendation and the last page will
+            // often be smaller than that.
+            assert!(bytes.len() <= MAX_PAGE_SIZE);
+
             let mut file = self.shared_state.0.lock();
 
             file.write_all(&[self.page_tag as u8]).unwrap();
@@ -187,9 +256,16 @@ impl SerializationSink {
         }
     }
 
-    /// Create a copy of all data written so far. This method meant to be used
-    /// for writing unit tests. It will panic if the underlying `BackingStorage`
-    /// does not implement `extract_bytes`.
+    /// Flushes `buffer` by writing its contents as a new page to the backing
+    /// storage and then clearing it.
+    fn flush(&self, buffer: &mut Vec<u8>) {
+        self.write_page(&buffer[..]);
+        buffer.clear();
+    }
+
+    /// Creates a copy of all data written so far. This method is meant to be
+    /// used for writing unit tests. It will panic if the underlying
+    /// `BackingStorage` is a file.
     pub fn into_bytes(mut self) -> Vec<u8> {
         // Swap out the contains of `self` with something that can safely be
         // dropped without side effects.
@@ -205,11 +281,23 @@ impl SerializationSink {
             addr: _,
         } = data.into_inner();
 
+        // Make sure we write the current contents of the buffer to the
+        // backing storage before proceeding.
         self.flush(buffer);
 
         self.shared_state.copy_bytes_with_page_tag(self.page_tag)
     }
 
+    /// Atomically writes `num_bytes` of data to this `SerializationSink`.
+    /// Atomic means the data is guaranteed to be written as a contiguous range
+    /// of bytes.
+    ///
+    /// The buffer provided to the `write` callback is guaranteed to be of size
+    /// `num_bytes` and `write` is supposed to completely fill it with the data
+    /// to be written.
+    ///
+    /// The return value is the address of the data written and can be used to
+    /// refer to the data later on.
     pub fn write_atomic<W>(&self, num_bytes: usize, write: W) -> Addr
     where
         W: FnOnce(&mut [u8]),
@@ -243,7 +331,18 @@ impl SerializationSink {
         Addr(curr_addr)
     }
 
+    /// Atomically writes the data in `bytes` to this `SerializationSink`.
+    /// Atomic means the data is guaranteed to be written as a contiguous range
+    /// of bytes.
+    ///
+    /// This method may perform better than `write_atomic` because it may be
+    /// able to skip the sink's internal buffer. Use this method if the data to
+    /// be written is already available as a `&[u8]`.
+    ///
+    /// The return value is the address of the data written and can be used to
+    /// refer to the data later on.
     pub fn write_bytes_atomic(&self, bytes: &[u8]) -> Addr {
+        // For "small" data we go to the buffered version immediately.
         if bytes.len() <= 128 {
             return self.write_atomic(bytes.len(), |sink| {
                 sink.copy_from_slice(bytes);
@@ -280,8 +379,8 @@ impl SerializationSink {
             if chunk.len() == MAX_PAGE_SIZE {
                 // This chunk has the maximum size. It might or might not be the
                 // last one. In either case we want to write it to disk
-                // immediately because the is no reason to copy it to the buffer
-                // first.
+                // immediately because there is no reason to copy it to the
+                // buffer first.
                 self.write_page(chunk);
             } else {
                 // This chunk is less than the chunk size that we requested, so
