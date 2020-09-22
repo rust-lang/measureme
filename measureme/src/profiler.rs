@@ -1,28 +1,13 @@
-use crate::event_id::EventId;
-use crate::file_header::{write_file_header, FILE_MAGIC_EVENT_STREAM};
+use crate::file_header::{write_file_header, FILE_MAGIC_EVENT_STREAM, FILE_MAGIC_TOP_LEVEL};
 use crate::raw_event::RawEvent;
 use crate::serialization::{PageTag, SerializationSink, SerializationSinkBuilder};
 use crate::stringtable::{SerializableString, StringId, StringTableBuilder};
+use crate::{event_id::EventId, file_header::FILE_EXTENSION};
 use std::error::Error;
-use std::path::{Path, PathBuf};
+use std::fs;
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
-
-pub struct ProfilerFiles {
-    pub events_file: PathBuf,
-    pub string_data_file: PathBuf,
-    pub string_index_file: PathBuf,
-}
-
-impl ProfilerFiles {
-    pub fn new<P: AsRef<Path>>(path_stem: P) -> ProfilerFiles {
-        ProfilerFiles {
-            events_file: path_stem.as_ref().with_extension("events"),
-            string_data_file: path_stem.as_ref().with_extension("string_data"),
-            string_index_file: path_stem.as_ref().with_extension("string_index"),
-        }
-    }
-}
 
 pub struct Profiler {
     event_sink: Arc<SerializationSink>,
@@ -32,18 +17,24 @@ pub struct Profiler {
 
 impl Profiler {
     pub fn new<P: AsRef<Path>>(path_stem: P) -> Result<Profiler, Box<dyn Error + Send + Sync>> {
-        let path = path_stem.as_ref().with_extension("mm_raw");
-        let sink_builder = SerializationSinkBuilder::from_path(&path)?;
+        let path = path_stem.as_ref().with_extension(FILE_EXTENSION);
 
+        fs::create_dir_all(path.parent().unwrap())?;
+        let mut file = fs::File::create(path)?;
+
+        // The first thing in the file must be the top-level file header.
+        write_file_header(&mut file, FILE_MAGIC_TOP_LEVEL)?;
+
+        let sink_builder = SerializationSinkBuilder::from_file(file)?;
         let event_sink = Arc::new(sink_builder.new_sink(PageTag::Events));
 
         // The first thing in every stream we generate must be the stream header.
-        write_file_header(&*event_sink, FILE_MAGIC_EVENT_STREAM);
+        write_file_header(&mut event_sink.as_std_write(), FILE_MAGIC_EVENT_STREAM)?;
 
         let string_table = StringTableBuilder::new(
             Arc::new(sink_builder.new_sink(PageTag::StringData)),
             Arc::new(sink_builder.new_sink(PageTag::StringIndex)),
-        );
+        )?;
 
         let profiler = Profiler {
             event_sink,

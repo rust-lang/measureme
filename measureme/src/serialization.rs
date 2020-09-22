@@ -4,7 +4,6 @@ use std::error::Error;
 use std::fmt::Debug;
 use std::fs;
 use std::io::Write;
-use std::path::Path;
 use std::sync::Arc;
 use std::{cmp::min, collections::HashMap};
 
@@ -51,11 +50,7 @@ pub struct SerializationSink {
 pub struct SerializationSinkBuilder(SharedState);
 
 impl SerializationSinkBuilder {
-    pub fn from_path(path: &Path) -> Result<Self, Box<dyn Error + Send + Sync>> {
-        fs::create_dir_all(path.parent().unwrap())?;
-
-        let file = fs::File::create(path)?;
-
+    pub fn from_file(file: fs::File) -> Result<Self, Box<dyn Error + Send + Sync>> {
         Ok(Self(SharedState(Arc::new(Mutex::new(
             BackingStorage::File(file),
         )))))
@@ -103,6 +98,31 @@ impl Write for BackingStorage {
                 Ok(())
             }
         }
+    }
+}
+
+pub struct StdWriteAdapter<'a>(&'a SerializationSink);
+
+impl<'a> Write for StdWriteAdapter<'a> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.write_bytes_atomic(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        let mut data = self.0.data.lock();
+        let SerializationSinkInner {
+            ref mut buffer,
+            addr: _,
+        } = *data;
+
+        // First flush the local buffer.
+        self.0.flush(buffer);
+
+        // Then flush the backing store.
+        self.0.shared_state.0.lock().flush()?;
+
+        Ok(())
     }
 }
 
@@ -278,6 +298,10 @@ impl SerializationSink {
         }
 
         curr_addr
+    }
+
+    pub fn as_std_write<'a>(&'a self) -> StdWriteAdapter<'a> {
+        StdWriteAdapter(self)
     }
 }
 
