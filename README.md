@@ -15,7 +15,7 @@ be used within rustc itself, so APIs may change at any moment.
 
 ### summarize
 
-`summarize` produces a human readable summary of `measureme` profilng data.
+`summarize` produces a human readable summary of `measureme` profiling data.
 It contains two main modes:
 
 - `summarize` which groups the profiling events and orders the results by time taken.
