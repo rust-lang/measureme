@@ -96,17 +96,19 @@ fn generate_profiling_data(
         })
         .collect();
 
-    let expected_events: Vec<_> = threads
-        .into_iter()
-        .flat_map(|t| t.join().unwrap())
-        .collect();
-
     // An example of allocating the string contents of an event id that has
     // already been used
     profiler.map_virtual_to_concrete_string(
         event_id_virtual.to_string_id(),
         profiler.alloc_string("SomeQuery"),
     );
+
+    drop(profiler);
+
+    let expected_events: Vec<_> = threads
+        .into_iter()
+        .flat_map(|t| t.join().unwrap())
+        .collect();
 
     expected_events
 }

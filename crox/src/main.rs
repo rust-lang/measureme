@@ -131,7 +131,7 @@ fn get_args(full_event: &analyzeme::Event) -> Option<FxHashMap<String, String>> 
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let opt = Opt::from_args();
 
     let chrome_file = BufWriter::new(fs::File::create("chrome_profiler.json")?);

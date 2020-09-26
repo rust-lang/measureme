@@ -3,17 +3,19 @@ use crate::lightweight_event::LightweightEvent;
 use crate::timestamp::Timestamp;
 use crate::StringTable;
 use measureme::file_header::{
-    read_file_header, write_file_header, CURRENT_FILE_FORMAT_VERSION, FILE_HEADER_SIZE,
-    FILE_MAGIC_EVENT_STREAM,
+    verify_file_header, write_file_header, FILE_EXTENSION, FILE_HEADER_SIZE,
+    FILE_MAGIC_EVENT_STREAM, FILE_MAGIC_TOP_LEVEL,
 };
-use measureme::{EventId, ProfilerFiles, RawEvent, SerializationSink, StringTableBuilder};
+use measureme::{
+    EventId, PageTag, RawEvent, SerializationSink, SerializationSinkBuilder, StringTableBuilder,
+};
 use serde::{Deserialize, Deserializer};
-use std::error::Error;
 use std::fs;
 use std::mem;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{error::Error, path::PathBuf};
 
 const RAW_EVENT_SIZE: usize = mem::size_of::<RawEvent>();
 
@@ -43,35 +45,60 @@ pub struct ProfilingData {
 }
 
 impl ProfilingData {
-    pub fn new(path_stem: &Path) -> Result<ProfilingData, Box<dyn Error>> {
-        let paths = ProfilerFiles::new(path_stem);
+    pub fn new(path_stem: &Path) -> Result<ProfilingData, Box<dyn Error + Send + Sync>> {
+        let paged_path = path_stem.with_extension(FILE_EXTENSION);
 
-        let string_data = fs::read(paths.string_data_file).expect("couldn't read string_data file");
-        let index_data =
-            fs::read(paths.string_index_file).expect("couldn't read string_index file");
-        let event_data = fs::read(paths.events_file).expect("couldn't read events file");
+        if paged_path.exists() {
+            let data = fs::read(&paged_path)?;
 
-        ProfilingData::from_buffers(string_data, index_data, event_data)
+            verify_file_header(&data, FILE_MAGIC_TOP_LEVEL, Some(&paged_path), "top-level")?;
+
+            let mut split_data = measureme::split_streams(&data[FILE_HEADER_SIZE..]);
+
+            let string_data = split_data.remove(&PageTag::StringData).unwrap();
+            let index_data = split_data.remove(&PageTag::StringIndex).unwrap();
+            let event_data = split_data.remove(&PageTag::Events).unwrap();
+
+            ProfilingData::from_buffers(string_data, index_data, event_data, Some(&paged_path))
+        } else {
+            let mut msg = format!(
+                "Could not find profiling data file `{}`.",
+                paged_path.display()
+            );
+
+            // Let's try to give a helpful error message if we encounter files
+            // in the old three-file-format:
+            let paths = ProfilerFiles::new(path_stem);
+
+            if paths.events_file.exists()
+                || paths.string_data_file.exists()
+                || paths.string_index_file.exists()
+            {
+                msg += "It looks like your profiling data has been generated \
+                        by an out-dated version of measureme (0.7 or older).";
+            }
+
+            return Err(From::from(msg));
+        }
     }
 
     pub fn from_buffers(
         string_data: Vec<u8>,
         string_index: Vec<u8>,
         events: Vec<u8>,
-    ) -> Result<ProfilingData, Box<dyn Error>> {
+        diagnostic_file_path: Option<&Path>,
+    ) -> Result<ProfilingData, Box<dyn Error + Send + Sync>> {
         let index_data = string_index;
         let event_data = events;
 
-        let event_data_format = read_file_header(&event_data, FILE_MAGIC_EVENT_STREAM)?;
-        if event_data_format != CURRENT_FILE_FORMAT_VERSION {
-            Err(format!(
-                "Event stream file format version '{}' is not supported
-                 by this version of `measureme`.",
-                event_data_format
-            ))?;
-        }
+        verify_file_header(
+            &event_data,
+            FILE_MAGIC_EVENT_STREAM,
+            diagnostic_file_path,
+            "event",
+        )?;
 
-        let string_table = StringTable::new(string_data, index_data)?;
+        let string_table = StringTable::new(string_data, index_data, diagnostic_file_path)?;
 
         let metadata = string_table.get_metadata().to_string();
         let metadata: Metadata = serde_json::from_str(&metadata)?;
@@ -207,17 +234,20 @@ pub struct ProfilingDataBuilder {
 
 impl ProfilingDataBuilder {
     pub fn new() -> ProfilingDataBuilder {
-        let event_sink = SerializationSink::new_in_memory();
-        let string_table_data_sink = Arc::new(SerializationSink::new_in_memory());
-        let string_table_index_sink = Arc::new(SerializationSink::new_in_memory());
+        let sink_builder = SerializationSinkBuilder::new_in_memory();
+
+        let event_sink = sink_builder.new_sink(PageTag::Events);
+        let string_table_data_sink = Arc::new(sink_builder.new_sink(PageTag::StringData));
+        let string_table_index_sink = Arc::new(sink_builder.new_sink(PageTag::StringIndex));
 
         // The first thing in every file we generate must be the file header.
-        write_file_header(&event_sink, FILE_MAGIC_EVENT_STREAM);
+        write_file_header(&mut event_sink.as_std_write(), FILE_MAGIC_EVENT_STREAM).unwrap();
 
         let string_table = StringTableBuilder::new(
             string_table_data_sink.clone(),
             string_table_index_sink.clone(),
-        );
+        )
+        .unwrap();
 
         ProfilingDataBuilder {
             event_sink,
@@ -287,11 +317,9 @@ impl ProfilingDataBuilder {
             .unwrap()
             .into_bytes();
 
-        assert_eq!(
-            read_file_header(&event_data, FILE_MAGIC_EVENT_STREAM).unwrap(),
-            CURRENT_FILE_FORMAT_VERSION
-        );
-        let string_table = StringTable::new(data_bytes, index_bytes).unwrap();
+        verify_file_header(&event_data, FILE_MAGIC_EVENT_STREAM, None, "event").unwrap();
+
+        let string_table = StringTable::new(data_bytes, index_bytes, None).unwrap();
         let metadata = Metadata {
             start_time: UNIX_EPOCH,
             process_id: 0,
@@ -317,6 +345,25 @@ impl<'a> ExactSizeIterator for ProfilerEventIterator<'a> {}
 
 fn event_index_to_addr(event_index: usize) -> usize {
     FILE_HEADER_SIZE + event_index * mem::size_of::<RawEvent>()
+}
+
+// This struct reflects what filenames were in old versions of measureme. It is
+// used only for giving helpful error messages now if a user tries to load old
+// data.
+struct ProfilerFiles {
+    pub events_file: PathBuf,
+    pub string_data_file: PathBuf,
+    pub string_index_file: PathBuf,
+}
+
+impl ProfilerFiles {
+    fn new<P: AsRef<Path>>(path_stem: P) -> ProfilerFiles {
+        ProfilerFiles {
+            events_file: path_stem.as_ref().with_extension("events"),
+            string_data_file: path_stem.as_ref().with_extension("string_data"),
+            string_index_file: path_stem.as_ref().with_extension("string_index"),
+        }
+    }
 }
 
 #[rustfmt::skip]

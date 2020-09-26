@@ -1,7 +1,7 @@
 //! See module-level documentation `measureme::stringtable`.
 
 use measureme::file_header::{
-    read_file_header, strip_file_header, CURRENT_FILE_FORMAT_VERSION, FILE_MAGIC_STRINGTABLE_DATA,
+    strip_file_header, verify_file_header, FILE_MAGIC_STRINGTABLE_DATA,
     FILE_MAGIC_STRINGTABLE_INDEX,
 };
 use measureme::stringtable::{METADATA_STRING_ID, STRING_ID_MASK, TERMINATOR};
@@ -11,6 +11,7 @@ use rustc_hash::FxHashMap;
 use std::borrow::Cow;
 use std::convert::TryInto;
 use std::error::Error;
+use std::path::Path;
 
 fn deserialize_index_entry(bytes: &[u8]) -> (StringId, Addr) {
     (
@@ -204,21 +205,23 @@ pub struct StringTable {
 }
 
 impl StringTable {
-    pub fn new(string_data: Vec<u8>, index_data: Vec<u8>) -> Result<StringTable, Box<dyn Error>> {
-        let string_data_format = read_file_header(&string_data, FILE_MAGIC_STRINGTABLE_DATA)?;
-        let index_data_format = read_file_header(&index_data, FILE_MAGIC_STRINGTABLE_INDEX)?;
-
-        if string_data_format != index_data_format {
-            Err("Mismatch between StringTable DATA and INDEX format version")?;
-        }
-
-        if string_data_format != CURRENT_FILE_FORMAT_VERSION {
-            Err(format!(
-                "StringTable file format version '{}' is not supported
-                         by this version of `measureme`.",
-                string_data_format
-            ))?;
-        }
+    pub fn new(
+        string_data: Vec<u8>,
+        index_data: Vec<u8>,
+        diagnostic_file_path: Option<&Path>,
+    ) -> Result<StringTable, Box<dyn Error + Send + Sync>> {
+        verify_file_header(
+            &string_data,
+            FILE_MAGIC_STRINGTABLE_DATA,
+            diagnostic_file_path,
+            "StringTable Data",
+        )?;
+        verify_file_header(
+            &index_data,
+            FILE_MAGIC_STRINGTABLE_INDEX,
+            diagnostic_file_path,
+            "StringTable Index",
+        )?;
 
         assert!(index_data.len() % 8 == 0);
         let index: FxHashMap<_, _> = strip_file_header(&index_data)
@@ -243,13 +246,14 @@ impl StringTable {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use measureme::{SerializationSink, StringComponent, StringTableBuilder};
+    use measureme::{PageTag, SerializationSinkBuilder, StringComponent, StringTableBuilder};
     use std::sync::Arc;
 
     #[test]
     fn simple_strings() {
-        let data_sink = Arc::new(SerializationSink::new_in_memory());
-        let index_sink = Arc::new(SerializationSink::new_in_memory());
+        let sink_builder = SerializationSinkBuilder::new_in_memory();
+        let data_sink = Arc::new(sink_builder.new_sink(PageTag::StringData));
+        let index_sink = Arc::new(sink_builder.new_sink(PageTag::StringIndex));
 
         let expected_strings = &[
             "abc",
@@ -264,7 +268,7 @@ mod tests {
         let mut string_ids = vec![];
 
         {
-            let builder = StringTableBuilder::new(data_sink.clone(), index_sink.clone());
+            let builder = StringTableBuilder::new(data_sink.clone(), index_sink.clone()).unwrap();
 
             for &s in expected_strings {
                 string_ids.push(builder.alloc(s));
@@ -274,7 +278,7 @@ mod tests {
         let data_bytes = Arc::try_unwrap(data_sink).unwrap().into_bytes();
         let index_bytes = Arc::try_unwrap(index_sink).unwrap().into_bytes();
 
-        let string_table = StringTable::new(data_bytes, index_bytes).unwrap();
+        let string_table = StringTable::new(data_bytes, index_bytes, None).unwrap();
 
         for (&id, &expected_string) in string_ids.iter().zip(expected_strings.iter()) {
             let str_ref = string_table.get(id);
@@ -289,8 +293,9 @@ mod tests {
 
     #[test]
     fn composite_string() {
-        let data_sink = Arc::new(SerializationSink::new_in_memory());
-        let index_sink = Arc::new(SerializationSink::new_in_memory());
+        let sink_builder = SerializationSinkBuilder::new_in_memory();
+        let data_sink = Arc::new(sink_builder.new_sink(PageTag::StringData));
+        let index_sink = Arc::new(sink_builder.new_sink(PageTag::StringIndex));
 
         let expected_strings = &[
             "abc",                  // 0
@@ -306,7 +311,7 @@ mod tests {
         let mut string_ids = vec![];
 
         {
-            let builder = StringTableBuilder::new(data_sink.clone(), index_sink.clone());
+            let builder = StringTableBuilder::new(data_sink.clone(), index_sink.clone()).unwrap();
 
             let r = |id| StringComponent::Ref(id);
             let v = |s| StringComponent::Value(s);
@@ -329,7 +334,7 @@ mod tests {
         let data_bytes = Arc::try_unwrap(data_sink).unwrap().into_bytes();
         let index_bytes = Arc::try_unwrap(index_sink).unwrap().into_bytes();
 
-        let string_table = StringTable::new(data_bytes, index_bytes).unwrap();
+        let string_table = StringTable::new(data_bytes, index_bytes, None).unwrap();
 
         for (&id, &expected_string) in string_ids.iter().zip(expected_strings.iter()) {
             let str_ref = string_table.get(id);

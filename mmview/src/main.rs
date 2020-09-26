@@ -13,7 +13,7 @@ struct Opt {
     thread_id: Option<u32>,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let opt = Opt::from_args();
 
     let data = ProfilingData::new(&opt.file_prefix)?;
