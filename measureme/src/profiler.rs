@@ -25,7 +25,7 @@ impl Profiler {
         // The first thing in the file must be the top-level file header.
         write_file_header(&mut file, FILE_MAGIC_TOP_LEVEL)?;
 
-        let sink_builder = SerializationSinkBuilder::from_file(file)?;
+        let sink_builder = SerializationSinkBuilder::new_from_file(file)?;
         let event_sink = Arc::new(sink_builder.new_sink(PageTag::Events));
 
         // The first thing in every stream we generate must be the stream header.

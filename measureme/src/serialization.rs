@@ -88,7 +88,7 @@ pub struct SerializationSink {
 pub struct SerializationSinkBuilder(SharedState);
 
 impl SerializationSinkBuilder {
-    pub fn from_file(file: fs::File) -> Result<Self, Box<dyn Error + Send + Sync>> {
+    pub fn new_from_file(file: fs::File) -> Result<Self, Box<dyn Error + Send + Sync>> {
         Ok(Self(SharedState(Arc::new(Mutex::new(
             BackingStorage::File(file),
         )))))
@@ -399,7 +399,7 @@ impl SerializationSink {
         curr_addr
     }
 
-    pub fn as_std_write<'a>(&'a self) -> StdWriteAdapter<'a> {
+    pub fn as_std_write<'a>(&'a self) -> impl Write + 'a {
         StdWriteAdapter(self)
     }
 }
