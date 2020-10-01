@@ -10,7 +10,7 @@ use measureme::{
     stringtable::STRING_REF_TAG,
 };
 use measureme::{Addr, StringId};
-use memchr::memchr;
+use memchr::{memchr, memchr2};
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
 use std::convert::TryInto;
@@ -33,6 +33,10 @@ pub struct StringRef<'st> {
 // This is the text we emit when encountering a virtual string ID that cannot
 // be resolved.
 const UNKNOWN_STRING: &str = "<unknown>";
+
+// This is the text we emit when we encounter string data that does not have a
+// proper terminator.
+const INVALID_STRING: &str = "<invalid>";
 
 impl<'st> StringRef<'st> {
     /// Expands the StringRef into an actual string. This method will
@@ -110,9 +114,18 @@ impl<'st> StringRef<'st> {
 
                 pos += STRING_REF_ENCODED_SIZE;
             } else {
-                while let Some((c, len)) = decode_utf8_char(&self.table.string_data[pos..]) {
-                    output.push(c);
+                // This is a literal UTF-8 string value. Find its end by looking
+                // for either of the two possible terminator bytes.
+                let remaining_data = &self.table.string_data[pos..];
+                if let Some(len) = memchr2(0xFF, 0xFE, remaining_data) {
+                    let value = String::from_utf8_lossy(&remaining_data[..len]);
+                    output.push_str(&value);
                     pos += len;
+                } else {
+                    // The grammar does not allow unterminated raw strings. We
+                    // have to stop decoding.
+                    output.push_str(INVALID_STRING);
+                    return;
                 }
             }
         }
@@ -139,58 +152,6 @@ fn decode_string_ref_from_data(bytes: &[u8]) -> StringId {
     assert!(STRING_REF_ENCODED_SIZE == 5);
     let id = u32::from_le_bytes(bytes[1..5].try_into().unwrap());
     StringId::new(id)
-}
-
-// Tries to decode a UTF-8 codepoint starting at the beginning of `bytes`.
-// Returns the decoded `char` and its size in bytes if it succeeds.
-// Returns `None` if `bytes` does not start with a valid UTF-8 codepoint.
-// See https://en.wikipedia.org/wiki/UTF-8 for in-depth information on the
-// encoding.
-fn decode_utf8_char(bytes: &[u8]) -> Option<(char, usize)> {
-    use std::convert::TryFrom;
-    let first_byte = bytes[0] as u32;
-    let (codepoint, len) = if (first_byte & 0b1000_0000) == 0 {
-        // The highest bit is zero, so this is a single-byte char
-        (first_byte, 1)
-    } else if (first_byte & 0b1110_0000) == 0b1100_0000 {
-        // This is a two byte character
-        let bits0 = first_byte & 0b0001_1111;
-        let bits1 = (bytes[1] & 0b0011_1111) as u32;
-
-        (bits0 << 6 | bits1, 2)
-    } else if (first_byte & 0b1111_0000) == 0b1110_0000 {
-        // This is a three byte character
-        let bits0 = first_byte & 0b0000_1111;
-        let bits1 = (bytes[1] & 0b0011_1111) as u32;
-        let bits2 = (bytes[2] & 0b0011_1111) as u32;
-
-        ((bits0 << 12) | (bits1 << 6) | bits2, 3)
-    } else if (first_byte & 0b1111_1000) == 0b1111_0000 {
-        // This is a four byte character
-        let bits0 = first_byte & 0b0000_0111;
-        let bits1 = (bytes[1] & 0b0011_1111) as u32;
-        let bits2 = (bytes[2] & 0b0011_1111) as u32;
-        let bits3 = (bytes[3] & 0b0011_1111) as u32;
-
-        ((bits0 << 18) | (bits1 << 12) | (bits2 << 6) | bits3, 4)
-    } else {
-        return None;
-    };
-
-    match char::try_from(codepoint) {
-        Ok(c) => {
-            debug_assert!({
-                let test_bytes = &mut [0u8; 8];
-                c.encode_utf8(test_bytes);
-                &test_bytes[..len] == &bytes[..len]
-            });
-
-            Some((c, len))
-        }
-        Err(e) => {
-            panic!("StringTable: Encountered invalid UTF8 char: {:?}", e);
-        }
-    }
 }
 
 /// Read-only version of the string table
@@ -341,22 +302,6 @@ mod tests {
             let mut write_to = String::new();
             str_ref.write_to_string(&mut write_to);
             assert_eq!(str_ref.to_string(), write_to);
-        }
-    }
-
-    #[test]
-    fn utf8_char_decoding() {
-        use std::convert::TryFrom;
-
-        // Let's just test all possible codepoints because there are not that
-        // many actually.
-        for codepoint in 0..=0x10FFFFu32 {
-            if let Ok(expected_char) = char::try_from(codepoint) {
-                let buffer = &mut [0; 4];
-                let expected_len = expected_char.encode_utf8(buffer).len();
-                let expected = Some((expected_char, expected_len));
-                assert_eq!(expected, decode_utf8_char(&buffer[..]));
-            }
         }
     }
 }
