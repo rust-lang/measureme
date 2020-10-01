@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.1] - 2020-01-02
+### Changed
+- `measureme`: Fix compilation error on big endian systems ([GH-103])
+
+## [0.7.0] - 2019-12-18
+### Changed
+- `measureme`: Events can now have "arguments" which record additional data about the event ([GH-101])
+
 ## [0.6.0] - 2019-12-11
 ### Added
 - `measureme`: Added `SerializationSink::write_bytes_atomic` that optimizes handling of existing buffers ([GH-97])
@@ -43,6 +51,10 @@
 
 ## [0.2.0] - 2019-04-10
 
+[0.7.1]: https://github.com/rust-lang/measureme/releases/tag/0.7.1
+[0.7.0]: https://github.com/rust-lang/measureme/releases/tag/0.7.0
+[0.6.0]: https://github.com/rust-lang/measureme/releases/tag/0.6.0
+[0.5.0]: https://github.com/rust-lang/measureme/releases/tag/0.5.0
 [0.4.0]: https://github.com/rust-lang/measureme/releases/tag/0.4.0
 [0.3.0]: https://github.com/rust-lang/measureme/releases/tag/0.3.0
 [0.2.1]: https://github.com/rust-lang/measureme/releases/tag/0.2.1
@@ -65,3 +77,5 @@
 [GH-93]: https://github.com/rust-lang/measureme/pull/93
 [GH-97]: https://github.com/rust-lang/measureme/pull/97
 [GH-98]: https://github.com/rust-lang/measureme/pull/98
+[GH-101]: https://github.com/rust-lang/measureme/pull/101
+[GH-103]: https://github.com/rust-lang/measureme/pull/103
