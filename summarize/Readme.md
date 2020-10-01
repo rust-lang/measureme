@@ -29,15 +29,16 @@ $ cargo +nightly rustc -- -Z self-profile
 ```
 
 The commands above will run `rustc` with the flag that enables profiling. You should now
-have three files in your directory named `pid-{pid}.events`, `pid-{pid}.string_data` and
-`pid-{pid}.string_index`, which contain the profiler data. (If you just got a
-`regex.profile_events.json` file instead, your compiler is too old.)
+have a file in your directory named `regex-{pid}.mm_profdata` which contains the profiler data. (If
+you got three files instead, you will need to use an older version of the `summarize` tool such as
+the `0.7.1` release to read the data:
+`cargo install --git https://github.com/rust-lang/measureme --tag 0.7.1 summarize`)
 
 You can now use the `summarize` tool we installed in the previous section to view the
 contents of these files:
 
 ```bash
-$ summarize summarize id-{pid}
+$ summarize summarize regex-{pid}.mm_profdata
 +------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
 | Item                   | Self time | % of total time | Item count | Cache hits | Blocked time | Incremental load time |
 +------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
@@ -92,7 +93,7 @@ as before: (with regex as example)
 $ git clone https://github.com/rust-lang/regex.git
 $ cd regex
 $ cargo +mytoolchain rustc -- -Z self-profile
-$ summarize summarize pid-{pid}
+$ summarize summarize regex-{pid}.mm_profdata
 +------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
 | Item                   | Self time | % of total time | Item count | Cache hits | Blocked time | Incremental load time |
 +------------------------+-----------+-----------------+------------+------------+--------------+-----------------------+
@@ -146,7 +147,7 @@ The `diff` sub command allows you to compare the performance of two different pr
 The output is a table like that of the `summarize` sub command but it instead shows the differences in each metric.
 
 ```bash
-$ summarize diff base-profile changed-profile
+$ summarize diff base-profile.mm_profdata changed-profile.mm_profdata
 +---------------------------+--------------+------------+------------+--------------+-----------------------+
 | Item                      | Self Time    | Item count | Cache hits | Blocked time | Incremental load time |
 +---------------------------+--------------+------------+------------+--------------+-----------------------+

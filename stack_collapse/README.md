@@ -15,7 +15,7 @@ $ cd regex
 
 $ cargo rustc -- -Z self-profile
 
-$ stack_collapse regex-{pid}
+$ stack_collapse regex-{pid}.mm_profdata
 
 $ ../path/to/FlameGraph/flamegraph.pl out.stacks_folded > rustc.svg
 

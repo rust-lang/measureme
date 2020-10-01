@@ -15,7 +15,7 @@ $ cd regex
 
 $ cargo rustc -- -Z self-profile
 
-$ flamegraph regex-{pid}
+$ flamegraph regex-{pid}.mm_profdata
 
 $ open rustc.svg
 ```
