@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.0] - 2020-10-01
+### Added
+- `analyzeme`: Profiling data can now be constructed directly from memory without having to touch the filesystem ([GH-123])
+- `summarize`: A new "Time" column shows the total amount of time spent executing the query including sub-queries ([GH-109])
+
+### Changed
+- `crox`: Event argument data is now included in the output file ([GH-108])
+- `measureme`: Trace data is now recorded into a single file instead of three files ([GH-132])
+- `mmview`: Do not panic when there are no events ([GH-119])
+- `summarize`: Time spent in incremental result cache loading and query blocking now counts toward self-time for the query ([GH-104])
+- `summarize`: Improve support for loading trace files created by programs other than rustc ([GH-116])
+- `summarize`: Only show the "Cache hits", "Blocked Time" and "Incremental load time" columns if that data is present in the trace ([GH-116])
+
 ## [0.7.1] - 2020-01-02
 ### Changed
 - `measureme`: Fix compilation error on big endian systems ([GH-103])
@@ -51,6 +64,7 @@
 
 ## [0.2.0] - 2019-04-10
 
+[0.8.0]: https://github.com/rust-lang/measureme/releases/tag/0.8.0
 [0.7.1]: https://github.com/rust-lang/measureme/releases/tag/0.7.1
 [0.7.0]: https://github.com/rust-lang/measureme/releases/tag/0.7.0
 [0.6.0]: https://github.com/rust-lang/measureme/releases/tag/0.6.0
@@ -79,3 +93,10 @@
 [GH-98]: https://github.com/rust-lang/measureme/pull/98
 [GH-101]: https://github.com/rust-lang/measureme/pull/101
 [GH-103]: https://github.com/rust-lang/measureme/pull/103
+[GH-104]: https://github.com/rust-lang/measureme/pull/104
+[GH-108]: https://github.com/rust-lang/measureme/pull/108
+[GH-109]: https://github.com/rust-lang/measureme/pull/109
+[GH-116]: https://github.com/rust-lang/measureme/pull/116
+[GH-119]: https://github.com/rust-lang/measureme/pull/119
+[GH-123]: https://github.com/rust-lang/measureme/pull/123
+[GH-132]: https://github.com/rust-lang/measureme/pull/132
