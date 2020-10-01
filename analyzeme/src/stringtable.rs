@@ -1,10 +1,14 @@
 //! See module-level documentation `measureme::stringtable`.
 
-use measureme::file_header::{
-    strip_file_header, verify_file_header, FILE_MAGIC_STRINGTABLE_DATA,
-    FILE_MAGIC_STRINGTABLE_INDEX,
+use measureme::stringtable::{METADATA_STRING_ID, TERMINATOR};
+use measureme::{
+    file_header::{
+        strip_file_header, verify_file_header, FILE_MAGIC_STRINGTABLE_DATA,
+        FILE_MAGIC_STRINGTABLE_INDEX,
+    },
+    stringtable::STRING_REF_ENCODED_SIZE,
+    stringtable::STRING_REF_TAG,
 };
-use measureme::stringtable::{METADATA_STRING_ID, STRING_ID_MASK, TERMINATOR};
 use measureme::{Addr, StringId};
 use memchr::memchr;
 use rustc_hash::FxHashMap;
@@ -55,9 +59,8 @@ impl<'st> StringRef<'st> {
 
         // Check if this is a string containing a single StringId component
         let first_byte = self.table.string_data[pos];
-        const STRING_ID_SIZE: usize = std::mem::size_of::<StringId>();
-        if terminator_pos == pos + STRING_ID_SIZE && is_utf8_continuation_byte(first_byte) {
-            let id = decode_string_id_from_data(&self.table.string_data[pos..pos + STRING_ID_SIZE]);
+        if first_byte == STRING_REF_TAG && terminator_pos == pos + STRING_REF_ENCODED_SIZE {
+            let id = decode_string_ref_from_data(&self.table.string_data[pos..]);
             return StringRef {
                 id,
                 table: self.table,
@@ -97,15 +100,15 @@ impl<'st> StringRef<'st> {
 
             if byte == TERMINATOR {
                 return;
-            } else if is_utf8_continuation_byte(byte) {
+            } else if byte == STRING_REF_TAG {
                 let string_ref = StringRef {
-                    id: decode_string_id_from_data(&self.table.string_data[pos..pos + 4]),
+                    id: decode_string_ref_from_data(&self.table.string_data[pos..]),
                     table: self.table,
                 };
 
                 string_ref.write_to_string(output);
 
-                pos += 4;
+                pos += STRING_REF_ENCODED_SIZE;
             } else {
                 while let Some((c, len)) = decode_utf8_char(&self.table.string_data[pos..]) {
                     output.push(c);
@@ -129,19 +132,13 @@ impl<'st> StringRef<'st> {
     }
 }
 
-fn is_utf8_continuation_byte(byte: u8) -> bool {
-    // See module-level documentation for more information on the encoding.
-    const UTF8_CONTINUATION_MASK: u8 = 0b1100_0000;
-    const UTF8_CONTINUATION_BYTE: u8 = 0b1000_0000;
-    (byte & UTF8_CONTINUATION_MASK) == UTF8_CONTINUATION_BYTE
-}
-
 // String IDs in the table data are encoded in big endian format, while string
 // IDs in the index are encoded in little endian format. Don't mix the two up.
-fn decode_string_id_from_data(bytes: &[u8]) -> StringId {
-    let id = u32::from_be_bytes(bytes[0..4].try_into().unwrap());
-    // Mask off the `0b10` prefix
-    StringId::new(id & STRING_ID_MASK)
+fn decode_string_ref_from_data(bytes: &[u8]) -> StringId {
+    assert!(bytes[0] == STRING_REF_TAG);
+    assert!(STRING_REF_ENCODED_SIZE == 5);
+    let id = u32::from_le_bytes(bytes[1..5].try_into().unwrap());
+    StringId::new(id)
 }
 
 // Tries to decode a UTF-8 codepoint starting at the beginning of `bytes`.
