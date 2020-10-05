@@ -148,8 +148,12 @@ impl<'st> StringRef<'st> {
 // String IDs in the table data are encoded in big endian format, while string
 // IDs in the index are encoded in little endian format. Don't mix the two up.
 fn decode_string_ref_from_data(bytes: &[u8]) -> StringId {
+    // The code below assumes we use a 5-byte encoding for string
+    // refs, where the first byte is STRING_REF_TAG and the
+    // following 4 bytes are a little-endian u32 string ID value.
     assert!(bytes[0] == STRING_REF_TAG);
     assert!(STRING_REF_ENCODED_SIZE == 5);
+
     let id = u32::from_le_bytes(bytes[1..5].try_into().unwrap());
     StringId::new(id)
 }

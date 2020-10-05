@@ -180,7 +180,11 @@ impl<'s> StringComponent<'s> {
                 &mut bytes[s.len()..]
             }
             StringComponent::Ref(string_id) => {
+                // The code below assumes we use a 5-byte encoding for string
+                // refs, where the first byte is STRING_REF_TAG and the
+                // following 4 bytes are a little-endian u32 string ID value.
                 assert!(STRING_REF_ENCODED_SIZE == 5);
+
                 bytes[0] = STRING_REF_TAG;
                 &mut bytes[1..5].copy_from_slice(&string_id.0.to_le_bytes());
                 &mut bytes[5..]
