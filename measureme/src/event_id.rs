@@ -78,4 +78,17 @@ impl<'p> EventIdBuilder<'p> {
             StringComponent::Ref(arg),
         ]))
     }
+
+    pub fn from_label_and_args(&self, label: StringId, args: &[StringId]) -> EventId {
+        // The capacity is the number of args + the same number for arg separators + the label.
+        let mut parts = Vec::with_capacity(args.len() * 2 + 1);
+        parts.push(StringComponent::Ref(label));
+
+        for arg in args {
+            parts.push(StringComponent::Value(SEPARATOR_BYTE));
+            parts.push(StringComponent::Ref(*arg));
+        }
+
+        EventId(self.profiler.alloc_string(&parts[..]))
+    }
 }
