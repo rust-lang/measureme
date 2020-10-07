@@ -1,5 +1,13 @@
 # Changelog
 
+## [9.0.0] - 2020-10-07
+### Added
+- `measureme`: Added a function to create `EventId`s with multiple arguments ([GH-138])
+
+### Changed
+- We now use the standard semantic versioning system. As this is the 9th breaking change, we're adopting `9.0` as the version number
+- `measureme`: Allow recording up to 4gb of string data instead of the old limit of 1gb ([GH-137])
+
 ## [0.8.0] - 2020-10-01
 ### Added
 - `analyzeme`: Profiling data can now be constructed directly from memory without having to touch the filesystem ([GH-123])
@@ -64,6 +72,7 @@
 
 ## [0.2.0] - 2019-04-10
 
+[9.0.0]: https://github.com/rust-lang/measureme/releases/tag/9.0.0
 [0.8.0]: https://github.com/rust-lang/measureme/releases/tag/0.8.0
 [0.7.1]: https://github.com/rust-lang/measureme/releases/tag/0.7.1
 [0.7.0]: https://github.com/rust-lang/measureme/releases/tag/0.7.0
@@ -100,3 +109,5 @@
 [GH-119]: https://github.com/rust-lang/measureme/pull/119
 [GH-123]: https://github.com/rust-lang/measureme/pull/123
 [GH-132]: https://github.com/rust-lang/measureme/pull/132
+[GH-137]: https://github.com/rust-lang/measureme/pull/137
+[GH-138]: https://github.com/rust-lang/measureme/pull/138
