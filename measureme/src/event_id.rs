@@ -1,3 +1,5 @@
+use smallvec::SmallVec;
+
 use crate::{Profiler, StringComponent, StringId};
 
 /// Event IDs are strings conforming to the following grammar:
@@ -80,8 +82,9 @@ impl<'p> EventIdBuilder<'p> {
     }
 
     pub fn from_label_and_args(&self, label: StringId, args: &[StringId]) -> EventId {
-        // The capacity is the number of args + the same number for arg separators + the label.
-        let mut parts = Vec::with_capacity(args.len() * 2 + 1);
+        // Store up to 7 components on the stack: 1 label + 3 arguments + 3 argument separators
+        let mut parts = SmallVec::<[StringComponent; 7]>::with_capacity(1 + args.len() * 2);
+
         parts.push(StringComponent::Ref(label));
 
         for arg in args {
