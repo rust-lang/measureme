@@ -19,7 +19,10 @@ impl Profiler {
     pub fn new<P: AsRef<Path>>(path_stem: P) -> Result<Profiler, Box<dyn Error + Send + Sync>> {
         Self::with_counter(
             path_stem,
-            Counter::WallTime(crate::counters::WallTime::new()),
+            Counter::WallTime(
+                crate::counters::InstructionsMinusIrqs::new()?,
+                crate::counters::WallTime::new(),
+            ),
         )
     }
 

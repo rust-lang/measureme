@@ -11,8 +11,9 @@ macro_rules! really_warn {
 }
 
 pub enum Counter {
-    WallTime(WallTime),
-    Instructions(Instructions),
+    Zero(InstructionsMinusIrqs),
+    WallTime(InstructionsMinusIrqs, WallTime),
+    Instructions(InstructionsMinusIrqs, Instructions),
     InstructionsMinusIrqs(InstructionsMinusIrqs),
     InstructionsMinusRaw0420(InstructionsMinusRaw0420),
 }
@@ -20,12 +21,17 @@ pub enum Counter {
 impl Counter {
     pub fn by_name(name: &str) -> Result<Self, Box<dyn Error + Send + Sync>> {
         Ok(match name {
-            WallTime::NAME => Counter::WallTime(WallTime::new()),
-            Instructions::NAME => Counter::Instructions(Instructions::new()?),
-            InstructionsMinusIrqs::NAME => {
+            "0" => Counter::Zero(InstructionsMinusIrqs::new()?),
+            "t" | WallTime::NAME => {
+                Counter::WallTime(InstructionsMinusIrqs::new()?, WallTime::new())
+            }
+            "i" | Instructions::NAME => {
+                Counter::Instructions(InstructionsMinusIrqs::new()?, Instructions::new()?)
+            }
+            "I" | InstructionsMinusIrqs::NAME => {
                 Counter::InstructionsMinusIrqs(InstructionsMinusIrqs::new()?)
             }
-            InstructionsMinusRaw0420::NAME => {
+            "r" | InstructionsMinusRaw0420::NAME => {
                 Counter::InstructionsMinusRaw0420(InstructionsMinusRaw0420::new()?)
             }
             _ => return Err(format!("{:?} is not a valid counter name", name).into()),
@@ -34,11 +40,12 @@ impl Counter {
 
     pub(super) fn describe_as_json(&self) -> String {
         let (name, units) = match self {
-            Counter::WallTime(_) => (
+            Counter::Zero(_) => ("zero", "[]"),
+            Counter::WallTime(..) => (
                 WallTime::NAME,
                 r#"[["ns", 1], ["μs", 1000], ["ms", 1000000], ["s", 1000000000]]"#,
             ),
-            Counter::Instructions(_) => (Instructions::NAME, r#"[["instructions", 1]]"#),
+            Counter::Instructions(..) => (Instructions::NAME, r#"[["instructions", 1]]"#),
             Counter::InstructionsMinusIrqs(_) => {
                 (InstructionsMinusIrqs::NAME, r#"[["instructions", 1]]"#)
             }
@@ -52,8 +59,9 @@ impl Counter {
     #[inline]
     pub(super) fn since_start(&self) -> u64 {
         match self {
-            Counter::WallTime(counter) => counter.since_start(),
-            Counter::Instructions(counter) => counter.since_start(),
+            Counter::Zero(_) => 0,
+            Counter::WallTime(_, counter) => counter.since_start(),
+            Counter::Instructions(_, counter) => counter.since_start(),
             Counter::InstructionsMinusIrqs(counter) => counter.since_start(),
             Counter::InstructionsMinusRaw0420(counter) => counter.since_start(),
         }
@@ -129,6 +137,17 @@ impl InstructionsMinusIrqs {
     fn since_start(&self) -> u64 {
         let (instructions, irqs) = (&self.instructions, &self.irqs).read();
         instructions.wrapping_sub(irqs).wrapping_sub(self.start)
+    }
+}
+
+// HACK(eddyb) dump total `instructions-minus-irqs:u` for statistics.
+impl Drop for InstructionsMinusIrqs {
+    fn drop(&mut self) {
+        eprintln!(
+            "pid={:06} instructions-minus-irqs:u={}",
+            std::process::id(),
+            self.since_start(),
+        );
     }
 }
 
