@@ -82,6 +82,18 @@ impl ProfilingData {
         }
     }
 
+    pub fn from_paged_buffer(data: Vec<u8>) -> Result<ProfilingData, Box<dyn Error + Send + Sync>> {
+        verify_file_header(&data, FILE_MAGIC_TOP_LEVEL, None, "top-level")?;
+
+        let mut split_data = measureme::split_streams(&data[FILE_HEADER_SIZE..]);
+
+        let string_data = split_data.remove(&PageTag::StringData).unwrap();
+        let index_data = split_data.remove(&PageTag::StringIndex).unwrap();
+        let event_data = split_data.remove(&PageTag::Events).unwrap();
+
+        ProfilingData::from_buffers(string_data, index_data, event_data, None)
+    }
+
     pub fn from_buffers(
         string_data: Vec<u8>,
         string_index: Vec<u8>,
