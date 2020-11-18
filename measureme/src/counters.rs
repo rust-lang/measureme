@@ -1,3 +1,97 @@
+//! Profiling counters and their implementation.
+//!
+//! # Available counters
+//!
+//! Name (for [`Counter::by_name()`]) | Counter                      | OSes  | CPUs
+//! --------------------------------- | -------                      | ----  | ----
+//! `wall-time`                       | [`WallTime`]                 | any   | any
+//! `instructions:u`                  | [`Instructions`]             | Linux | `x86_64`
+//! `instructions-minus-irqs:u`       | [`InstructionsMinusIrqs`]    | Linux | `x86_64`<br>- AMD (since K8)<br>- Intel (since Sandy Bridge)
+//! `instructions-minus-r0420:u`      | [`InstructionsMinusRaw0420`] | Linux | `x86_64`<br>- AMD (Zen)
+//!
+//! *Note: `:u` suffixes for hardware performance counters come from the Linux `perf`
+//! tool, and indicate that the counter is only active while userspace code executes
+//! (i.e. it's paused while the kernel handles syscalls, interrupts, etc.).*
+//!
+//! # Limitations and caveats
+//!
+//! *Note: for more information, also see the GitHub PR which first implemented hardware
+//! performance counter support ([#143](https://github.com/rust-lang/measureme/pull/143)).*
+//!
+//! The hardware performance counters (i.e. all counters other than `wall-time`) are limited to:
+//! * nightly Rust (gated on `features = ["nightly"]`), for `asm!`
+//! * Linux, for out-of-the-box performance counter reads from userspace
+//!   * other OSes could work through custom kernel extensions/drivers, in the future
+//! * `x86_64` CPUs, mostly due to lack of other available test hardware
+//!   * new architectures would be easier to support (on Linux) than new OSes
+//!   * easiest to add would be 32-bit `x86` (aka `i686`), which would reuse
+//!     most of the `x86_64` CPU model detection logic
+//! * specific (newer) CPU models, for certain non-standard counters
+//!   * e.g. `instructions-minus-irqs:u` requires a "hardware interrupts" (aka "IRQs")
+//!     counter, which is implemented differently between vendors / models (if at all)
+//! * single-threaded programs (counters only work on the thread they were created on)
+//!   * for profiling `rustc`, this means only "check mode" (`--emit=metadata`),
+//!     is supported currently (`-Z no-llvm-threads` could also work)
+//!   * unclear what the best approach for handling multiple threads would be
+//!   * changing the API (e.g. to require per-thread profiler handles) could result
+//!     in a more efficient implementation, but would also be less ergonomic
+//!   * profiling data from multithreaded programs would be harder to use due to
+//!     noise from synchronization mechanisms, non-deterministic work-stealing, etc.
+//!
+//! For ergonomic reasons, the public API doesn't vary based on `features` or target.
+//! Instead, attempting to create any unsupported counter will return `Err`, just
+//! like it does for any issue detected at runtime (e.g. incompatible CPU model).
+//!
+//! When counting instructions specifically, these factors will impact the profiling quality:
+//! * high-level non-determinism (e.g. user interactions, networking)
+//!   * the ideal use-case is a mostly-deterministic program, e.g. a compiler like `rustc`
+//!   * if I/O can be isolated to separate profiling events, and doesn't impact
+//!     execution in a more subtle way (see below), the deterministic parts of
+//!     the program can still be profiled with high accuracy
+//! * low-level non-determinism (e.g. ASLR, randomized `HashMap`s, thread scheduling)
+//!   * ASLR ("Address Space Layout Randomization"), may be provided by the OS for
+//!     security reasons, or accidentally caused through allocations that depend on
+//!     random data (even as low-entropy as e.g. the base 10 length of a process ID)
+//!   * on Linux ASLR can be disabled by running the process under `setarch -R`
+//!   * this impacts `rustc` and LLVM, which rely on keying `HashMap`s by addresses
+//!     (typically of interned data) as an optimization, and while non-determinstic
+//!     outputs are considered bugs, the instructions executed can still vary a lot,
+//!     even when the externally observable behavior is perfectly repeatable
+//!   * `HashMap`s are involved in one more than one way:
+//!     * both the executed instructions, and the shape of the allocations depend
+//!       on both the hasher state and choice of keys (as the buckets are in
+//!       a flat array indexed by some of the lower bits of the key hashes)
+//!     * so every `HashMap` with keys being/containing addresses will amplify
+//!       ASLR and ASLR-like effects, making the entire program more sensitive
+//!     * the default hasher is randomized, and while `rustc` doesn't use it,
+//!       proc macros can (and will), and it's harder to disable than Linux ASLR
+//!   * `jemalloc` (the allocator used by `rustc`, at least in official releases)
+//!     has a 10 second "purge timer", which can introduce an ASLR-like effect,
+//!     unless disabled with `MALLOC_CONF=dirty_decay_ms:0,muzzy_decay_ms:0`
+//! * hardware flaws (whether in the design or implementation)
+//!   * hardware interrupts ("IRQs") and exceptions (like page faults) cause
+//!     overcounting (1 instruction per interrupt, possibly the `iret` from the
+//!     kernel handler back to the interrupted userspace program)
+//!     * this is the reason why `instructions-minus-irqs:u` should be preferred
+//!       to `instructions:u`, where the former is available
+//!     * there are system-wide options (e.g. `CONFIG_NO_HZ_FULL`) for removing
+//!       some interrupts from the cores used for profiling, but they're not as
+//!       complete of a solution, nor easy to set up in the first place
+//!   * AMD Zen CPUs have a speculative execution feature (dubbed `SpecLockMap`),
+//!     which can cause non-deterministic overcounting for instructions following
+//!     an atomic instruction (such as found in heap allocators, or `measureme`)
+//!     * this is automatically detected, with a `log` message pointing the user
+//!       to [https://github.com/mozilla/rr/wiki/Zen] for guidance on how to
+//!       disable `SpecLockMap` on their system (sadly requires root access)
+//!
+//! Even if some of the above caveats apply for some profiling setup, as long as
+//! the counters function, they can still be used, and compared with `wall-time`.
+//! Chances are, they will still have less variance, as everything that impacts
+//! instruction counts will also impact any time measurements.
+//!
+//! Also keep in mind that instruction counts do not properly reflect all kinds
+//! of workloads, e.g. SIMD throughput and cache locality are unaccounted for.
+
 use std::error::Error;
 use std::time::Instant;
 
@@ -60,6 +154,9 @@ impl Counter {
     }
 }
 
+/// "Monotonic clock" with nanosecond precision (using [`std::time::Instant`]).
+///
+/// Can be obtained with `Counter::by_name("wall-time")`.
 pub struct WallTime {
     start: Instant,
 }
@@ -79,6 +176,9 @@ impl WallTime {
     }
 }
 
+/// "Instructions retired" hardware performance counter (userspace-only).
+///
+/// Can be obtained with `Counter::by_name("instructions:u")`.
 pub struct Instructions {
     instructions: hw::Counter,
     start: u64,
@@ -103,6 +203,9 @@ impl Instructions {
     }
 }
 
+/// More accurate [`Instructions`] (subtracting hardware interrupt counts).
+///
+/// Can be obtained with `Counter::by_name("instructions-minus-irqs:u")`.
 pub struct InstructionsMinusIrqs {
     instructions: hw::Counter,
     irqs: hw::Counter,
@@ -132,6 +235,10 @@ impl InstructionsMinusIrqs {
     }
 }
 
+/// (Experimental) Like [`InstructionsMinusIrqs`] (but using an undocumented `r0420:u` counter).
+///
+/// Can be obtained with `Counter::by_name("instructions-minus-r0420:u")`.
+//
 // HACK(eddyb) this is a variant of `instructions-minus-irqs:u`, where `r0420`
 // is subtracted, instead of the usual "hardware interrupts" (aka IRQs).
 // `r0420` is an undocumented counter on AMD Zen CPUs which appears to count
