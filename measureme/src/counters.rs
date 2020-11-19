@@ -81,7 +81,7 @@
 //!     which can cause non-deterministic overcounting for instructions following
 //!     an atomic instruction (such as found in heap allocators, or `measureme`)
 //!     * this is automatically detected, with a `log` message pointing the user
-//!       to [https://github.com/mozilla/rr/wiki/Zen] for guidance on how to
+//!       to <https://github.com/mozilla/rr/wiki/Zen> for guidance on how to
 //!       disable `SpecLockMap` on their system (sadly requires root access)
 //!
 //! Even if some of the above caveats apply for some profiling setup, as long as
