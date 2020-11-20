@@ -9,9 +9,6 @@
 //!
 //! To retrieve an `Iterator` of all of the events in the file,
 //! call the [`ProfilingData::iter()`] method.
-//!
-//! [`ProfilingData`]: struct.ProfilingData.html
-//! [`ProfilingData::iter()`]: struct.ProfilingData.html#method.iter
 
 mod event;
 mod lightweight_event;

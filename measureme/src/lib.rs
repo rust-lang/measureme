@@ -32,18 +32,8 @@
 //!   - [`Profiler::alloc_string()`]: allocates a string and returns the [`StringId`] that refers
 //!     to it
 //!
-//! [`counters`]: counters
 //! [`Counter`]: counters::Counter
-//! [`Profiler`]: Profiler
-//! [`Profiler::alloc_string()`]: Profiler::alloc_string
-//! [`Profiler::alloc_string_with_reserved_id()`]: Profiler::alloc_string_with_reserved_id
-//! [`Profiler::new()`]: Profiler::new
-//! [`Profiler::record_event()`]: Profiler::record_event
-//! [`Profiler::start_recording_interval_event()`]: Profiler::start_recording_interval_event
-//! [`Profiler::with_counter()`]: Profiler::with_counter
-//! [`StringId`]: StringId
-#![allow(renamed_and_removed_lints)] // intra_doc_link_resolution_failure is renamed on nightly
-#![deny(warnings, intra_doc_link_resolution_failure)]
+#![deny(warnings)]
 #![cfg_attr(feature = "nightly", feature(asm))]
 
 #[macro_use]
