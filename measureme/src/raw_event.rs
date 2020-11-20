@@ -12,22 +12,26 @@ pub struct RawEvent {
     pub event_id: EventId,
     pub thread_id: u32,
 
-    // The following 96 bits store the start and the end timestamp, using
+    // The following 96 bits store the start and the end counter value, using
     // 48 bits for each.
+    // FIXME(eddyb) s/time/count/
     pub start_time_lower: u32,
+    // FIXME(eddyb) s/time/count/
     pub end_time_lower: u32,
     pub start_and_end_upper: u32,
 }
 
-/// `RawEvents` that have an end time stamp with this value are instant events.
-const INSTANT_TIMESTAMP_MARKER: u64 = 0xFFFF_FFFF_FFFF;
+/// `RawEvents` that have an end counter value with this value are instant events.
+const INSTANT_COUNT_MARKER: u64 = 0xFFFF_FFFF_FFFF;
 
-/// The max instant timestamp we can represent with the 48 bits available.
+/// The max instant counter value we can represent with the 48 bits available.
+// FIXME(eddyb) s/TIMESTAMP/COUNT/
 pub const MAX_INSTANT_TIMESTAMP: u64 = 0xFFFF_FFFF_FFFF;
 
-/// The max interval timestamp we can represent with the 48 bits available.
-/// The highest value is reserved for the `INSTANT_TIMESTAMP_MARKER`.
-pub const MAX_INTERVAL_TIMESTAMP: u64 = INSTANT_TIMESTAMP_MARKER - 1;
+/// The max interval counter value we can represent with the 48 bits available.
+/// The highest value is reserved for the `INSTANT_COUNT_MARKER`.
+// FIXME(eddyb) s/TIMESTAMP/COUNT/
+pub const MAX_INTERVAL_TIMESTAMP: u64 = INSTANT_COUNT_MARKER - 1;
 
 impl RawEvent {
     #[inline]
@@ -35,17 +39,17 @@ impl RawEvent {
         event_kind: StringId,
         event_id: EventId,
         thread_id: u32,
-        start_nanos: u64,
-        end_nanos: u64,
+        start_count: u64,
+        end_count: u64,
     ) -> RawEvent {
-        assert!(start_nanos <= end_nanos);
-        assert!(end_nanos <= MAX_INTERVAL_TIMESTAMP);
+        assert!(start_count <= end_count);
+        assert!(end_count <= MAX_INTERVAL_TIMESTAMP);
 
-        let start_time_lower = start_nanos as u32;
-        let end_time_lower = end_nanos as u32;
+        let start_time_lower = start_count as u32;
+        let end_time_lower = end_count as u32;
 
-        let start_time_upper = (start_nanos >> 16) as u32 & 0xFFFF_0000;
-        let end_time_upper = (end_nanos >> 32) as u32;
+        let start_time_upper = (start_count >> 16) as u32 & 0xFFFF_0000;
+        let end_time_upper = (end_count >> 32) as u32;
 
         let start_and_end_upper = start_time_upper | end_time_upper;
 
@@ -64,14 +68,14 @@ impl RawEvent {
         event_kind: StringId,
         event_id: EventId,
         thread_id: u32,
-        timestamp_ns: u64,
+        count: u64,
     ) -> RawEvent {
-        assert!(timestamp_ns <= MAX_INSTANT_TIMESTAMP);
+        assert!(count <= MAX_INSTANT_TIMESTAMP);
 
-        let start_time_lower = timestamp_ns as u32;
+        let start_time_lower = count as u32;
         let end_time_lower = 0xFFFF_FFFF;
 
-        let start_time_upper = (timestamp_ns >> 16) as u32;
+        let start_time_upper = (count >> 16) as u32;
         let start_and_end_upper = start_time_upper | 0x0000_FFFF;
 
         RawEvent {
@@ -85,18 +89,20 @@ impl RawEvent {
     }
 
     #[inline]
+    // FIXME(eddyb) s/nanos/count/
     pub fn start_nanos(&self) -> u64 {
         self.start_time_lower as u64 | (((self.start_and_end_upper & 0xFFFF_0000) as u64) << 16)
     }
 
     #[inline]
+    // FIXME(eddyb) s/nanos/count/
     pub fn end_nanos(&self) -> u64 {
         self.end_time_lower as u64 | (((self.start_and_end_upper & 0x0000_FFFF) as u64) << 32)
     }
 
     #[inline]
     pub fn is_instant(&self) -> bool {
-        self.end_nanos() == INSTANT_TIMESTAMP_MARKER
+        self.end_nanos() == INSTANT_COUNT_MARKER
     }
 
     #[inline]
@@ -206,24 +212,24 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn invalid_instant_timestamp() {
+    fn invalid_instant_count() {
         let _ = RawEvent::new_instant(
             StringId::INVALID,
             EventId::INVALID,
             123,
-            // timestamp too large
+            // count too large
             MAX_INSTANT_TIMESTAMP + 1,
         );
     }
 
     #[test]
     #[should_panic]
-    fn invalid_start_timestamp() {
+    fn invalid_start_count() {
         let _ = RawEvent::new_interval(
             StringId::INVALID,
             EventId::INVALID,
             123,
-            // start timestamp too large
+            // start count too large
             MAX_INTERVAL_TIMESTAMP + 1,
             MAX_INTERVAL_TIMESTAMP + 1,
         );
@@ -231,50 +237,50 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn invalid_end_timestamp() {
+    fn invalid_end_count() {
         let _ = RawEvent::new_interval(
             StringId::INVALID,
             EventId::INVALID,
             123,
             0,
-            // end timestamp too large
+            // end count too large
             MAX_INTERVAL_TIMESTAMP + 3,
         );
     }
 
     #[test]
     #[should_panic]
-    fn invalid_end_timestamp2() {
+    fn invalid_end_count2() {
         let _ = RawEvent::new_interval(
             StringId::INVALID,
             EventId::INVALID,
             123,
             0,
-            INSTANT_TIMESTAMP_MARKER,
+            INSTANT_COUNT_MARKER,
         );
     }
 
     #[test]
     #[should_panic]
-    fn start_greater_than_end_timestamp() {
+    fn start_greater_than_end_count() {
         let _ = RawEvent::new_interval(
             StringId::INVALID,
             EventId::INVALID,
             123,
-            // start timestamp greater than end timestamp
+            // start count greater than end count
             1,
             0,
         );
     }
 
     #[test]
-    fn start_equal_to_end_timestamp() {
+    fn start_equal_to_end_count() {
         // This is allowed, make sure we don't panic
         let _ = RawEvent::new_interval(StringId::INVALID, EventId::INVALID, 123, 1, 1);
     }
 
     #[test]
-    fn interval_timestamp_decoding() {
+    fn interval_count_decoding() {
         // Check the upper limits
         let e = RawEvent::new_interval(
             StringId::INVALID,
@@ -319,7 +325,7 @@ mod tests {
     }
 
     #[test]
-    fn instant_timestamp_decoding() {
+    fn instant_count_decoding() {
         assert_eq!(
             RawEvent::new_instant(StringId::INVALID, EventId::INVALID, 987, 0,).start_nanos(),
             0

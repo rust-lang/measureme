@@ -1,3 +1,4 @@
+use crate::counters::Counter;
 use crate::file_header::{write_file_header, FILE_MAGIC_EVENT_STREAM, FILE_MAGIC_TOP_LEVEL};
 use crate::raw_event::RawEvent;
 use crate::serialization::{PageTag, SerializationSink, SerializationSinkBuilder};
@@ -7,16 +8,25 @@ use std::error::Error;
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::Instant;
 
 pub struct Profiler {
     event_sink: Arc<SerializationSink>,
     string_table: StringTableBuilder,
-    start_time: Instant,
+    counter: Counter,
 }
 
 impl Profiler {
     pub fn new<P: AsRef<Path>>(path_stem: P) -> Result<Profiler, Box<dyn Error + Send + Sync>> {
+        Self::with_counter(
+            path_stem,
+            Counter::WallTime(crate::counters::WallTime::new()),
+        )
+    }
+
+    pub fn with_counter<P: AsRef<Path>>(
+        path_stem: P,
+        counter: Counter,
+    ) -> Result<Profiler, Box<dyn Error + Send + Sync>> {
         let path = path_stem.as_ref().with_extension(FILE_EXTENSION);
 
         fs::create_dir_all(path.parent().unwrap())?;
@@ -39,7 +49,7 @@ impl Profiler {
         let profiler = Profiler {
             event_sink,
             string_table,
-            start_time: Instant::now(),
+            counter,
         };
 
         let mut args = String::new();
@@ -49,13 +59,14 @@ impl Profiler {
         }
 
         profiler.string_table.alloc_metadata(&*format!(
-            r#"{{ "start_time": {}, "process_id": {}, "cmd": "{}" }}"#,
+            r#"{{ "start_time": {}, "process_id": {}, "cmd": "{}", "counter": {} }}"#,
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_nanos(),
             std::process::id(),
             args,
+            profiler.counter.describe_as_json(),
         ));
 
         Ok(profiler)
@@ -88,7 +99,7 @@ impl Profiler {
     /// automatically.
     pub fn record_instant_event(&self, event_kind: StringId, event_id: EventId, thread_id: u32) {
         let raw_event =
-            RawEvent::new_instant(event_kind, event_id, thread_id, self.nanos_since_start());
+            RawEvent::new_instant(event_kind, event_id, thread_id, self.counter.since_start());
 
         self.record_raw_event(&raw_event);
     }
@@ -107,7 +118,7 @@ impl Profiler {
             event_id,
             event_kind,
             thread_id,
-            start_ns: self.nanos_since_start(),
+            start_count: self.counter.since_start(),
         }
     }
 
@@ -116,10 +127,6 @@ impl Profiler {
             .write_atomic(std::mem::size_of::<RawEvent>(), |bytes| {
                 raw_event.serialize(bytes);
             });
-    }
-
-    fn nanos_since_start(&self) -> u64 {
-        self.start_time.elapsed().as_nanos() as _
     }
 }
 
@@ -131,7 +138,7 @@ pub struct TimingGuard<'a> {
     event_id: EventId,
     event_kind: StringId,
     thread_id: u32,
-    start_ns: u64,
+    start_count: u64,
 }
 
 impl<'a> Drop for TimingGuard<'a> {
@@ -141,8 +148,8 @@ impl<'a> Drop for TimingGuard<'a> {
             self.event_kind,
             self.event_id,
             self.thread_id,
-            self.start_ns,
-            self.profiler.nanos_since_start(),
+            self.start_count,
+            self.profiler.counter.since_start(),
         );
 
         self.profiler.record_raw_event(&raw_event);
