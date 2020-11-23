@@ -525,10 +525,10 @@ mod hw {
             } else {
                 asm!(
                     // Dummy `cpuid(0)` to serialize instruction execution.
-                    "xor eax, eax",
+                    "xor %eax, %eax", // Intel syntax: "xor eax, eax"
                     "cpuid",
 
-                    "mov ecx, {rdpmc_ecx:e}",
+                    "mov {rdpmc_ecx:e}, %ecx", // Intel syntax: "mov ecx, {rdpmc_ecx:e}"
                     "rdpmc",
                     rdpmc_ecx = in(reg) reg_idx,
                     out("eax") lo,
@@ -539,6 +539,12 @@ mod hw {
                     out("ecx") _,
 
                     options(nostack),
+
+                    // HACK(eddyb) LLVM 9 and older do not support modifiers
+                    // in Intel syntax inline asm; whenever Rust minimum LLVM
+                    // version becomes LLVM 10, remove and replace above
+                    // instructions with Intel syntax version (from comments).
+                    options(att_syntax),
                 );
             }
         }
@@ -556,14 +562,14 @@ mod hw {
         unsafe {
             asm!(
                 // Dummy `cpuid(0)` to serialize instruction execution.
-                "xor eax, eax",
+                "xor %eax, %eax", // Intel syntax: "xor eax, eax"
                 "cpuid",
 
-                "mov ecx, {a_rdpmc_ecx:e}",
+                "mov {a_rdpmc_ecx:e}, %ecx", // Intel syntax: "mov ecx, {a_rdpmc_ecx:e}"
                 "rdpmc",
-                "mov {a_rdpmc_eax:e}, eax",
-                "mov {a_rdpmc_edx:e}, edx",
-                "mov ecx, {b_rdpmc_ecx:e}",
+                "mov %eax, {a_rdpmc_eax:e}", // Intel syntax: "mov {a_rdpmc_eax:e}, eax"
+                "mov %edx, {a_rdpmc_edx:e}", // Intel syntax: "mov {a_rdpmc_edx:e}, edx"
+                "mov {b_rdpmc_ecx:e}, %ecx", // Intel syntax: "mov ecx, {b_rdpmc_ecx:e}"
                 "rdpmc",
                 a_rdpmc_ecx = in(reg) a_reg_idx,
                 a_rdpmc_eax = out(reg) a_lo,
@@ -577,6 +583,12 @@ mod hw {
                 out("ecx") _,
 
                 options(nostack),
+
+                // HACK(eddyb) LLVM 9 and older do not support modifiers
+                // in Intel syntax inline asm; whenever Rust minimum LLVM
+                // version becomes LLVM 10, remove and replace above
+                // instructions with Intel syntax version (from comments).
+                options(att_syntax),
             );
         }
         (
@@ -786,10 +798,17 @@ mod hw {
                             let mut _tmp: u64 = 0;
                             unsafe {
                                 asm!(
-                                    "lock xadd qword ptr [{atomic}], {tmp}",
+                                    // Intel syntax: "lock xadd [{atomic}], {tmp}"
+                                    "lock xadd {tmp}, ({atomic})",
 
                                     atomic = in(reg) &mut atomic,
                                     tmp = inout(reg) _tmp,
+
+                                    // HACK(eddyb) LLVM 9 and older do not support modifiers
+                                    // in Intel syntax inline asm; whenever Rust minimum LLVM
+                                    // version becomes LLVM 10, remove and replace above
+                                    // instructions with Intel syntax version (from comments).
+                                    options(att_syntax),
                                 );
                             }
 
