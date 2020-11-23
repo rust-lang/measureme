@@ -48,7 +48,16 @@
 //!   * if I/O can be isolated to separate profiling events, and doesn't impact
 //!     execution in a more subtle way (see below), the deterministic parts of
 //!     the program can still be profiled with high accuracy
-//! * low-level non-determinism (e.g. ASLR, randomized `HashMap`s, thread scheduling)
+//!   * intentional uses of randomness may change execution paths, though for
+//!     cryptographic operations specifically, "constant time" implementations
+//!     are preferred / necessary (in order to limit an external observer's
+//!     ability to infer secrets), so they're not as much of a problem
+//!   * even otherwise-deterministic machine-local communication (to e.g. system
+//!     services or drivers) can behave unpredictably (especially under load)
+//!     * while we haven't observed this in the wild yet, it's possible for
+//!       file reads/writes to be split up into multiple smaller chunks
+//!       (and therefore take more userspace instructions to fully read/write)
+//! * low-level non-determinism (e.g. ASLR, randomized `HashMap`s, timers)
 //!   * ASLR ("Address Space Layout Randomization"), may be provided by the OS for
 //!     security reasons, or accidentally caused through allocations that depend on
 //!     random data (even as low-entropy as e.g. the base 10 length of a process ID)
@@ -65,9 +74,17 @@
 //!       ASLR and ASLR-like effects, making the entire program more sensitive
 //!     * the default hasher is randomized, and while `rustc` doesn't use it,
 //!       proc macros can (and will), and it's harder to disable than Linux ASLR
-//!   * `jemalloc` (the allocator used by `rustc`, at least in official releases)
-//!     has a 10 second "purge timer", which can introduce an ASLR-like effect,
-//!     unless disabled with `MALLOC_CONF=dirty_decay_ms:0,muzzy_decay_ms:0`
+//!   * most ways of measuring time will inherently never perfectly align with
+//!     exact points in the program's execution, making time behave like another
+//!     low-entropy source of randomness - this also means timers will elapse at
+//!     unpredictable points (which can further impact the rest of the execution)
+//!     * this includes the common thread scheduler technique of preempting the
+//!       currently executing thread with a periodic timer interrupt, so the exact
+//!       interleaving of multiple threads will likely not be reproducible without
+//!       special OS configuration, or tools that emulate a deterministic scheduler
+//!     * `jemalloc` (the allocator used by `rustc`, at least in official releases)
+//!       has a 10 second "purge timer", which can introduce an ASLR-like effect,
+//!       unless disabled with `MALLOC_CONF=dirty_decay_ms:0,muzzy_decay_ms:0`
 //! * hardware flaws (whether in the design or implementation)
 //!   * hardware interrupts ("IRQs") and exceptions (like page faults) cause
 //!     overcounting (1 instruction per interrupt, possibly the `iret` from the
