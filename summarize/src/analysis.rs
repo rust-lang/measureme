@@ -204,6 +204,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                             data.self_time += current_event_duration;
                             data.time += current_event_duration;
                             data.blocked_time += current_event_duration;
+                            data.invocation_count += 1;
                         });
                     }
 
