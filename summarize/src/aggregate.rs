@@ -544,7 +544,7 @@ pub fn aggregate_profiles(profiles: Vec<ProfilingData>) {
             describe(descriptions)
         );
     }
-    println!("");
+    println!();
     println!("Largest {} variances:", variances.largest.len());
     for (variance, descriptions) in variances.largest {
         println!(
