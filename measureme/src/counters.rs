@@ -48,7 +48,16 @@
 //!   * if I/O can be isolated to separate profiling events, and doesn't impact
 //!     execution in a more subtle way (see below), the deterministic parts of
 //!     the program can still be profiled with high accuracy
-//! * low-level non-determinism (e.g. ASLR, randomized `HashMap`s, thread scheduling)
+//!   * intentional uses of randomness may change execution paths, though for
+//!     cryptographic operations specifically, "constant time" implementations
+//!     are preferred / necessary (in order to limit an external observer's
+//!     ability to infer secrets), so they're not as much of a problem
+//!   * even otherwise-deterministic machine-local communication (to e.g. system
+//!     services or drivers) can behave unpredictably (especially under load)
+//!     * while we haven't observed this in the wild yet, it's possible for
+//!       file reads/writes to be split up into multiple smaller chunks
+//!       (and therefore take more userspace instructions to fully read/write)
+//! * low-level non-determinism (e.g. ASLR, randomized `HashMap`s, timers)
 //!   * ASLR ("Address Space Layout Randomization"), may be provided by the OS for
 //!     security reasons, or accidentally caused through allocations that depend on
 //!     random data (even as low-entropy as e.g. the base 10 length of a process ID)
@@ -65,9 +74,17 @@
 //!       ASLR and ASLR-like effects, making the entire program more sensitive
 //!     * the default hasher is randomized, and while `rustc` doesn't use it,
 //!       proc macros can (and will), and it's harder to disable than Linux ASLR
-//!   * `jemalloc` (the allocator used by `rustc`, at least in official releases)
-//!     has a 10 second "purge timer", which can introduce an ASLR-like effect,
-//!     unless disabled with `MALLOC_CONF=dirty_decay_ms:0,muzzy_decay_ms:0`
+//!   * most ways of measuring time will inherently never perfectly align with
+//!     exact points in the program's execution, making time behave like another
+//!     low-entropy source of randomness - this also means timers will elapse at
+//!     unpredictable points (which can further impact the rest of the execution)
+//!     * this includes the common thread scheduler technique of preempting the
+//!       currently executing thread with a periodic timer interrupt, so the exact
+//!       interleaving of multiple threads will likely not be reproducible without
+//!       special OS configuration, or tools that emulate a deterministic scheduler
+//!     * `jemalloc` (the allocator used by `rustc`, at least in official releases)
+//!       has a 10 second "purge timer", which can introduce an ASLR-like effect,
+//!       unless disabled with `MALLOC_CONF=dirty_decay_ms:0,muzzy_decay_ms:0`
 //! * hardware flaws (whether in the design or implementation)
 //!   * hardware interrupts ("IRQs") and exceptions (like page faults) cause
 //!     overcounting (1 instruction per interrupt, possibly the `iret` from the
@@ -525,10 +542,10 @@ mod hw {
             } else {
                 asm!(
                     // Dummy `cpuid(0)` to serialize instruction execution.
-                    "xor eax, eax",
+                    "xor %eax, %eax", // Intel syntax: "xor eax, eax"
                     "cpuid",
 
-                    "mov ecx, {rdpmc_ecx:e}",
+                    "mov {rdpmc_ecx:e}, %ecx", // Intel syntax: "mov ecx, {rdpmc_ecx:e}"
                     "rdpmc",
                     rdpmc_ecx = in(reg) reg_idx,
                     out("eax") lo,
@@ -539,6 +556,12 @@ mod hw {
                     out("ecx") _,
 
                     options(nostack),
+
+                    // HACK(eddyb) LLVM 9 and older do not support modifiers
+                    // in Intel syntax inline asm; whenever Rust minimum LLVM
+                    // version becomes LLVM 10, remove and replace above
+                    // instructions with Intel syntax version (from comments).
+                    options(att_syntax),
                 );
             }
         }
@@ -556,14 +579,14 @@ mod hw {
         unsafe {
             asm!(
                 // Dummy `cpuid(0)` to serialize instruction execution.
-                "xor eax, eax",
+                "xor %eax, %eax", // Intel syntax: "xor eax, eax"
                 "cpuid",
 
-                "mov ecx, {a_rdpmc_ecx:e}",
+                "mov {a_rdpmc_ecx:e}, %ecx", // Intel syntax: "mov ecx, {a_rdpmc_ecx:e}"
                 "rdpmc",
-                "mov {a_rdpmc_eax:e}, eax",
-                "mov {a_rdpmc_edx:e}, edx",
-                "mov ecx, {b_rdpmc_ecx:e}",
+                "mov %eax, {a_rdpmc_eax:e}", // Intel syntax: "mov {a_rdpmc_eax:e}, eax"
+                "mov %edx, {a_rdpmc_edx:e}", // Intel syntax: "mov {a_rdpmc_edx:e}, edx"
+                "mov {b_rdpmc_ecx:e}, %ecx", // Intel syntax: "mov ecx, {b_rdpmc_ecx:e}"
                 "rdpmc",
                 a_rdpmc_ecx = in(reg) a_reg_idx,
                 a_rdpmc_eax = out(reg) a_lo,
@@ -577,6 +600,12 @@ mod hw {
                 out("ecx") _,
 
                 options(nostack),
+
+                // HACK(eddyb) LLVM 9 and older do not support modifiers
+                // in Intel syntax inline asm; whenever Rust minimum LLVM
+                // version becomes LLVM 10, remove and replace above
+                // instructions with Intel syntax version (from comments).
+                options(att_syntax),
             );
         }
         (
@@ -786,10 +815,17 @@ mod hw {
                             let mut _tmp: u64 = 0;
                             unsafe {
                                 asm!(
-                                    "lock xadd qword ptr [{atomic}], {tmp}",
+                                    // Intel syntax: "lock xadd [{atomic}], {tmp}"
+                                    "lock xadd {tmp}, ({atomic})",
 
                                     atomic = in(reg) &mut atomic,
                                     tmp = inout(reg) _tmp,
+
+                                    // HACK(eddyb) LLVM 9 and older do not support modifiers
+                                    // in Intel syntax inline asm; whenever Rust minimum LLVM
+                                    // version becomes LLVM 10, remove and replace above
+                                    // instructions with Intel syntax version (from comments).
+                                    options(att_syntax),
                                 );
                             }
 
