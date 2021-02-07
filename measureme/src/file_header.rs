@@ -43,11 +43,22 @@ pub fn verify_file_header(
     // The implementation here relies on FILE_HEADER_SIZE to have the value 8.
     // Let's make sure this assumption cannot be violated without being noticed.
     assert_eq!(FILE_HEADER_SIZE, 8);
-    assert!(bytes.len() >= FILE_HEADER_SIZE);
-
-    let actual_magic = &bytes[0..4];
 
     let diagnostic_file_path = diagnostic_file_path.unwrap_or(Path::new("<in-memory>"));
+
+    if bytes.len() < FILE_HEADER_SIZE {
+        let msg = format!(
+            "Error reading {} stream in file `{}`: Expected file to contain at least `{:?}` bytes but found `{:?}` bytes",
+            stream_tag,
+            diagnostic_file_path.display(),
+            FILE_HEADER_SIZE,
+            bytes.len()
+        );
+
+        return Err(From::from(msg));
+    }
+
+    let actual_magic = &bytes[0..4];
 
     if actual_magic != expected_magic {
         let msg = format!(
@@ -123,5 +134,12 @@ mod tests {
         data[6] = 0xFF;
         data[7] = 0xFF;
         assert!(verify_file_header(&data, FILE_MAGIC_STRINGTABLE_INDEX, None, "test").is_err());
+    }
+
+    #[test]
+    fn empty_file() {
+        let data: [u8; 0] = [];
+
+        assert!(verify_file_header(&data, FILE_MAGIC_STRINGTABLE_DATA, None, "test").is_err());
     }
 }
