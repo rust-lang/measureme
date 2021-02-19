@@ -11,12 +11,18 @@ use prettytable::{Cell, Row, Table};
 use serde::Serialize;
 use structopt::StructOpt;
 
+mod aggregate;
 mod analysis;
 mod diff;
 mod query_data;
 mod signed_duration;
 
 use query_data::Results;
+
+#[derive(StructOpt, Debug)]
+struct AggregateOpt {
+    files: Vec<PathBuf>,
+}
 
 #[derive(StructOpt, Debug)]
 struct DiffOpt {
@@ -45,6 +51,10 @@ struct SummarizeOpt {
 
 #[derive(StructOpt, Debug)]
 enum Opt {
+    /// Processes a set of trace files with identical events and analyze variance
+    #[structopt(name = "aggregate")]
+    Aggregate(AggregateOpt),
+
     #[structopt(name = "diff")]
     Diff(DiffOpt),
 
@@ -72,6 +82,19 @@ fn write_results_json(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let file = BufWriter::new(File::create(file.with_extension("json"))?);
     serde_json::to_writer(file, &results)?;
+    Ok(())
+}
+
+fn aggregate(opt: AggregateOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let profiles = opt
+        .files
+        .into_iter()
+        .map(|file| ProfilingData::new(&file))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    // FIXME(eddyb) return some kind of serializable data structure from `aggregate_profiles`.
+    aggregate::aggregate_profiles(profiles);
+
     Ok(())
 }
 
@@ -252,5 +275,6 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     match opt {
         Opt::Summarize(opt) => summarize(opt),
         Opt::Diff(opt) => diff(opt),
+        Opt::Aggregate(opt) => aggregate(opt),
     }
 }
