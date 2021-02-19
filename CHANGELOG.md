@@ -1,5 +1,16 @@
 # Changelog
 
+## [9.1.0] - 2021-02-19
+### Added
+- `measureme`: Add support for using hardware performance counters instead of wall-clock times. ([GH-143])
+- `summarize`: Add `aggregate` sub-command for analyzing sets of profiles ([GH-129])
+
+### Changed
+- `analyzeme`: Provide functions to decode paged buffer data from memory ([GH-142])
+- `analyzeme`: Fix blocked events not being counted in total invocation count ([GH-148])
+- `analyzeme`: Return error instead of panicking if the input file is too small ([GH-151])
+- Cleanup intra-doc links ([GH-146])
+
 ## [9.0.0] - 2020-10-07
 ### Added
 - `measureme`: Added a function to create `EventId`s with multiple arguments ([GH-138])
@@ -72,6 +83,7 @@
 
 ## [0.2.0] - 2019-04-10
 
+[9.1.0]: https://github.com/rust-lang/measureme/releases/tag/9.1.0
 [9.0.0]: https://github.com/rust-lang/measureme/releases/tag/9.0.0
 [0.8.0]: https://github.com/rust-lang/measureme/releases/tag/0.8.0
 [0.7.1]: https://github.com/rust-lang/measureme/releases/tag/0.7.1
@@ -108,6 +120,12 @@
 [GH-116]: https://github.com/rust-lang/measureme/pull/116
 [GH-119]: https://github.com/rust-lang/measureme/pull/119
 [GH-123]: https://github.com/rust-lang/measureme/pull/123
+[GH-129]: https://github.com/rust-lang/measureme/pull/129
 [GH-132]: https://github.com/rust-lang/measureme/pull/132
 [GH-137]: https://github.com/rust-lang/measureme/pull/137
 [GH-138]: https://github.com/rust-lang/measureme/pull/138
+[GH-142]: https://github.com/rust-lang/measureme/pull/142
+[GH-143]: https://github.com/rust-lang/measureme/pull/143
+[GH-146]: https://github.com/rust-lang/measureme/pull/146
+[GH-148]: https://github.com/rust-lang/measureme/pull/148
+[GH-151]: https://github.com/rust-lang/measureme/pull/151

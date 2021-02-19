@@ -1,6 +1,6 @@
 [package]
 name = "analyzeme"
-version = "9.0.0"
+version = "9.1.0"
 authors = ["Wesley Wiser <wwiser@gmail.com>", "Michael Woerister <michaelwoerister@posteo>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
