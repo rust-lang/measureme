@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use analyzeme::{ProfilingData, Timestamp};
+use measureme::file_header::FILE_EXTENSION;
 
 use serde::ser::SerializeSeq;
 use serde::{Serialize, Serializer};
@@ -219,7 +220,7 @@ fn file_prefixes_in_dir(opt: &Opt) -> Result<Vec<PathBuf>, std::io::Error> {
         for entry in fs::read_dir(dir_path)? {
             let entry = entry?;
             let path = entry.path();
-            if path.extension().filter(|e| *e == "events").is_some() {
+            if path.extension().filter(|e| *e == FILE_EXTENSION).is_some() {
                 result.push(path)
             }
         }
