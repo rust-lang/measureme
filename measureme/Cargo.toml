@@ -22,5 +22,5 @@ smallvec = "1.0"
 nightly = []
 
 [target.'cfg(all(target_arch = "x86_64", target_os = "linux"))'.dependencies]
-memmap = "0.7"
+memmap2 = "0.2.1"
 perf-event-open-sys = "1.0.1"
