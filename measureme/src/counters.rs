@@ -302,7 +302,7 @@ const BUG_REPORT_MSG: &str =
 /// Linux x86_64 implementation based on `perf_event_open` and `rdpmc`.
 #[cfg(all(feature = "nightly", target_arch = "x86_64", target_os = "linux"))]
 mod hw {
-    use memmap::{Mmap, MmapOptions};
+    use memmap2::{Mmap, MmapOptions};
     use perf_event_open_sys::{bindings::*, perf_event_open};
     use std::convert::TryInto;
     use std::error::Error;
