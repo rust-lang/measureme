@@ -1,5 +1,10 @@
 # Changelog
 
+## [9.1.1] - 2021-04-23
+### Changed
+- `crox`: Update the `--dir` flag to look for the correct file extension for traces ([GH-155])
+- `measureme`: Update the `memmap` dependency to `memmap2` which is actively maintained ([GH-156])
+
 ## [9.1.0] - 2021-02-19
 ### Added
 - `measureme`: Add support for using hardware performance counters instead of wall-clock times. ([GH-143])
@@ -83,6 +88,7 @@
 
 ## [0.2.0] - 2019-04-10
 
+[9.1.1]: https://github.com/rust-lang/measureme/releases/tag/9.1.1
 [9.1.0]: https://github.com/rust-lang/measureme/releases/tag/9.1.0
 [9.0.0]: https://github.com/rust-lang/measureme/releases/tag/9.0.0
 [0.8.0]: https://github.com/rust-lang/measureme/releases/tag/0.8.0
@@ -129,3 +135,5 @@
 [GH-146]: https://github.com/rust-lang/measureme/pull/146
 [GH-148]: https://github.com/rust-lang/measureme/pull/148
 [GH-151]: https://github.com/rust-lang/measureme/pull/151
+[GH-155]: https://github.com/rust-lang/measureme/pull/155
+[GH-156]: https://github.com/rust-lang/measureme/pull/156
