@@ -123,9 +123,13 @@ impl Profiler {
     }
 
     /// Creates a "start" event and returns a `DetachedTiming`.
-    /// To create the corresponding "event" event, yuu must call
+    /// To create the corresponding "event" event, you must call
     /// `finish_recording_internal_event` with the returned
-    /// `DetachedTiming`
+    /// `DetachedTiming`.
+    /// Since `DetachedTiming` does not capture the lifetime of `&self`,
+    /// this method can sometimes be more convenient than
+    /// `start_recording_interval_event` - e.g. it can be stored
+    /// in a struct without the need to add a lifetime parameter.
     #[inline]
     pub fn start_recording_interval_event_detached(
         &self,
