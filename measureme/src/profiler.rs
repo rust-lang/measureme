@@ -122,12 +122,62 @@ impl Profiler {
         }
     }
 
+    /// Creates a "start" event and returns a `DetachedTiming`.
+    /// To create the corresponding "event" event, you must call
+    /// `finish_recording_internal_event` with the returned
+    /// `DetachedTiming`.
+    /// Since `DetachedTiming` does not capture the lifetime of `&self`,
+    /// this method can sometimes be more convenient than
+    /// `start_recording_interval_event` - e.g. it can be stored
+    /// in a struct without the need to add a lifetime parameter.
+    #[inline]
+    pub fn start_recording_interval_event_detached(
+        &self,
+        event_kind: StringId,
+        event_id: EventId,
+        thread_id: u32
+    ) -> DetachedTiming {
+        DetachedTiming {
+            event_id,
+            event_kind,
+            thread_id,
+            start_count: self.counter.since_start(),
+        }
+    }
+
+    /// Creates the corresponding "end" event for
+    /// the "start" event represented by `timing`. You
+    /// must have obtained `timing` from the same `Profiler`
+    pub fn finish_recording_interval_event(
+        &self,
+        timing: DetachedTiming
+    ) {
+        drop(TimingGuard {
+            profiler: self,
+            event_id: timing.event_id,
+            event_kind: timing.event_kind,
+            thread_id: timing.thread_id,
+            start_count: timing.start_count,
+        });
+    }
+
     fn record_raw_event(&self, raw_event: &RawEvent) {
         self.event_sink
             .write_atomic(std::mem::size_of::<RawEvent>(), |bytes| {
                 raw_event.serialize(bytes);
             });
     }
+}
+
+/// Created by `Profiler::start_recording_interval_event_detached`.
+/// Must be passed to `finish_recording_interval_event` to record an
+/// "end" event.
+#[must_use]
+pub struct DetachedTiming {
+    event_id: EventId,
+    event_kind: StringId,
+    thread_id: u32,
+    start_count: u64,
 }
 
 /// When dropped, this `TimingGuard` will record an "end" event in the
