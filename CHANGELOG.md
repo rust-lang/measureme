@@ -1,5 +1,9 @@
 # Changelog
 
+## [9.1.2] - 2021-05-21
+### Added
+- `measureme`: Allow recording interval events without using the drop guard ([GH-159])
+
 ## [9.1.1] - 2021-04-23
 ### Changed
 - `crox`: Update the `--dir` flag to look for the correct file extension for traces ([GH-155])
@@ -88,6 +92,7 @@
 
 ## [0.2.0] - 2019-04-10
 
+[9.1.2]: https://github.com/rust-lang/measureme/releases/tag/9.1.2
 [9.1.1]: https://github.com/rust-lang/measureme/releases/tag/9.1.1
 [9.1.0]: https://github.com/rust-lang/measureme/releases/tag/9.1.0
 [9.0.0]: https://github.com/rust-lang/measureme/releases/tag/9.0.0
@@ -137,3 +142,4 @@
 [GH-151]: https://github.com/rust-lang/measureme/pull/151
 [GH-155]: https://github.com/rust-lang/measureme/pull/155
 [GH-156]: https://github.com/rust-lang/measureme/pull/156
+[GH-159]: https://github.com/rust-lang/measureme/pull/159
