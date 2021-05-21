@@ -1,0 +1,69 @@
+name: Rust
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build stable:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+    - name: Build
+      run: cargo build --verbose --all
+    - name: Run tests
+      run: cargo test --verbose --all
+    - name: Docs
+      run: cargo doc --verbose --all
+  
+  build beta:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: beta
+    - name: Build
+      run: cargo build --verbose --all
+    - name: Run tests
+      run: cargo test --verbose --all
+    - name: Docs
+      run: cargo doc --verbose --all
+
+  build nightly:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+    - name: Build
+      run: cargo build --verbose --all
+    - name: Run tests
+      run: cargo test --verbose --all
+    - name: Docs
+      run: cargo doc --verbose --all
+      
+  check big endian:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: powerpc64-unknown-linux-gnu
+    - name: Check
+      run: cargo check --verbose --target powerpc64-unknown-linux-gnu --lib --bins --tests
