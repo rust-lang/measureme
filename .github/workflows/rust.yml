@@ -34,12 +34,19 @@ jobs:
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: beta
-    - name: Build
-      run: cargo build --verbose --all
-    - name: Run tests
-      run: cargo test --verbose --all
-    - name: Docs
-      run: cargo doc --verbose --all
+        override: true
+    - uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --verbose --all
+    - uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --verbose --all
+    - uses: actions-rs/cargo@v1
+      with:
+        command: doc
+        args: --verbose --all
 
   build_nightly:
     runs-on: ubuntu-latest
@@ -49,12 +56,19 @@ jobs:
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: nightly
-    - name: Build
-      run: cargo build --verbose --all
-    - name: Run tests
-      run: cargo test --verbose --all
-    - name: Docs
-      run: cargo doc --verbose --all
+        override: true
+    - uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --verbose --all
+    - uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --verbose --all
+    - uses: actions-rs/cargo@v1
+      with:
+        command: doc
+        args: --verbose --all
       
   check_big_endian:
     runs-on: ubuntu-latest
@@ -65,5 +79,8 @@ jobs:
       with:
         toolchain: stable
         target: powerpc64-unknown-linux-gnu
-    - name: Check
-      run: cargo check --verbose --target powerpc64-unknown-linux-gnu --lib --bins --tests
+        override: true
+    - uses: actions-rs/cargo@v1
+      with:
+        command: check
+        args: --verbose --lib --bins --tests
