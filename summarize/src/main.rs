@@ -120,7 +120,8 @@ fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
         "Item count",
         "Cache hits",
         "Blocked time",
-        "Incremental load time"
+        "Incremental load time",
+        "Incremental hashing time",
     ));
 
     for query_data in results.query_data {
@@ -139,6 +140,7 @@ fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
             format!("{:+}", query_data.number_of_cache_hits),
             format!("{:.2?}", query_data.blocked_time),
             format!("{:.2?}", query_data.incremental_load_time),
+            format!("{:.2?}", query_data.incremental_hashing_time),
         ]);
     }
 
@@ -173,13 +175,14 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
     //order the results by descending self time
     results
         .query_data
-        .sort_by(|l, r| r.self_time.cmp(&l.self_time));
+        .sort_by(|l, r| r.incremental_hashing_time.cmp(&l.incremental_hashing_time));
 
     let mut table = Table::new();
 
     let mut has_cache_hits = false;
     let mut has_blocked_time = false;
     let mut has_incremental_load_time = false;
+    let mut has_incremental_hashing_time = false;
 
     let duration_zero = Duration::from_secs(0);
     for r in &results.query_data {
@@ -191,6 +194,10 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
         }
         if r.incremental_load_time > duration_zero {
             has_incremental_load_time = true;
+        }
+
+        if r.incremental_hashing_time > duration_zero {
+            has_incremental_hashing_time = true;
         }
 
         if has_cache_hits && has_blocked_time && has_incremental_load_time {
@@ -209,6 +216,10 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
         ("Cache hits", has_cache_hits),
         ("Blocked time", has_blocked_time),
         ("Incremental load time", has_incremental_load_time),
+        (
+            "Incremental result hashing time",
+            has_incremental_hashing_time,
+        ),
     ];
 
     fn filter_cells(cells: &[(&str, bool)]) -> Vec<Cell> {
@@ -251,6 +262,10 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
             (
                 &format!("{:.2?}", query_data.incremental_load_time),
                 has_incremental_load_time,
+            ),
+            (
+                &format!("{:.2?}", query_data.incremental_hashing_time),
+                has_incremental_hashing_time,
             ),
         ])));
     }

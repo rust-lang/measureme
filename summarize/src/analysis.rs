@@ -171,7 +171,9 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                     record_event_data(
                         &current_top.label,
                         &|data| match &current_top.event_kind[..] {
-                            QUERY_EVENT_KIND | GENERIC_ACTIVITY_EVENT_KIND => {
+                            QUERY_EVENT_KIND
+                            | GENERIC_ACTIVITY_EVENT_KIND
+                            | INCREMENTAL_HASH_RESULT_EVENT_KIND => {
                                 data.self_time -= current_event_duration;
                             }
                             INCREMENTAL_LOAD_RESULT_EVENT_KIND => {
@@ -213,6 +215,16 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                             data.self_time += current_event_duration;
                             data.time += current_event_duration;
                             data.incremental_load_time += current_event_duration;
+                        });
+                    }
+
+                    INCREMENTAL_RESULT_HASHING_EVENT_KIND => {
+                        record_event_data(&current_event.label, &|data| {
+                            // Don't add to data.time since this event happens
+                            // within the query itself which is already contributing
+                            // to data.time
+                            data.self_time += current_event_duration;
+                            data.incremental_hashing_time += current_event_duration;
                         });
                     }
 
