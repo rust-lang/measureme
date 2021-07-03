@@ -186,7 +186,7 @@ impl<'s> StringComponent<'s> {
                 assert!(STRING_REF_ENCODED_SIZE == 5);
 
                 bytes[0] = STRING_REF_TAG;
-                &mut bytes[1..5].copy_from_slice(&string_id.0.to_le_bytes());
+                bytes[1..5].copy_from_slice(&string_id.0.to_le_bytes());
                 &mut bytes[5..]
             }
         }
