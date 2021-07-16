@@ -171,10 +171,15 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                     record_event_data(
                         &current_top.label,
                         &|data| match &current_top.event_kind[..] {
-                            QUERY_EVENT_KIND
-                            | GENERIC_ACTIVITY_EVENT_KIND
-                            | INCREMENTAL_HASH_RESULT_EVENT_KIND => {
+                            QUERY_EVENT_KIND | GENERIC_ACTIVITY_EVENT_KIND => {
                                 data.self_time -= current_event_duration;
+                            }
+                            INCREMENTAL_RESULT_HASHING_EVENT_KIND => {
+                                // We are within hashing something. If we now encounter something
+                                // within that event (like the nested "intern-the-dep-node" event)
+                                // then we don't want to attribute that to the hashing time.
+                                data.self_time -= current_event_duration;
+                                data.incremental_hashing_time -= current_event_duration;
                             }
                             INCREMENTAL_LOAD_RESULT_EVENT_KIND => {
                                 data.self_time -= current_event_duration;

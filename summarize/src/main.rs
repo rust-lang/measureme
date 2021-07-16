@@ -175,7 +175,7 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
     //order the results by descending self time
     results
         .query_data
-        .sort_by(|l, r| r.incremental_hashing_time.cmp(&l.incremental_hashing_time));
+        .sort_by(|l, r| r.self_time.cmp(&l.self_time));
 
     let mut table = Table::new();
 
