@@ -13,6 +13,7 @@ pub struct QueryData {
     pub invocation_count: usize,
     pub blocked_time: Duration,
     pub incremental_load_time: Duration,
+    pub incremental_hashing_time: Duration,
 }
 
 impl QueryData {
@@ -26,6 +27,7 @@ impl QueryData {
             invocation_count: 0,
             blocked_time: Duration::from_nanos(0),
             incremental_load_time: Duration::from_nanos(0),
+            incremental_hashing_time: Duration::from_nanos(0),
         }
     }
 
@@ -48,6 +50,7 @@ impl QueryData {
             invocation_count: -(self.invocation_count as i64),
             blocked_time: invert(self.blocked_time),
             incremental_load_time: invert(self.incremental_load_time),
+            incremental_hashing_time: invert(self.incremental_hashing_time),
         }
     }
 
@@ -63,6 +66,7 @@ impl QueryData {
             invocation_count: self.invocation_count as i64,
             blocked_time: self.blocked_time.into(),
             incremental_load_time: self.incremental_load_time.into(),
+            incremental_hashing_time: self.incremental_hashing_time.into(),
         }
     }
 }
@@ -79,6 +83,7 @@ pub struct QueryDataDiff {
     pub invocation_count: i64,
     pub blocked_time: SignedDuration,
     pub incremental_load_time: SignedDuration,
+    pub incremental_hashing_time: SignedDuration,
 }
 
 impl Sub for QueryData {
@@ -106,6 +111,8 @@ impl Sub for QueryData {
             invocation_count: i(self.invocation_count) - i(rhs.invocation_count),
             blocked_time: sd(self.blocked_time) - sd(rhs.blocked_time),
             incremental_load_time: sd(self.incremental_load_time) - sd(rhs.incremental_load_time),
+            incremental_hashing_time: sd(self.incremental_hashing_time)
+                - sd(rhs.incremental_hashing_time),
         }
     }
 }
