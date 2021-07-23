@@ -24,19 +24,19 @@ pub fn collapse_stacks<'a>(profiling_data: &ProfilingData) -> FxHashMap<String, 
     for current_event in profiling_data
         .iter()
         .rev()
-        .filter(|e| !e.timestamp.is_instant())
+        .filter(|e| e.payload.is_interval())
     {
         let thread = threads
             .entry(current_event.thread_id)
             .or_insert(PerThreadState {
                 stack: Vec::new(),
                 stack_id: "rustc".to_owned(),
-                start: current_event.timestamp.start(),
-                end: current_event.timestamp.end(),
+                start: current_event.start(),
+                end: current_event.end(),
                 total_event_time_nanos: 0,
             });
 
-        thread.start = cmp::min(thread.start, current_event.timestamp.start());
+        thread.start = cmp::min(thread.start, current_event.start());
 
         // Pop all events from the stack that are not parents of the
         // current event.

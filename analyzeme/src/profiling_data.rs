@@ -1,6 +1,6 @@
 use crate::event::Event;
+use crate::event_payload::EventPayload;
 use crate::lightweight_event::LightweightEvent;
-use crate::timestamp::Timestamp;
 use crate::StringTable;
 use measureme::file_header::{
     verify_file_header, write_file_header, FILE_EXTENSION, FILE_HEADER_SIZE,
@@ -141,7 +141,7 @@ impl ProfilingData {
 
         let string_table = &self.string_table;
 
-        let timestamp = Timestamp::from_raw_event(&raw_event, self.metadata.start_time);
+        let payload = EventPayload::from_raw_event(&raw_event, self.metadata.start_time);
 
         let event_id = string_table
             .get(raw_event.event_id.to_string_id())
@@ -153,7 +153,7 @@ impl ProfilingData {
             event_kind: string_table.get(raw_event.event_kind).to_string(),
             label,
             additional_data,
-            timestamp,
+            payload,
             thread_id: raw_event.thread_id,
         }
     }
@@ -165,12 +165,12 @@ impl ProfilingData {
         let raw_event_bytes = &self.event_data[event_start_addr..event_end_addr];
         let raw_event = RawEvent::deserialize(raw_event_bytes);
 
-        let timestamp = Timestamp::from_raw_event(&raw_event, self.metadata.start_time);
+        let payload = EventPayload::from_raw_event(&raw_event, self.metadata.start_time);
 
         LightweightEvent {
             data: self,
             event_index,
-            timestamp,
+            payload,
             thread_id: raw_event.thread_id,
         }
     }
@@ -306,8 +306,24 @@ impl ProfilingDataBuilder {
     ) -> &mut Self {
         let event_kind = self.string_table.alloc(event_kind);
         let event_id = EventId::from_label(self.string_table.alloc(event_id));
-
         let raw_event = RawEvent::new_instant(event_kind, event_id, thread_id, timestamp_nanos);
+
+        self.write_raw_event(&raw_event);
+
+        self
+    }
+
+    /// Record and instant event with the given data.
+    pub fn integer(
+        &mut self,
+        event_kind: &str,
+        event_id: &str,
+        thread_id: u32,
+        value: u64,
+    ) -> &mut Self {
+        let event_kind = self.string_table.alloc(event_kind);
+        let event_id = EventId::from_label(self.string_table.alloc(event_id));
+        let raw_event = RawEvent::new_integer(event_kind, event_id, thread_id, value);
 
         self.write_raw_event(&raw_event);
 
@@ -383,6 +399,7 @@ impl ProfilerFiles {
 mod tests {
     use super::*;
     use std::borrow::Cow;
+    use crate::event_payload::Timestamp;
     use std::time::Duration;
 
     fn full_interval(
@@ -396,10 +413,10 @@ mod tests {
             event_kind: Cow::from(event_kind),
             label: Cow::from(label),
             additional_data: Vec::new(),
-            timestamp: Timestamp::Interval {
+            payload: EventPayload::Timestamp(Timestamp::Interval {
                 start: SystemTime::UNIX_EPOCH + Duration::from_nanos(start_nanos),
                 end: SystemTime::UNIX_EPOCH + Duration::from_nanos(end_nanos),
-            },
+            }),
             thread_id,
         }
     }
@@ -414,9 +431,24 @@ mod tests {
             event_kind: Cow::from(event_kind),
             label: Cow::from(label),
             additional_data: Vec::new(),
-            timestamp: Timestamp::Instant(
+            payload: EventPayload::Timestamp(Timestamp::Instant(
                 SystemTime::UNIX_EPOCH + Duration::from_nanos(timestamp_nanos),
-            ),
+            )),
+            thread_id,
+        }
+    }
+    
+    fn full_integer(
+        event_kind: &'static str,
+        label: &'static str,
+        thread_id: u32,
+        value: u64,
+    ) -> Event<'static> {
+        Event {
+            event_kind: Cow::from(event_kind),
+            label: Cow::from(label),
+            additional_data: Vec::new(),
+            payload: EventPayload::Integer(value),
             thread_id,
         }
     }
@@ -432,10 +464,10 @@ mod tests {
             data,
             event_index,
             thread_id,
-            timestamp: Timestamp::Interval {
+            payload: EventPayload::Timestamp(Timestamp::Interval {
                 start: SystemTime::UNIX_EPOCH + Duration::from_nanos(start_nanos),
                 end: SystemTime::UNIX_EPOCH + Duration::from_nanos(end_nanos),
-            },
+            }),
         }
     }
 
@@ -449,9 +481,23 @@ mod tests {
             data,
             event_index,
             thread_id,
-            timestamp: Timestamp::Instant(
+            payload: EventPayload::Timestamp(Timestamp::Instant(
                 SystemTime::UNIX_EPOCH + Duration::from_nanos(timestamp_nanos),
-            ),
+            )),
+        }
+    }
+
+    fn lightweight_integer<'a>(
+        data: &'a ProfilingData,
+        event_index: usize,
+        thread_id: u32,
+        value: u64,
+    ) -> LightweightEvent<'a> {
+        LightweightEvent {
+            data,
+            event_index,
+            thread_id,
+            payload: EventPayload::Integer(value),
         }
     }
 
@@ -508,10 +554,11 @@ mod tests {
             b.interval("k2", "id2", 0, 20, 92, |b| {
                 b.interval("k3", "id3", 0, 30, 90, |b| {
                     b.instant("k4", "id4", 0, 70);
-                    b.instant("k5", "id5", 0, 75);
+                    b.integer("k5", "id5", 0, 42);
+                    b.instant("k6", "id6", 0, 75);
                 });
             });
-            b.instant("k6", "id6", 0, 95);
+            b.instant("k7", "id7", 0, 95);
         });
 
         let profiling_data = b.into_profiling_data();
@@ -519,17 +566,19 @@ mod tests {
         let events: Vec<LightweightEvent<'_>> = profiling_data.iter().collect();
 
         assert_eq!(events[0], lightweight_instant(&profiling_data, 0, 0, 70));
-        assert_eq!(events[1], lightweight_instant(&profiling_data, 1, 0, 75));
-        assert_eq!(events[2], lightweight_interval(&profiling_data, 2, 0, 30, 90));
-        assert_eq!(events[3], lightweight_interval(&profiling_data, 3, 0, 20, 92));
-        assert_eq!(events[4], lightweight_instant(&profiling_data, 4, 0, 95));
-        assert_eq!(events[5], lightweight_interval(&profiling_data, 5, 0, 10, 100));
+        assert_eq!(events[1], lightweight_integer(&profiling_data, 1, 0, 42));
+        assert_eq!(events[2], lightweight_instant(&profiling_data, 2, 0, 75));
+        assert_eq!(events[3], lightweight_interval(&profiling_data, 3, 0, 30, 90));
+        assert_eq!(events[4], lightweight_interval(&profiling_data, 4, 0, 20, 92));
+        assert_eq!(events[5], lightweight_instant(&profiling_data, 5, 0, 95));
+        assert_eq!(events[6], lightweight_interval(&profiling_data, 6, 0, 10, 100));
 
         assert_eq!(events[0].to_event(), full_instant("k4", "id4", 0, 70));
-        assert_eq!(events[1].to_event(), full_instant("k5", "id5", 0, 75));
-        assert_eq!(events[2].to_event(), full_interval("k3", "id3", 0, 30, 90));
-        assert_eq!(events[3].to_event(), full_interval("k2", "id2", 0, 20, 92));
-        assert_eq!(events[4].to_event(), full_instant("k6", "id6", 0, 95));
-        assert_eq!(events[5].to_event(), full_interval("k1", "id1", 0, 10, 100));
+        assert_eq!(events[1].to_event(), full_integer("k5", "id5", 0, 42));
+        assert_eq!(events[2].to_event(), full_instant("k6", "id6", 0, 75));
+        assert_eq!(events[3].to_event(), full_interval("k3", "id3", 0, 30, 90));
+        assert_eq!(events[4].to_event(), full_interval("k2", "id2", 0, 20, 92));
+        assert_eq!(events[5].to_event(), full_instant("k7", "id7", 0, 95));
+        assert_eq!(events[6].to_event(), full_interval("k1", "id1", 0, 10, 100));
     }
 }

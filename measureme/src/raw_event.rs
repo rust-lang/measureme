@@ -12,26 +12,36 @@ pub struct RawEvent {
     pub event_id: EventId,
     pub thread_id: u32,
 
-    // The following 96 bits store the start and the end counter value, using
+    // The following 96 bits store the payload values, using
     // 48 bits for each.
-    // FIXME(eddyb) s/time/count/
-    pub start_time_lower: u32,
-    // FIXME(eddyb) s/time/count/
-    pub end_time_lower: u32,
-    pub start_and_end_upper: u32,
+    // Interval:
+    // Payload 1 is start value and payload 2 is end value
+    // SSSSSSSSSSSSSSSSEEEEEEEEEEEEEEEESSSSSSSEEEEEEEEE
+    // [payload1_lower][payload2_lower][payloads_upper]
+    // Instant:
+    // Payload2 is 0xFFFF_FFFF_FFFF
+    // VVVVVVVVVVVVVVVV1111111111111111VVVVVVV11111111
+    // [payload1_lower][payload2_lower][payloads_upper]
+    // Integer:
+    // Payload2 is 0xFFFF_FFFF_FFFE
+    // VVVVVVVVVVVVVVVV1111111111111111VVVVVVV11111110
+    // [payload1_lower][payload2_lower][payloads_upper]
+    pub payload1_lower: u32,
+    pub payload2_lower: u32,
+    pub payloads_upper: u32,
 }
 
-/// `RawEvents` that have an end counter value with this value are instant events.
-const INSTANT_COUNT_MARKER: u64 = 0xFFFF_FFFF_FFFF;
+/// `RawEvents` that have a payload 2 value with this value are instant events.
+const INSTANT_MARKER: u64 = 0xFFFF_FFFF_FFFF;
+/// `RawEvents` that have a payload 2 value with this value are integer events.
+const INTEGER_MARKER: u64 = INSTANT_MARKER - 1;
 
-/// The max instant counter value we can represent with the 48 bits available.
-// FIXME(eddyb) s/TIMESTAMP/COUNT/
-pub const MAX_INSTANT_TIMESTAMP: u64 = 0xFFFF_FFFF_FFFF;
+/// The max value we can represent with the 48 bits available.
+pub const MAX_SINGLE_VALUE: u64 = 0xFFFF_FFFF_FFFF;
 
-/// The max interval counter value we can represent with the 48 bits available.
-/// The highest value is reserved for the `INSTANT_COUNT_MARKER`.
-// FIXME(eddyb) s/TIMESTAMP/COUNT/
-pub const MAX_INTERVAL_TIMESTAMP: u64 = INSTANT_COUNT_MARKER - 1;
+/// The max value we can represent with the 48 bits available.
+/// The highest two values are reserved for the `INSTANT_MARKER` and `INTEGER_MARKER`.
+pub const MAX_INTERVAL_VALUE: u64 = INTEGER_MARKER - 1;
 
 impl RawEvent {
     #[inline]
@@ -39,28 +49,13 @@ impl RawEvent {
         event_kind: StringId,
         event_id: EventId,
         thread_id: u32,
-        start_count: u64,
-        end_count: u64,
-    ) -> RawEvent {
-        assert!(start_count <= end_count);
-        assert!(end_count <= MAX_INTERVAL_TIMESTAMP);
+        start: u64,
+        end: u64,
+    ) -> Self {
+        assert!(start <= end);
+        assert!(end <= MAX_INTERVAL_VALUE);
 
-        let start_time_lower = start_count as u32;
-        let end_time_lower = end_count as u32;
-
-        let start_time_upper = (start_count >> 16) as u32 & 0xFFFF_0000;
-        let end_time_upper = (end_count >> 32) as u32;
-
-        let start_and_end_upper = start_time_upper | end_time_upper;
-
-        RawEvent {
-            event_kind,
-            event_id,
-            thread_id,
-            start_time_lower,
-            end_time_lower,
-            start_and_end_upper,
-        }
+        Self::pack_values(event_kind, event_id, thread_id, start, end)
     }
 
     #[inline]
@@ -68,41 +63,75 @@ impl RawEvent {
         event_kind: StringId,
         event_id: EventId,
         thread_id: u32,
-        count: u64,
-    ) -> RawEvent {
-        assert!(count <= MAX_INSTANT_TIMESTAMP);
+        instant: u64,
+    ) -> Self {
+        assert!(instant <= MAX_SINGLE_VALUE);
+        Self::pack_values(event_kind, event_id, thread_id, instant, INSTANT_MARKER)
+    }
 
-        let start_time_lower = count as u32;
-        let end_time_lower = 0xFFFF_FFFF;
+    #[inline]
+    pub fn new_integer(
+        event_kind: StringId,
+        event_id: EventId,
+        thread_id: u32,
+        value: u64,
+    ) -> Self {
+        assert!(value <= MAX_SINGLE_VALUE);
+        Self::pack_values(event_kind, event_id, thread_id, value, INTEGER_MARKER)
+    }
 
-        let start_time_upper = (count >> 16) as u32;
-        let start_and_end_upper = start_time_upper | 0x0000_FFFF;
+    #[inline]
+    fn pack_values(
+        event_kind: StringId,
+        event_id: EventId,
+        thread_id: u32,
+        value1: u64,
+        value2: u64,
+    ) -> Self {
+        let payload1_lower = value1 as u32;
+        let payload2_lower = value2 as u32;
 
-        RawEvent {
+        let value1_upper = (value1 >> 16) as u32 & 0xFFFF_0000;
+        let value2_upper = (value2 >> 32) as u32;
+
+        let payloads_upper = value1_upper | value2_upper;
+
+        Self {
             event_kind,
             event_id,
             thread_id,
-            start_time_lower,
-            end_time_lower,
-            start_and_end_upper,
+            payload1_lower,
+            payload2_lower,
+            payloads_upper,
         }
     }
 
+    /// The start value assuming self is an interval
     #[inline]
-    // FIXME(eddyb) s/nanos/count/
-    pub fn start_nanos(&self) -> u64 {
-        self.start_time_lower as u64 | (((self.start_and_end_upper & 0xFFFF_0000) as u64) << 16)
+    pub fn start_value(&self) -> u64 {
+        self.payload1_lower as u64 | (((self.payloads_upper & 0xFFFF_0000) as u64) << 16)
     }
 
+    /// The end value assuming self is an interval
     #[inline]
-    // FIXME(eddyb) s/nanos/count/
-    pub fn end_nanos(&self) -> u64 {
-        self.end_time_lower as u64 | (((self.start_and_end_upper & 0x0000_FFFF) as u64) << 32)
+    pub fn end_value(&self) -> u64 {
+        self.payload2_lower as u64 | (((self.payloads_upper & 0x0000_FFFF) as u64) << 32)
+    }
+
+    /// The value assuming self is an interval or integer.
+    #[inline]
+    pub fn value(&self) -> u64 {
+        self.payload1_lower as u64 | (((self.payloads_upper & 0xFFFF_0000) as u64) << 16)
     }
 
     #[inline]
     pub fn is_instant(&self) -> bool {
-        self.end_nanos() == INSTANT_COUNT_MARKER
+        self.end_value() == INSTANT_MARKER
+    }
+
+    #[inline]
+    pub fn is_integer(&self) -> bool {
+        self.end_value() == INTEGER_MARKER
     }
 
     #[inline]
@@ -128,9 +157,9 @@ impl RawEvent {
             bytes[0..4].copy_from_slice(&self.event_kind.as_u32().to_le_bytes());
             bytes[4..8].copy_from_slice(&self.event_id.as_u32().to_le_bytes());
             bytes[8..12].copy_from_slice(&self.thread_id.to_le_bytes());
-            bytes[12..16].copy_from_slice(&self.start_time_lower.to_le_bytes());
-            bytes[16..20].copy_from_slice(&self.end_time_lower.to_le_bytes());
-            bytes[20..24].copy_from_slice(&self.start_and_end_upper.to_le_bytes());
+            bytes[12..16].copy_from_slice(&self.payload1_lower.to_le_bytes());
+            bytes[16..20].copy_from_slice(&self.payload2_lower.to_le_bytes());
+            bytes[20..24].copy_from_slice(&self.payloads_upper.to_le_bytes());
         }
     }
 
@@ -157,9 +186,9 @@ impl RawEvent {
                 event_kind: StringId::new(u32::from_le_bytes(bytes[0..4].try_into().unwrap())),
                 event_id: EventId::from_u32(u32::from_le_bytes(bytes[4..8].try_into().unwrap())),
                 thread_id: u32::from_le_bytes(bytes[8..12].try_into().unwrap()),
-                start_time_lower: u32::from_le_bytes(bytes[12..16].try_into().unwrap()),
-                end_time_lower: u32::from_le_bytes(bytes[16..20].try_into().unwrap()),
-                start_and_end_upper: u32::from_le_bytes(bytes[20..24].try_into().unwrap()),
+                payload1_lower: u32::from_le_bytes(bytes[12..16].try_into().unwrap()),
+                payload2_lower: u32::from_le_bytes(bytes[16..20].try_into().unwrap()),
+                payloads_upper: u32::from_le_bytes(bytes[20..24].try_into().unwrap()),
             }
         }
     }
@@ -171,9 +200,9 @@ impl Default for RawEvent {
             event_kind: StringId::INVALID,
             event_id: EventId::INVALID,
             thread_id: 0,
-            start_time_lower: 0,
-            end_time_lower: 0,
-            start_and_end_upper: 0,
+            payload1_lower: 0,
+            payload2_lower: 0,
+            payloads_upper: 0,
         }
     }
 }
@@ -192,22 +221,44 @@ mod tests {
     fn is_instant() {
         assert!(RawEvent::new_instant(StringId::INVALID, EventId::INVALID, 987, 0,).is_instant());
 
-        assert!(RawEvent::new_instant(
-            StringId::INVALID,
-            EventId::INVALID,
-            987,
-            MAX_INSTANT_TIMESTAMP,
-        )
-        .is_instant());
+        assert!(
+            RawEvent::new_instant(StringId::INVALID, EventId::INVALID, 987, MAX_SINGLE_VALUE,)
+                .is_instant()
+        );
 
         assert!(!RawEvent::new_interval(
             StringId::INVALID,
             EventId::INVALID,
             987,
             0,
-            MAX_INTERVAL_TIMESTAMP,
+            MAX_INTERVAL_VALUE,
         )
         .is_instant());
+    }
+
+    #[test]
+    fn is_integer() {
+        let integer = RawEvent::new_integer(StringId::INVALID, EventId::INVALID, 987, 0);
+        assert!(integer.is_integer());
+        assert_eq!(integer.value(), 0);
+
+        let integer = RawEvent::new_integer(StringId::INVALID, EventId::INVALID, 987, 8769);
+        assert!(integer.is_integer());
+        assert_eq!(integer.value(), 8769);
+
+        assert!(
+            RawEvent::new_integer(StringId::INVALID, EventId::INVALID, 987, MAX_SINGLE_VALUE,)
+                .is_integer()
+        );
+
+        assert!(!RawEvent::new_interval(
+            StringId::INVALID,
+            EventId::INVALID,
+            987,
+            0,
+            MAX_INTERVAL_VALUE,
+        )
+        .is_integer());
     }
 
     #[test]
@@ -218,7 +269,7 @@ mod tests {
             EventId::INVALID,
             123,
             // count too large
-            MAX_INSTANT_TIMESTAMP + 1,
+            MAX_SINGLE_VALUE + 1,
         );
     }
 
@@ -230,8 +281,8 @@ mod tests {
             EventId::INVALID,
             123,
             // start count too large
-            MAX_INTERVAL_TIMESTAMP + 1,
-            MAX_INTERVAL_TIMESTAMP + 1,
+            MAX_INTERVAL_VALUE + 1,
+            MAX_INTERVAL_VALUE + 1,
         );
     }
 
@@ -244,20 +295,14 @@ mod tests {
             123,
             0,
             // end count too large
-            MAX_INTERVAL_TIMESTAMP + 3,
+            MAX_INTERVAL_VALUE + 3,
         );
     }
 
     #[test]
     #[should_panic]
     fn invalid_end_count2() {
-        let _ = RawEvent::new_interval(
-            StringId::INVALID,
-            EventId::INVALID,
-            123,
-            0,
-            INSTANT_COUNT_MARKER,
-        );
+        let _ = RawEvent::new_interval(StringId::INVALID, EventId::INVALID, 123, 0, INTEGER_MARKER);
     }
 
     #[test]
@@ -286,18 +331,18 @@ mod tests {
             StringId::INVALID,
             EventId::INVALID,
             1234,
-            MAX_INTERVAL_TIMESTAMP,
-            MAX_INTERVAL_TIMESTAMP,
+            MAX_INTERVAL_VALUE,
+            MAX_INTERVAL_VALUE,
         );
 
-        assert_eq!(e.start_nanos(), MAX_INTERVAL_TIMESTAMP);
-        assert_eq!(e.end_nanos(), MAX_INTERVAL_TIMESTAMP);
+        assert_eq!(e.start_value(), MAX_INTERVAL_VALUE);
+        assert_eq!(e.end_value(), MAX_INTERVAL_VALUE);
 
         // Check the lower limits
         let e = RawEvent::new_interval(StringId::INVALID, EventId::INVALID, 1234, 0, 0);
 
-        assert_eq!(e.start_nanos(), 0);
-        assert_eq!(e.end_nanos(), 0);
+        assert_eq!(e.start_value(), 0);
+        assert_eq!(e.end_value(), 0);
 
         // Check that end does not bleed into start
         let e = RawEvent::new_interval(
@@ -305,11 +350,11 @@ mod tests {
             EventId::INVALID,
             1234,
             0,
-            MAX_INTERVAL_TIMESTAMP,
+            MAX_INTERVAL_VALUE,
         );
 
-        assert_eq!(e.start_nanos(), 0);
-        assert_eq!(e.end_nanos(), MAX_INTERVAL_TIMESTAMP);
+        assert_eq!(e.start_value(), 0);
+        assert_eq!(e.end_value(), MAX_INTERVAL_VALUE);
 
         // Test some random values
         let e = RawEvent::new_interval(
@@ -320,26 +365,45 @@ mod tests {
             0x1234567890A,
         );
 
-        assert_eq!(e.start_nanos(), 0x1234567890);
-        assert_eq!(e.end_nanos(), 0x1234567890A);
+        assert_eq!(e.start_value(), 0x1234567890);
+        assert_eq!(e.end_value(), 0x1234567890A);
     }
 
     #[test]
     fn instant_count_decoding() {
         assert_eq!(
-            RawEvent::new_instant(StringId::INVALID, EventId::INVALID, 987, 0,).start_nanos(),
+            RawEvent::new_instant(StringId::INVALID, EventId::INVALID, 987, 0,).start_value(),
             0
         );
 
         assert_eq!(
-            RawEvent::new_instant(
-                StringId::INVALID,
-                EventId::INVALID,
-                987,
-                MAX_INSTANT_TIMESTAMP,
-            )
-            .start_nanos(),
-            MAX_INSTANT_TIMESTAMP
+            RawEvent::new_instant(StringId::INVALID, EventId::INVALID, 987, 42,).start_value(),
+            42
+        );
+
+        assert_eq!(
+            RawEvent::new_instant(StringId::INVALID, EventId::INVALID, 987, MAX_SINGLE_VALUE,)
+                .start_value(),
+            MAX_SINGLE_VALUE
+        );
+    }
+
+    #[test]
+    fn integer_decoding() {
+        assert_eq!(
+            RawEvent::new_integer(StringId::INVALID, EventId::INVALID, 987, 0,).start_value(),
+            0
+        );
+
+        assert_eq!(
+            RawEvent::new_integer(StringId::INVALID, EventId::INVALID, 987, 42,).start_value(),
+            42
+        );
+
+        assert_eq!(
+            RawEvent::new_integer(StringId::INVALID, EventId::INVALID, 987, MAX_SINGLE_VALUE,)
+                .start_value(),
+            MAX_SINGLE_VALUE
         );
     }
 }

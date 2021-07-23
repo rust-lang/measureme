@@ -69,15 +69,18 @@ fn generate_thread_to_collapsed_thread_mapping(
         // collect start and end times for all threads
         let mut thread_start_and_end: FxHashMap<u32, (SystemTime, SystemTime)> =
             FxHashMap::default();
-        for event in data.iter() {
+        for (thread_id, timestamp) in data
+            .iter()
+            .filter_map(|e| e.timestamp().map(|t| (e.thread_id, t)))
+        {
             thread_start_and_end
-                .entry(event.thread_id)
+                .entry(thread_id)
                 .and_modify(|(thread_start, thread_end)| {
-                    let (event_min, event_max) = timestamp_to_min_max(event.timestamp);
+                    let (event_min, event_max) = timestamp_to_min_max(timestamp);
                     *thread_start = cmp::min(*thread_start, event_min);
                     *thread_end = cmp::max(*thread_end, event_max);
                 })
-                .or_insert_with(|| timestamp_to_min_max(event.timestamp));
+                .or_insert_with(|| timestamp_to_min_max(timestamp));
         }
         // collect the the threads in order of the end time
         let mut end_and_thread = thread_start_and_end
@@ -149,7 +152,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         // Chrome does not seem to like how many QueryCacheHit events we generate
         // only handle Interval events for now
-        for event in data.iter().filter(|e| !e.timestamp.is_instant()) {
+        for event in data.iter().filter(|e| !e.payload.is_instant()) {
             let duration = event.duration().unwrap();
             if let Some(minimum_duration) = opt.minimum_duration {
                 if duration.as_micros() < minimum_duration {
@@ -161,7 +164,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 name: full_event.label.clone().into_owned(),
                 category: full_event.event_kind.clone().into_owned(),
                 event_type: EventType::Complete,
-                timestamp: event.timestamp.start().duration_since(UNIX_EPOCH).unwrap(),
+                timestamp: event.payload.start().duration_since(UNIX_EPOCH).unwrap(),
                 duration,
                 process_id: data.metadata.process_id,
                 thread_id: *thread_to_collapsed_thread

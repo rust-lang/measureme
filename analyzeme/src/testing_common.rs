@@ -1,4 +1,4 @@
-use crate::timestamp::Timestamp;
+use crate::event_payload::EventPayload;
 use crate::{Event, ProfilingData};
 use measureme::{EventId, EventIdBuilder, Profiler, StringId};
 use rustc_hash::FxHashMap;
@@ -6,7 +6,6 @@ use std::borrow::Cow;
 use std::default::Default;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::SystemTime;
 
 fn mk_filestem(file_name_stem: &str) -> PathBuf {
     let mut path = PathBuf::new();
@@ -163,8 +162,8 @@ fn check_profiling_data(
             assert_eq!(actual_event.label, expected_event.label);
             assert_eq!(actual_event.additional_data, expected_event.additional_data);
             assert_eq!(
-                actual_event.timestamp.is_instant(),
-                expected_event.timestamp.is_instant()
+                actual_event.payload.is_instant(),
+                expected_event.payload.is_instant()
             );
 
             count += 1;
@@ -235,9 +234,6 @@ fn pseudo_invocation(
         additional_data: expected_events_templates[random_event_index].args.clone(),
         thread_id,
         // We can't test this anyway:
-        timestamp: Timestamp::Interval {
-            start: SystemTime::UNIX_EPOCH,
-            end: SystemTime::UNIX_EPOCH,
-        },
+        payload: EventPayload::Integer(0),
     });
 }
