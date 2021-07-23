@@ -148,6 +148,24 @@ fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
 
     println!("Total cpu time: {:?}", results.total_time);
 
+    let mut table = Table::new();
+
+    table.add_row(row!("Item", "Artifact Size Change",));
+
+    for artifact_size in results.artifact_sizes {
+        let exclude = opt.exclude.iter().any(|e| artifact_size.label.contains(e));
+        if exclude {
+            continue;
+        }
+
+        table.add_row(row![
+            artifact_size.label,
+            format!("{:.2?} bytes", artifact_size.size_change),
+        ]);
+    }
+
+    table.printstd();
+
     Ok(())
 }
 
@@ -280,6 +298,19 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
             percent_total_time
         );
     }
+
+    let mut table = Table::new();
+
+    table.add_row(row!("Item", "Artifact Size",));
+
+    for artifact_size in results.artifact_sizes {
+        table.add_row(row![
+            artifact_size.label,
+            format!("{:.2?} bytes", artifact_size.value),
+        ]);
+    }
+
+    table.printstd();
 
     Ok(())
 }

@@ -1,4 +1,4 @@
-use crate::query_data::{QueryData, Results};
+use crate::query_data::{ArtifactSize, QueryData, Results};
 use analyzeme::{Event, EventPayload, ProfilingData, Timestamp};
 use measureme::rustc::*;
 use rustc_hash::FxHashMap;
@@ -116,6 +116,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
     }
 
     let mut query_data = FxHashMap::<String, QueryData>::default();
+    let mut artifact_sizes = Vec::<ArtifactSize>::default();
     let mut threads = FxHashMap::<_, PerThreadState>::default();
 
     let mut record_event_data = |label: &Cow<'_, str>, f: &dyn Fn(&mut QueryData)| {
@@ -252,7 +253,9 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                 // Bring the stack up-to-date
                 thread.stack.push(current_event)
             }
-            EventPayload::Integer(_) => todo!("Handle integers"),
+            EventPayload::Integer(value) => {
+                artifact_sizes.push(ArtifactSize::new(current_event.label.into_owned(), value))
+            }
         }
     }
 
@@ -263,6 +266,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
 
     Results {
         query_data: query_data.drain().map(|(_, value)| value).collect(),
+        artifact_sizes,
         total_time,
     }
 }
