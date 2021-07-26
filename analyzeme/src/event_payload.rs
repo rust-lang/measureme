@@ -39,9 +39,7 @@ impl EventPayload {
 
     pub fn duration(&self) -> Option<Duration> {
         match *self {
-            EventPayload::Timestamp(Timestamp::Interval { start, end }) => {
-                end.duration_since(start).ok()
-            }
+            EventPayload::Timestamp(t) => t.duration(),
             _ => None,
         }
     }
@@ -56,20 +54,6 @@ impl EventPayload {
 
     pub fn is_integer(&self) -> bool {
         matches!(self, &Self::Integer(_))
-    }
-
-    pub fn start(&self) -> SystemTime {
-        match *self {
-            Self::Timestamp(t) => t.start(),
-            _ => unreachable!(),
-        }
-    }
-
-    pub fn end(&self) -> SystemTime {
-        match *self {
-            Self::Timestamp(t) => t.end(),
-            _ => unreachable!(),
-        }
     }
 
     pub fn timestamp(&self) -> Option<Timestamp> {
@@ -121,6 +105,13 @@ impl Timestamp {
         match *self {
             Timestamp::Interval { end, .. } => end,
             Timestamp::Instant(t) => t,
+        }
+    }
+
+    pub fn duration(&self) -> Option<Duration> {
+        match *self {
+            Timestamp::Interval { start, end } => end.duration_since(start).ok(),
+            _ => None,
         }
     }
 }

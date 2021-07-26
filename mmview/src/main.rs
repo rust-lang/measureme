@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     let data = ProfilingData::new(&opt.file_prefix)?;
 
-    if let Some(global_start_time) = data.iter().map(|e| e.payload.start()).min() {
+    if let Some(global_start_time) = data.iter().filter_map(|e| e.start()).min() {
         for event in data.iter() {
             if let Some(thread_id) = opt.thread_id {
                 if event.thread_id != thread_id {

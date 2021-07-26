@@ -152,7 +152,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         // Chrome does not seem to like how many QueryCacheHit events we generate
         // only handle Interval events for now
-        for event in data.iter().filter(|e| !e.payload.is_instant()) {
+        for event in data.iter().filter(|e| e.payload.is_interval()) {
             let duration = event.duration().unwrap();
             if let Some(minimum_duration) = opt.minimum_duration {
                 if duration.as_micros() < minimum_duration {
@@ -164,7 +164,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 name: full_event.label.clone().into_owned(),
                 category: full_event.event_kind.clone().into_owned(),
                 event_type: EventType::Complete,
-                timestamp: event.payload.start().duration_since(UNIX_EPOCH).unwrap(),
+                timestamp: event.start().unwrap().duration_since(UNIX_EPOCH).unwrap(),
                 duration,
                 process_id: data.metadata.process_id,
                 thread_id: *thread_to_collapsed_thread

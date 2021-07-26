@@ -27,12 +27,14 @@ impl<'a> LightweightEvent<'a> {
         self.payload.duration()
     }
 
-    pub fn start(&self) -> SystemTime {
-        self.payload.start()
+    // Returns start time if event is a timestamp
+    pub fn start(&self) -> Option<SystemTime> {
+        self.payload.timestamp().map(|t| t.start())
     }
 
-    pub fn end(&self) -> SystemTime {
-        self.payload.end()
+    // Returns end time if event is a timestamp
+    pub fn end(&self) -> Option<SystemTime> {
+        self.payload.timestamp().map(|t| t.end())
     }
 
     pub fn timestamp(&self) -> Option<Timestamp> {

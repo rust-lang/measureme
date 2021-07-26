@@ -1,7 +1,7 @@
 use crate::event_payload::EventPayload;
 use memchr::memchr;
 use std::borrow::Cow;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct Event<'a> {
@@ -21,14 +21,6 @@ impl<'a> Event<'a> {
 
     pub fn duration(&self) -> Option<Duration> {
         self.payload.duration()
-    }
-
-    pub fn start(&self) -> SystemTime {
-        self.payload.start()
-    }
-
-    pub fn end(&self) -> SystemTime {
-        self.payload.end()
     }
 
     pub(crate) fn parse_event_id(event_id: Cow<'a, str>) -> (Cow<'a, str>, Vec<Cow<'a, str>>) {
