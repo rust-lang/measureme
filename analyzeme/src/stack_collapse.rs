@@ -121,6 +121,7 @@ mod test {
         b.interval("Query", "e2", 0, 3, 9, |b| {
             b.interval("Query", "e1", 0, 4, 8, |b| {
                 b.interval("Query", "e3", 0, 5, 7, |_| {});
+                b.integer("ArtifactSize", "e3", 0, 100);
             });
         });
 
@@ -156,9 +157,12 @@ mod test {
 
         b.interval("Query", "e1", 1, 1, 2, |_| {});
         b.interval("Query", "e1", 1, 3, 4, |_| {});
-        b.interval("Query", "e1", 2, 1, 2, |_| {});
+        b.interval("Query", "e1", 2, 1, 2, |b| {
+            b.instant("Instant", "e4", 2, 100);
+        });
         b.interval("Query", "e2", 2, 2, 5, |b| {
             b.interval("Query", "e3", 2, 3, 4, |_| {});
+            b.integer("ArtifactSize", "e4", 2, 1);
         });
 
         let profiling_data = b.into_profiling_data();

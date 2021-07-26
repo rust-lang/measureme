@@ -147,6 +147,20 @@ impl ArtifactSize {
     pub fn new(label: String, value: u64) -> Self {
         Self { label, value }
     }
+
+    pub fn invert(&self) -> ArtifactSizeDiff {
+        ArtifactSizeDiff {
+            label: self.label.clone(),
+            size_change: -(self.value as i64),
+        }
+    }
+
+    pub fn as_artifact_size_diff(&self) -> ArtifactSizeDiff {
+        ArtifactSizeDiff {
+            label: self.label.clone(),
+            size_change: self.value as i64,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]

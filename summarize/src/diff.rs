@@ -80,8 +80,8 @@ pub fn calculate_diff(base: Results, change: Results) -> DiffResults {
 
             match (b, c) {
                 (Some(b), Some(c)) => c.clone() - b.clone(),
-                (Some(_b), None) => todo!(),
-                (None, Some(_c)) => todo!(),
+                (Some(b), None) => b.invert(),
+                (None, Some(c)) => c.as_artifact_size_diff(),
                 (None, None) => unreachable!(),
             }
         })
