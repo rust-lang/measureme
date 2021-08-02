@@ -33,14 +33,15 @@ impl EventPayload {
                 }
                 EventPayload::Integer(_) => false,
             },
-            _ => false,
+            EventPayload::Timestamp(Timestamp::Instant(_)) | EventPayload::Integer(_) => false,
         }
     }
 
     pub fn duration(&self) -> Option<Duration> {
-        match *self {
-            EventPayload::Timestamp(t) => t.duration(),
-            _ => None,
+        if let EventPayload::Timestamp(t) = *self {
+            t.duration()
+        } else {
+            None
         }
     }
 
@@ -109,9 +110,10 @@ impl Timestamp {
     }
 
     pub fn duration(&self) -> Option<Duration> {
-        match *self {
-            Timestamp::Interval { start, end } => end.duration_since(start).ok(),
-            _ => None,
+        if let Timestamp::Interval { start, end } = *self {
+            end.duration_since(start).ok()
+        } else {
+            None
         }
     }
 }

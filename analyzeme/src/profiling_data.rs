@@ -269,7 +269,7 @@ impl ProfilingDataBuilder {
         }
     }
 
-    /// Record and interval event. Provide an `inner` function for recording
+    /// Record an interval event. Provide an `inner` function for recording
     /// nested events.
     pub fn interval<F>(
         &mut self,
