@@ -1,5 +1,5 @@
-use crate::query_data::{QueryData, Results};
-use analyzeme::{Event, ProfilingData, Timestamp};
+use crate::query_data::{ArtifactSize, QueryData, Results};
+use analyzeme::{Event, EventPayload, ProfilingData, Timestamp};
 use measureme::rustc::*;
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
@@ -116,6 +116,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
     }
 
     let mut query_data = FxHashMap::<String, QueryData>::default();
+    let mut artifact_sizes = Vec::<ArtifactSize>::default();
     let mut threads = FxHashMap::<_, PerThreadState>::default();
 
     let mut record_event_data = |label: &Cow<'_, str>, f: &dyn Fn(&mut QueryData)| {
@@ -133,8 +134,8 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
         .rev()
         .map(|lightweight_event| lightweight_event.to_event())
     {
-        match current_event.timestamp {
-            Timestamp::Instant(_) => {
+        match current_event.payload {
+            EventPayload::Timestamp(Timestamp::Instant(_)) => {
                 if &current_event.event_kind[..] == QUERY_CACHE_HIT_EVENT_KIND {
                     record_event_data(&current_event.label, &|data| {
                         data.number_of_cache_hits += 1;
@@ -142,7 +143,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                     });
                 }
             }
-            Timestamp::Interval { start, end } => {
+            EventPayload::Timestamp(Timestamp::Interval { start, end }) => {
                 // This is an interval event
                 let thread =
                     threads
@@ -252,6 +253,9 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                 // Bring the stack up-to-date
                 thread.stack.push(current_event)
             }
+            EventPayload::Integer(value) => {
+                artifact_sizes.push(ArtifactSize::new(current_event.label.into_owned(), value))
+            }
         }
     }
 
@@ -262,6 +266,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
 
     Results {
         query_data: query_data.drain().map(|(_, value)| value).collect(),
+        artifact_sizes,
         total_time,
     }
 }

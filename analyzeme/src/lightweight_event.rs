@@ -1,15 +1,15 @@
 use crate::event::Event;
+use crate::event_payload::{EventPayload, Timestamp};
 use crate::profiling_data::ProfilingData;
-use crate::timestamp::Timestamp;
 use std::hash::{Hash, Hasher};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 #[derive(Clone, Debug)]
 pub struct LightweightEvent<'a> {
     pub data: &'a ProfilingData,
     pub event_index: usize,
     pub thread_id: u32,
-    pub timestamp: Timestamp,
+    pub payload: EventPayload,
 }
 
 impl<'a> LightweightEvent<'a> {
@@ -20,26 +20,25 @@ impl<'a> LightweightEvent<'a> {
     /// Returns true if the time interval of `self` completely contains the
     /// time interval of `other`.
     pub fn contains(&self, other: &LightweightEvent) -> bool {
-        match self.timestamp {
-            Timestamp::Interval {
-                start: self_start,
-                end: self_end,
-            } => match other.timestamp {
-                Timestamp::Interval {
-                    start: other_start,
-                    end: other_end,
-                } => self_start <= other_start && other_end <= self_end,
-                Timestamp::Instant(other_t) => self_start <= other_t && other_t <= self_end,
-            },
-            Timestamp::Instant(_) => false,
-        }
+        self.payload.contains(&other.payload)
     }
 
     pub fn duration(&self) -> Option<Duration> {
-        match self.timestamp {
-            Timestamp::Interval { start, end } => end.duration_since(start).ok(),
-            Timestamp::Instant(_) => None,
-        }
+        self.payload.duration()
+    }
+
+    // Returns start time if event is a timestamp
+    pub fn start(&self) -> Option<SystemTime> {
+        self.payload.timestamp().map(|t| t.start())
+    }
+
+    // Returns end time if event is a timestamp
+    pub fn end(&self) -> Option<SystemTime> {
+        self.payload.timestamp().map(|t| t.end())
+    }
+
+    pub fn timestamp(&self) -> Option<Timestamp> {
+        self.payload.timestamp()
     }
 }
 
@@ -49,20 +48,20 @@ impl<'a> PartialEq for LightweightEvent<'a> {
             data,
             event_index,
             thread_id,
-            timestamp,
+            payload,
         } = *self;
 
         let LightweightEvent {
             data: other_data,
             event_index: other_event_index,
             thread_id: other_thread_id,
-            timestamp: other_timestamp,
+            payload: other_payload,
         } = *other;
 
         std::ptr::eq(data, other_data)
             && event_index == other_event_index
             && thread_id == other_thread_id
-            && timestamp == other_timestamp
+            && payload == other_payload
     }
 }
 
@@ -74,12 +73,12 @@ impl<'a> Hash for LightweightEvent<'a> {
             data,
             event_index,
             thread_id,
-            timestamp,
+            payload,
         } = *self;
 
         std::ptr::hash(data, state);
         event_index.hash(state);
         thread_id.hash(state);
-        timestamp.hash(state);
+        payload.hash(state);
     }
 }

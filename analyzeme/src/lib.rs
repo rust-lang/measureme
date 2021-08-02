@@ -11,16 +11,16 @@
 //! call the [`ProfilingData::iter()`] method.
 
 mod event;
+mod event_payload;
 mod lightweight_event;
 mod profiling_data;
 mod stack_collapse;
 mod stringtable;
 pub mod testing_common;
-mod timestamp;
 
 pub use crate::event::Event;
+pub use crate::event_payload::{EventPayload, Timestamp};
 pub use crate::lightweight_event::LightweightEvent;
 pub use crate::profiling_data::{ProfilingData, ProfilingDataBuilder};
 pub use crate::stack_collapse::collapse_stacks;
 pub use crate::stringtable::{StringRef, StringTable};
-pub use crate::timestamp::Timestamp;

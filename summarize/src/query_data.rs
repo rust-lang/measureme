@@ -125,6 +125,7 @@ fn percentage_change(base: Duration, change: Duration) -> f64 {
 #[derive(Serialize, Deserialize)]
 pub struct Results {
     pub query_data: Vec<QueryData>,
+    pub artifact_sizes: Vec<ArtifactSize>,
     pub total_time: Duration,
 }
 
@@ -133,5 +134,48 @@ pub struct Results {
 impl Results {
     pub fn query_data_by_label(&self, label: &str) -> &QueryData {
         self.query_data.iter().find(|qd| qd.label == label).unwrap()
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ArtifactSize {
+    pub label: String,
+    pub value: u64,
+}
+
+impl ArtifactSize {
+    pub fn new(label: String, value: u64) -> Self {
+        Self { label, value }
+    }
+
+    pub fn invert(&self) -> ArtifactSizeDiff {
+        ArtifactSizeDiff {
+            label: self.label.clone(),
+            size_change: -(self.value as i64),
+        }
+    }
+
+    pub fn as_artifact_size_diff(&self) -> ArtifactSizeDiff {
+        ArtifactSizeDiff {
+            label: self.label.clone(),
+            size_change: self.value as i64,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ArtifactSizeDiff {
+    pub label: String,
+    pub size_change: i64,
+}
+
+impl Sub for ArtifactSize {
+    type Output = ArtifactSizeDiff;
+
+    fn sub(self, rhs: ArtifactSize) -> ArtifactSizeDiff {
+        ArtifactSizeDiff {
+            label: self.label,
+            size_change: self.value as i64 - rhs.value as i64,
+        }
     }
 }

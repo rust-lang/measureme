@@ -1,4 +1,4 @@
-use crate::timestamp::Timestamp;
+use crate::event_payload::EventPayload;
 use memchr::memchr;
 use std::borrow::Cow;
 use std::time::Duration;
@@ -8,7 +8,7 @@ pub struct Event<'a> {
     pub event_kind: Cow<'a, str>,
     pub label: Cow<'a, str>,
     pub additional_data: Vec<Cow<'a, str>>,
-    pub timestamp: Timestamp,
+    pub payload: EventPayload,
     pub thread_id: u32,
 }
 
@@ -16,26 +16,11 @@ impl<'a> Event<'a> {
     /// Returns true if the time interval of `self` completely contains the
     /// time interval of `other`.
     pub fn contains(&self, other: &Event<'_>) -> bool {
-        match self.timestamp {
-            Timestamp::Interval {
-                start: self_start,
-                end: self_end,
-            } => match other.timestamp {
-                Timestamp::Interval {
-                    start: other_start,
-                    end: other_end,
-                } => self_start <= other_start && other_end <= self_end,
-                Timestamp::Instant(other_t) => self_start <= other_t && other_t <= self_end,
-            },
-            Timestamp::Instant(_) => false,
-        }
+        self.payload.contains(&other.payload)
     }
 
     pub fn duration(&self) -> Option<Duration> {
-        match self.timestamp {
-            Timestamp::Interval { start, end } => end.duration_since(start).ok(),
-            Timestamp::Instant(_) => None,
-        }
+        self.payload.duration()
     }
 
     pub(crate) fn parse_event_id(event_id: Cow<'a, str>) -> (Cow<'a, str>, Vec<Cow<'a, str>>) {

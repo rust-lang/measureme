@@ -104,6 +104,19 @@ impl Profiler {
         self.record_raw_event(&raw_event);
     }
 
+    /// Records an event with the given parameters. The event time is computed
+    /// automatically.
+    pub fn record_integer_event(
+        &self,
+        event_kind: StringId,
+        event_id: EventId,
+        thread_id: u32,
+        value: u64,
+    ) {
+        let raw_event = RawEvent::new_integer(event_kind, event_id, thread_id, value);
+        self.record_raw_event(&raw_event);
+    }
+
     /// Creates a "start" event and returns a `TimingGuard` that will create
     /// the corresponding "end" event when it is dropped.
     #[inline]
@@ -135,7 +148,7 @@ impl Profiler {
         &self,
         event_kind: StringId,
         event_id: EventId,
-        thread_id: u32
+        thread_id: u32,
     ) -> DetachedTiming {
         DetachedTiming {
             event_id,
@@ -148,10 +161,7 @@ impl Profiler {
     /// Creates the corresponding "end" event for
     /// the "start" event represented by `timing`. You
     /// must have obtained `timing` from the same `Profiler`
-    pub fn finish_recording_interval_event(
-        &self,
-        timing: DetachedTiming
-    ) {
+    pub fn finish_recording_interval_event(&self, timing: DetachedTiming) {
         drop(TimingGuard {
             profiler: self,
             event_id: timing.event_id,

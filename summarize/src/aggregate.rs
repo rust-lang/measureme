@@ -29,7 +29,7 @@ mod backwards_iter {
 }
 
 use self::backwards_iter::{BackwardsIterator, BackwardsIteratorExt as _};
-use analyzeme::{Event, ProfilingData, Timestamp};
+use analyzeme::{Event, EventPayload, ProfilingData, Timestamp};
 use measureme::rustc::*;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -115,7 +115,12 @@ impl<E> SamplePoint<E> {
 
 impl SamplePoint<WithParent<Event<'_>>> {
     fn timestamp(&self) -> SystemTime {
-        match (self, self.event().this.timestamp) {
+        let timestamp = match self.event().this.payload {
+            EventPayload::Timestamp(t) => t,
+            _ => unreachable!(),
+        };
+
+        match (self, timestamp) {
             (SamplePoint::Start(_), Timestamp::Interval { start, .. }) => start,
             (SamplePoint::End(_), Timestamp::Interval { end, .. }) => end,
             (SamplePoint::Instant(_), Timestamp::Instant(time)) => time,
@@ -128,18 +133,20 @@ impl SamplePoint<WithParent<Event<'_>>> {
     }
 }
 
-struct SamplePoints<'a, I: DoubleEndedIterator<Item = Event<'a>>> {
+struct SamplePoints<'a> {
     /// This analysis only works with deterministic runs, which precludes parallelism,
     /// so we just have to find the *only* thread's ID and require there is no other.
     expected_thread_id: u32,
 
-    rev_events: std::iter::Peekable<std::iter::Rev<I>>,
+    rev_events: std::iter::Peekable<Box<dyn Iterator<Item = Event<'a>> + 'a>>,
     stack: Vec<Event<'a>>,
 }
 
-impl<'a, I: DoubleEndedIterator<Item = Event<'a>>> SamplePoints<'a, I> {
-    fn new(events: I) -> Self {
-        let mut rev_events = events.rev().peekable();
+impl<'a> SamplePoints<'a> {
+    fn new<'b: 'a, I: Iterator<Item = Event<'a>> + DoubleEndedIterator + 'b>(events: I) -> Self {
+        let mut rev_events = (Box::new(events.rev().filter(|e| !e.payload.is_integer()))
+            as Box<dyn Iterator<Item = Event<'a>>>)
+            .peekable();
         SamplePoints {
             // The `0` default doesn't matter, if there are no events.
             expected_thread_id: rev_events.peek().map_or(0, |event| event.thread_id),
@@ -154,11 +161,11 @@ impl<'a, I: DoubleEndedIterator<Item = Event<'a>>> SamplePoints<'a, I> {
     }
 }
 
-impl<'a, I: DoubleEndedIterator<Item = Event<'a>>> BackwardsIterator for SamplePoints<'a, I> {
+impl<'a> BackwardsIterator for SamplePoints<'a> {
     type Item = SamplePoint<WithParent<Event<'a>>>;
     fn next_back(&mut self) -> Option<Self::Item> {
         let sample_point = match self.rev_events.peek() {
-            Some(peeked_event) => {
+            Some(peeked_event) if !peeked_event.payload.is_integer() => {
                 assert_eq!(
                     peeked_event.thread_id, self.expected_thread_id,
                     "more than one thread is not supported in `summarize aggregate`"
@@ -170,21 +177,28 @@ impl<'a, I: DoubleEndedIterator<Item = Event<'a>>> BackwardsIterator for SampleP
                     Some(top_event) if !top_event.contains(peeked_event) => {
                         SamplePoint::Start(self.stack.pop().unwrap())
                     }
+                    Some(_) => unreachable!(),
 
                     _ => {
                         let event = self.rev_events.next().unwrap();
-                        match event.timestamp {
-                            Timestamp::Interval { .. } => {
+                        match event.payload {
+                            EventPayload::Timestamp(Timestamp::Interval { .. }) => {
                                 // Now entering this new event.
                                 self.stack.push(event.clone());
                                 SamplePoint::End(event)
                             }
 
-                            Timestamp::Instant(_) => SamplePoint::Instant(event),
+                            EventPayload::Timestamp(Timestamp::Instant(_)) => {
+                                SamplePoint::Instant(event)
+                            }
+                            EventPayload::Integer(_) => {
+                                unreachable!()
+                            }
                         }
                     }
                 }
             }
+            Some(_) => unreachable!(),
 
             // Ran out of events, but we might still have stack entries to leave.
             None => SamplePoint::Start(self.stack.pop()?),
