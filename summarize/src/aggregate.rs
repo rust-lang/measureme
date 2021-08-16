@@ -138,6 +138,7 @@ struct SamplePoints<'a> {
     /// so we just have to find the *only* thread's ID and require there is no other.
     expected_thread_id: u32,
 
+    /// Reversed events that do not contain integer payloads
     rev_events: std::iter::Peekable<Box<dyn Iterator<Item = Event<'a>> + 'a>>,
     stack: Vec<Event<'a>>,
 }
@@ -165,7 +166,11 @@ impl<'a> BackwardsIterator for SamplePoints<'a> {
     type Item = SamplePoint<WithParent<Event<'a>>>;
     fn next_back(&mut self) -> Option<Self::Item> {
         let sample_point = match self.rev_events.peek() {
-            Some(peeked_event) if !peeked_event.payload.is_integer() => {
+            Some(peeked_event) => {
+                assert!(
+                    !peeked_event.payload.is_integer(),
+                    "Integer events accidentally included in `SamplePoints` events"
+                );
                 assert_eq!(
                     peeked_event.thread_id, self.expected_thread_id,
                     "more than one thread is not supported in `summarize aggregate`"
@@ -177,8 +182,6 @@ impl<'a> BackwardsIterator for SamplePoints<'a> {
                     Some(top_event) if !top_event.contains(peeked_event) => {
                         SamplePoint::Start(self.stack.pop().unwrap())
                     }
-                    Some(_) => unreachable!(),
-
                     _ => {
                         let event = self.rev_events.next().unwrap();
                         match event.payload {
@@ -198,7 +201,6 @@ impl<'a> BackwardsIterator for SamplePoints<'a> {
                     }
                 }
             }
-            Some(_) => unreachable!(),
 
             // Ran out of events, but we might still have stack entries to leave.
             None => SamplePoint::Start(self.stack.pop()?),
