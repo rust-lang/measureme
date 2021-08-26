@@ -121,7 +121,8 @@ mod test {
         b.interval("Query", "e2", 0, 3, 9, |b| {
             b.interval("Query", "e1", 0, 4, 8, |b| {
                 b.interval("Query", "e3", 0, 5, 7, |_| {});
-                b.integer("ArtifactSize", "e3", 0, 100);
+                // Integer events are expected to be ignored
+                b.integer("ArtifactSize", "e4", 0, 100);
             });
         });
 

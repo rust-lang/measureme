@@ -1,11 +1,12 @@
 use crate::event_payload::EventPayload;
-use crate::{Event, ProfilingData};
+use crate::{Event, ProfilingData, Timestamp};
 use measureme::{EventId, EventIdBuilder, Profiler, StringId};
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
 use std::default::Default;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::SystemTime;
 
 fn mk_filestem(file_name_stem: &str) -> PathBuf {
     let mut path = PathBuf::new();
@@ -117,11 +118,13 @@ fn generate_profiling_data(
 fn process_profiling_data(filestem: &Path, expected_events: &[Event<'static>]) {
     let profiling_data = ProfilingData::new(filestem).unwrap();
 
+    // Check iterating forward over the events
     check_profiling_data(
         &mut profiling_data.iter().map(|e| e.to_event()),
         &mut expected_events.iter().cloned(),
         expected_events.len(),
     );
+    // Check iterating backwards over the events
     check_profiling_data(
         &mut profiling_data.iter().rev().map(|e| e.to_event()),
         &mut expected_events.iter().rev().cloned(),
@@ -162,9 +165,17 @@ fn check_profiling_data(
             assert_eq!(actual_event.label, expected_event.label);
             assert_eq!(actual_event.additional_data, expected_event.additional_data);
             assert_eq!(
+                actual_event.payload.is_interval(),
+                expected_event.payload.is_interval()
+            );
+            assert_eq!(
                 actual_event.payload.is_instant(),
                 expected_event.payload.is_instant()
             );
+
+            if expected_event.payload.is_integer() {
+                assert_eq!(actual_event.payload, expected_event.payload);
+            }
 
             count += 1;
         }
@@ -218,11 +229,29 @@ fn pseudo_invocation(
 
     let _prof_guard = profiler.start_recording_interval_event(event_kind, event_id, thread_id);
 
+    pseudo_integer_event(
+        profiler,
+        random * 7,
+        thread_id,
+        event_ids,
+        expected_events_templates,
+        expected_events,
+    );
+
     pseudo_invocation(
         profiler,
-        random,
+        random * 17,
         thread_id,
         recursions_left - 1,
+        event_ids,
+        expected_events_templates,
+        expected_events,
+    );
+
+    pseudo_instant_event(
+        profiler,
+        random * 23,
+        thread_id,
         event_ids,
         expected_events_templates,
         expected_events,
@@ -233,7 +262,59 @@ fn pseudo_invocation(
         label: expected_events_templates[random_event_index].label.clone(),
         additional_data: expected_events_templates[random_event_index].args.clone(),
         thread_id,
-        // We can't test this anyway:
-        payload: EventPayload::Integer(0),
+        // We can't test the actual timestamp value, so we just assign
+        // SystemTime::UNIX_EPOCH to everything.
+        payload: EventPayload::Timestamp(Timestamp::Interval {
+            start: SystemTime::UNIX_EPOCH,
+            end: SystemTime::UNIX_EPOCH,
+        }),
+    });
+}
+
+fn pseudo_integer_event(
+    profiler: &Profiler,
+    random: usize,
+    thread_id: u32,
+    event_ids: &[(StringId, EventId)],
+    expected_events_templates: &[ExpectedEvent],
+    expected_events: &mut Vec<Event<'static>>,
+) {
+    let random_event_index = random % event_ids.len();
+
+    let payload_value = random as u64 * 33;
+
+    let (event_kind, event_id) = event_ids[random_event_index];
+    profiler.record_integer_event(event_kind, event_id, thread_id, payload_value);
+
+    expected_events.push(Event {
+        event_kind: expected_events_templates[random_event_index].kind.clone(),
+        label: expected_events_templates[random_event_index].label.clone(),
+        additional_data: expected_events_templates[random_event_index].args.clone(),
+        thread_id,
+        payload: EventPayload::Integer(payload_value),
+    });
+}
+
+fn pseudo_instant_event(
+    profiler: &Profiler,
+    random: usize,
+    thread_id: u32,
+    event_ids: &[(StringId, EventId)],
+    expected_events_templates: &[ExpectedEvent],
+    expected_events: &mut Vec<Event<'static>>,
+) {
+    let random_event_index = random % event_ids.len();
+
+    let (event_kind, event_id) = event_ids[random_event_index];
+    profiler.record_instant_event(event_kind, event_id, thread_id);
+
+    expected_events.push(Event {
+        event_kind: expected_events_templates[random_event_index].kind.clone(),
+        label: expected_events_templates[random_event_index].label.clone(),
+        additional_data: expected_events_templates[random_event_index].args.clone(),
+        thread_id,
+        // We can't test the actual timestamp value, so we just assign
+        // SystemTime::UNIX_EPOCH to everything.
+        payload: EventPayload::Timestamp(Timestamp::Instant(SystemTime::UNIX_EPOCH)),
     });
 }
