@@ -254,7 +254,9 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
                 thread.stack.push(current_event)
             }
             EventPayload::Integer(value) => {
-                artifact_sizes.push(ArtifactSize::new(current_event.label.into_owned(), value))
+                if current_event.event_kind == measureme::rustc::ARTIFACT_SIZE_EVENT_KIND {
+                    artifact_sizes.push(ArtifactSize::new(current_event.label.into_owned(), value))
+                }
             }
         }
     }

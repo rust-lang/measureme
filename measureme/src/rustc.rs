@@ -11,3 +11,5 @@ pub const INCREMENTAL_RESULT_HASHING_EVENT_KIND: &str = "IncrementalResultHashin
 pub const QUERY_BLOCKED_EVENT_KIND: &str = "QueryBlocked";
 
 pub const QUERY_CACHE_HIT_EVENT_KIND: &str = "QueryCacheHit";
+
+pub const ARTIFACT_SIZE_EVENT_KIND: &str = "ArtifactSize";
