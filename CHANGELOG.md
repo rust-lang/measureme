@@ -1,5 +1,11 @@
 # Changelog
 
+## [10.0.0] - 2021-09-06
+### Added
+- `measureme`: Add integer event support ([GH-169])
+- `summarize`: Add integer event support ([GH-169])
+- `summarize`: Add incremental compilation result hashing profiling ([GH-166])
+
 ## [9.1.2] - 2021-05-21
 ### Added
 - `measureme`: Allow recording interval events without using the drop guard ([GH-159])
@@ -143,3 +149,5 @@
 [GH-155]: https://github.com/rust-lang/measureme/pull/155
 [GH-156]: https://github.com/rust-lang/measureme/pull/156
 [GH-159]: https://github.com/rust-lang/measureme/pull/159
+[GH-166]: https://github.com/rust-lang/measureme/pull/166
+[GH-169]: https://github.com/rust-lang/measureme/pull/169
