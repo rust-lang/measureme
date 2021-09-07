@@ -583,6 +583,7 @@ mod tests {
         b.integer(ARTIFACT_SIZE_EVENT_KIND, "artifact1", 1, 100);
         b.integer(ARTIFACT_SIZE_EVENT_KIND, "artifact1", 2, 50);
         b.integer(ARTIFACT_SIZE_EVENT_KIND, "artifact2", 1, 50);
+        b.integer("OTHER_EVENT", "other_id", 1, 50);
 
         let results = perform_analysis(b.into_profiling_data());
 
