@@ -3,6 +3,7 @@ use analyzeme::{Event, EventPayload, ProfilingData, Timestamp};
 use measureme::rustc::*;
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
+use std::collections::BTreeMap;
 use std::time::SystemTime;
 
 /// Collects accumulated summary data for the given ProfilingData.
@@ -116,7 +117,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
     }
 
     let mut query_data = FxHashMap::<String, QueryData>::default();
-    let mut artifact_sizes = FxHashMap::<Cow<'_, str>, ArtifactSize>::default();
+    let mut artifact_sizes = BTreeMap::<Cow<'_, str>, ArtifactSize>::default();
     let mut threads = FxHashMap::<_, PerThreadState>::default();
 
     let mut record_event_data = |label: &Cow<'_, str>, f: &dyn Fn(&mut QueryData)| {
@@ -573,5 +574,22 @@ mod tests {
         assert_eq!(results.query_data_by_label("q1").self_time, Duration::from_nanos(230));
         assert_eq!(results.query_data_by_label("q1").incremental_load_time, Duration::from_nanos(230));
         assert_eq!(results.query_data_by_label("q1").time, Duration::from_nanos(230));
+    }
+
+    #[test]
+    fn artifact_sizes() {
+        let mut b = ProfilingDataBuilder::new();
+
+        b.integer(ARTIFACT_SIZE_EVENT_KIND, "artifact1", 1, 100);
+        b.integer(ARTIFACT_SIZE_EVENT_KIND, "artifact1", 2, 50);
+        b.integer(ARTIFACT_SIZE_EVENT_KIND, "artifact2", 1, 50);
+
+        let results = perform_analysis(b.into_profiling_data());
+
+        assert_eq!(results.artifact_sizes.len(), 2);
+        assert_eq!(results.artifact_size_by_label("artifact1").value, 150);
+        assert_eq!(results.artifact_size_by_label("artifact1").label, "artifact1");
+        assert_eq!(results.artifact_size_by_label("artifact2").value, 50);
+        assert_eq!(results.artifact_size_by_label("artifact2").label, "artifact2");
     }
 }

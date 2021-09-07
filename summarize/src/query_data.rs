@@ -135,6 +135,13 @@ impl Results {
     pub fn query_data_by_label(&self, label: &str) -> &QueryData {
         self.query_data.iter().find(|qd| qd.label == label).unwrap()
     }
+
+    pub fn artifact_size_by_label(&self, label: &str) -> &ArtifactSize {
+        self.artifact_sizes
+            .iter()
+            .find(|qd| qd.label == label)
+            .unwrap()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
