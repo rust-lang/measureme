@@ -144,8 +144,8 @@ pub struct ArtifactSize {
 }
 
 impl ArtifactSize {
-    pub fn new(label: String, value: u64) -> Self {
-        Self { label, value }
+    pub fn new(label: String) -> Self {
+        Self { label, value: 0 }
     }
 
     pub fn invert(&self) -> ArtifactSizeDiff {
@@ -160,6 +160,10 @@ impl ArtifactSize {
             label: self.label.clone(),
             size_change: self.value as i64,
         }
+    }
+
+    pub(crate) fn add_value(&mut self, value: u64) {
+        self.value += value;
     }
 }
 

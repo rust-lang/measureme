@@ -116,7 +116,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
     }
 
     let mut query_data = FxHashMap::<String, QueryData>::default();
-    let mut artifact_sizes = Vec::<ArtifactSize>::default();
+    let mut artifact_sizes = FxHashMap::<Cow<'_, str>, ArtifactSize>::default();
     let mut threads = FxHashMap::<_, PerThreadState>::default();
 
     let mut record_event_data = |label: &Cow<'_, str>, f: &dyn Fn(&mut QueryData)| {
@@ -255,7 +255,11 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
             }
             EventPayload::Integer(value) => {
                 if current_event.event_kind == ARTIFACT_SIZE_EVENT_KIND {
-                    artifact_sizes.push(ArtifactSize::new(current_event.label.into_owned(), value))
+                    // Dedup artifact size events according to their label
+                    artifact_sizes
+                        .entry(current_event.label.clone())
+                        .or_insert_with(|| ArtifactSize::new(current_event.label.into_owned()))
+                        .add_value(value);
                 }
             }
         }
@@ -268,7 +272,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
 
     Results {
         query_data: query_data.drain().map(|(_, value)| value).collect(),
-        artifact_sizes,
+        artifact_sizes: artifact_sizes.into_values().collect(),
         total_time,
     }
 }
