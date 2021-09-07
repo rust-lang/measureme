@@ -7,7 +7,7 @@ Summarize is a tool to produce a human readable summary of `measureme` profiling
 To use this tool you will first want to install it:
 
 ```bash
-$ cargo install --git https://github.com/rust-lang/measureme summarize
+$ cargo install --git https://github.com/rust-lang/measureme --tag 9.1.2 summarize
 ```
 
 ## Profiling the nightly compiler
