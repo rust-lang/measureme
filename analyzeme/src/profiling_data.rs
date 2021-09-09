@@ -126,10 +126,20 @@ impl ProfilingData {
         ProfilerEventIterator::new(&self)
     }
 
+    pub fn iter_full<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = Event<'a>> + DoubleEndedIterator + ExactSizeIterator + 'a {
+        self.iter().map(move |e| self.to_full_event(&e))
+    }
+
     pub fn num_events(&self) -> usize {
         let event_byte_count = self.event_data.len() - FILE_HEADER_SIZE;
         assert!(event_byte_count % RAW_EVENT_SIZE == 0);
         event_byte_count / RAW_EVENT_SIZE
+    }
+
+    pub fn to_full_event<'a>(&'a self, light_weight_event: &LightweightEvent) -> Event<'a> {
+        self.decode_full_event(light_weight_event.event_index)
     }
 
     pub(crate) fn decode_full_event<'a>(&'a self, event_index: usize) -> Event<'a> {
@@ -158,7 +168,7 @@ impl ProfilingData {
         }
     }
 
-    fn decode_lightweight_event<'a>(&'a self, event_index: usize) -> LightweightEvent<'a> {
+    fn decode_lightweight_event<'a>(&'a self, event_index: usize) -> LightweightEvent {
         let event_start_addr = event_index_to_addr(event_index);
         let event_end_addr = event_start_addr.checked_add(RAW_EVENT_SIZE).unwrap();
 
@@ -168,7 +178,6 @@ impl ProfilingData {
         let payload = EventPayload::from_raw_event(&raw_event, self.metadata.start_time);
 
         LightweightEvent {
-            data: self,
             event_index,
             payload,
             thread_id: raw_event.thread_id,
@@ -193,9 +202,9 @@ impl<'a> ProfilerEventIterator<'a> {
 }
 
 impl<'a> Iterator for ProfilerEventIterator<'a> {
-    type Item = LightweightEvent<'a>;
+    type Item = LightweightEvent;
 
-    fn next(&mut self) -> Option<LightweightEvent<'a>> {
+    fn next(&mut self) -> Option<LightweightEvent> {
         if self.forward_event_idx == self.backward_event_idx {
             return None;
         }
@@ -437,7 +446,7 @@ mod tests {
             thread_id,
         }
     }
-    
+
     fn full_integer(
         event_kind: &'static str,
         label: &'static str,
@@ -454,14 +463,12 @@ mod tests {
     }
 
     fn lightweight_interval<'a>(
-        data: &'a ProfilingData,
         event_index: usize,
         thread_id: u32,
         start_nanos: u64,
         end_nanos: u64,
-    ) -> LightweightEvent<'a> {
+    ) -> LightweightEvent {
         LightweightEvent {
-            data,
             event_index,
             thread_id,
             payload: EventPayload::Timestamp(Timestamp::Interval {
@@ -472,13 +479,11 @@ mod tests {
     }
 
     fn lightweight_instant<'a>(
-        data: &'a ProfilingData,
         event_index: usize,
         thread_id: u32,
         timestamp_nanos: u64,
-    ) -> LightweightEvent<'a> {
+    ) -> LightweightEvent {
         LightweightEvent {
-            data,
             event_index,
             thread_id,
             payload: EventPayload::Timestamp(Timestamp::Instant(
@@ -488,13 +493,11 @@ mod tests {
     }
 
     fn lightweight_integer<'a>(
-        data: &'a ProfilingData,
         event_index: usize,
         thread_id: u32,
         value: u64,
-    ) -> LightweightEvent<'a> {
+    ) -> LightweightEvent {
         LightweightEvent {
-            data,
             event_index,
             thread_id,
             payload: EventPayload::Integer(value),
@@ -512,15 +515,15 @@ mod tests {
 
         let profiling_data = builder.into_profiling_data();
 
-        let events: Vec<LightweightEvent<'_>> = profiling_data.iter().collect();
+        let events: Vec<LightweightEvent> = profiling_data.iter().collect();
 
-        assert_eq!(events[0], lightweight_interval(&profiling_data, 0, 0, 10, 100));
-        assert_eq!(events[1], lightweight_interval(&profiling_data, 1, 1, 100, 110));
-        assert_eq!(events[2], lightweight_interval(&profiling_data, 2, 0, 120, 140));
+        assert_eq!(events[0], lightweight_interval(0, 0, 10, 100));
+        assert_eq!(events[1], lightweight_interval(1, 1, 100, 110));
+        assert_eq!(events[2], lightweight_interval(2, 0, 120, 140));
 
-        assert_eq!(events[0].to_event(), full_interval("k1", "id1", 0, 10, 100));
-        assert_eq!(events[1].to_event(), full_interval("k2", "id2", 1, 100, 110));
-        assert_eq!(events[2].to_event(), full_interval("k3", "id3", 0, 120, 140));
+        assert_eq!(profiling_data.to_full_event(&events[0]), full_interval("k1", "id1", 0, 10, 100));
+        assert_eq!(profiling_data.to_full_event(&events[1]), full_interval("k2", "id2", 1, 100, 110));
+        assert_eq!(profiling_data.to_full_event(&events[2]), full_interval("k3", "id3", 0, 120, 140));
     }
 
     #[test]
@@ -535,15 +538,15 @@ mod tests {
 
         let profiling_data = b.into_profiling_data();
 
-        let events: Vec<LightweightEvent<'_>> = profiling_data.iter().collect();
+        let events: Vec<LightweightEvent> = profiling_data.iter().collect();
 
-        assert_eq!(events[0], lightweight_interval(&profiling_data, 0, 0, 30, 90));
-        assert_eq!(events[1], lightweight_interval(&profiling_data, 1, 0, 20, 100));
-        assert_eq!(events[2], lightweight_interval(&profiling_data, 2, 0, 10, 100));
+        assert_eq!(events[0], lightweight_interval(0, 0, 30, 90));
+        assert_eq!(events[1], lightweight_interval(1, 0, 20, 100));
+        assert_eq!(events[2], lightweight_interval(2, 0, 10, 100));
 
-        assert_eq!(events[0].to_event(), full_interval("k3", "id3", 0, 30, 90));
-        assert_eq!(events[1].to_event(), full_interval("k2", "id2", 0, 20, 100));
-        assert_eq!(events[2].to_event(), full_interval("k1", "id1", 0, 10, 100));
+        assert_eq!(profiling_data.to_full_event(&events[0]), full_interval("k3", "id3", 0, 30, 90));
+        assert_eq!(profiling_data.to_full_event(&events[1]), full_interval("k2", "id2", 0, 20, 100));
+        assert_eq!(profiling_data.to_full_event(&events[2]), full_interval("k1", "id1", 0, 10, 100));
     }
 
     #[test]
@@ -563,22 +566,22 @@ mod tests {
 
         let profiling_data = b.into_profiling_data();
 
-        let events: Vec<LightweightEvent<'_>> = profiling_data.iter().collect();
+        let events: Vec<LightweightEvent> = profiling_data.iter().collect();
 
-        assert_eq!(events[0], lightweight_instant(&profiling_data, 0, 0, 70));
-        assert_eq!(events[1], lightweight_integer(&profiling_data, 1, 0, 42));
-        assert_eq!(events[2], lightweight_instant(&profiling_data, 2, 0, 75));
-        assert_eq!(events[3], lightweight_interval(&profiling_data, 3, 0, 30, 90));
-        assert_eq!(events[4], lightweight_interval(&profiling_data, 4, 0, 20, 92));
-        assert_eq!(events[5], lightweight_instant(&profiling_data, 5, 0, 95));
-        assert_eq!(events[6], lightweight_interval(&profiling_data, 6, 0, 10, 100));
+        assert_eq!(events[0], lightweight_instant(0, 0, 70));
+        assert_eq!(events[1], lightweight_integer(1, 0, 42));
+        assert_eq!(events[2], lightweight_instant(2, 0, 75));
+        assert_eq!(events[3], lightweight_interval(3, 0, 30, 90));
+        assert_eq!(events[4], lightweight_interval(4, 0, 20, 92));
+        assert_eq!(events[5], lightweight_instant(5, 0, 95));
+        assert_eq!(events[6], lightweight_interval(6, 0, 10, 100));
 
-        assert_eq!(events[0].to_event(), full_instant("k4", "id4", 0, 70));
-        assert_eq!(events[1].to_event(), full_integer("k5", "id5", 0, 42));
-        assert_eq!(events[2].to_event(), full_instant("k6", "id6", 0, 75));
-        assert_eq!(events[3].to_event(), full_interval("k3", "id3", 0, 30, 90));
-        assert_eq!(events[4].to_event(), full_interval("k2", "id2", 0, 20, 92));
-        assert_eq!(events[5].to_event(), full_instant("k7", "id7", 0, 95));
-        assert_eq!(events[6].to_event(), full_interval("k1", "id1", 0, 10, 100));
+        assert_eq!(profiling_data.to_full_event(&events[0]), full_instant("k4", "id4", 0, 70));
+        assert_eq!(profiling_data.to_full_event(&events[1]), full_integer("k5", "id5", 0, 42));
+        assert_eq!(profiling_data.to_full_event(&events[2]), full_instant("k6", "id6", 0, 75));
+        assert_eq!(profiling_data.to_full_event(&events[3]), full_interval("k3", "id3", 0, 30, 90));
+        assert_eq!(profiling_data.to_full_event(&events[4]), full_interval("k2", "id2", 0, 20, 92));
+        assert_eq!(profiling_data.to_full_event(&events[5]), full_instant("k7", "id7", 0, 95));
+        assert_eq!(profiling_data.to_full_event(&events[6]), full_interval("k1", "id1", 0, 10, 100));
     }
 }

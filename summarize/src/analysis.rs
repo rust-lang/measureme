@@ -130,11 +130,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
         }
     };
 
-    for current_event in data
-        .iter()
-        .rev()
-        .map(|lightweight_event| lightweight_event.to_event())
-    {
+    for current_event in data.iter_full().rev() {
         match current_event.payload {
             EventPayload::Timestamp(Timestamp::Instant(_)) => {
                 if &current_event.event_kind[..] == QUERY_CACHE_HIT_EVENT_KIND {

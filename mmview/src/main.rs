@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                     continue;
                 }
             }
-            print_event(&event.to_event(), global_start_time);
+            print_event(&data.to_full_event(&event), global_start_time);
         }
     } else {
         eprintln!("No events.");
