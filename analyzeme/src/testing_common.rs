@@ -119,12 +119,12 @@ fn process_profiling_data(filestem: &Path, expected_events: &[Event<'static>]) {
     let profiling_data = ProfilingData::new(filestem).unwrap();
 
     check_profiling_data(
-        &mut profiling_data.iter().map(|e| e.to_event()),
+        &mut profiling_data.iter_full(),
         &mut expected_events.iter().cloned(),
         expected_events.len(),
     );
     check_profiling_data(
-        &mut profiling_data.iter().rev().map(|e| e.to_event()),
+        &mut profiling_data.iter_full().rev(),
         &mut expected_events.iter().rev().cloned(),
         expected_events.len(),
     );

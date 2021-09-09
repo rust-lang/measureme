@@ -156,7 +156,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     continue;
                 }
             }
-            let full_event = event.to_event();
+            let full_event = data.to_full_event(&event);
             let crox_event = Event {
                 name: full_event.label.clone().into_owned(),
                 category: full_event.event_kind.clone().into_owned(),

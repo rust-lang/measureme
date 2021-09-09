@@ -461,7 +461,7 @@ pub fn aggregate_profiles(profiles: Vec<ProfilingData>) {
     let aggregated_sample_intervals = AggregatedSampleIntervals::new(
         profiles
             .iter()
-            .map(|data| SamplePoints::new(data.iter().map(|event| event.to_event())).intervals()),
+            .map(|data| SamplePoints::new(data.iter_full()).intervals()),
     );
 
     let mut intervals_count = 0;
