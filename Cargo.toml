@@ -3,6 +3,7 @@
 members = [
     "analyzeme",
     "crox",
+    "decodeme",
     "flamegraph",
     "measureme",
     "mmview",

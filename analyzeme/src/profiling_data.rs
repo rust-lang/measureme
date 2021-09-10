@@ -1,47 +1,18 @@
-use crate::event::Event;
-use crate::event_payload::EventPayload;
-use crate::lightweight_event::LightweightEvent;
-use crate::StringTable;
-use measureme::file_header::{
-    verify_file_header, write_file_header, FILE_EXTENSION, FILE_HEADER_SIZE,
-    FILE_MAGIC_EVENT_STREAM, FILE_MAGIC_TOP_LEVEL,
-};
+use crate::{Event, LightweightEvent};
+use decodeme::{EventDecoder, Metadata};
+// use crate::StringTable;
+use measureme::file_header::{write_file_header, FILE_EXTENSION, FILE_MAGIC_EVENT_STREAM};
 use measureme::{
     EventId, PageTag, RawEvent, SerializationSink, SerializationSinkBuilder, StringTableBuilder,
 };
-use serde::{Deserialize, Deserializer};
 use std::fs;
-use std::mem;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{error::Error, path::PathBuf};
-
-const RAW_EVENT_SIZE: usize = mem::size_of::<RawEvent>();
-
-fn system_time_from_nanos<'de, D>(deserializer: D) -> Result<SystemTime, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let duration_from_epoch = Duration::from_nanos(u64::deserialize(deserializer)?);
-    Ok(UNIX_EPOCH
-        .checked_add(duration_from_epoch)
-        .expect("a time that can be represented as SystemTime"))
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Metadata {
-    #[serde(deserialize_with = "system_time_from_nanos")]
-    pub start_time: SystemTime,
-    pub process_id: u32,
-    pub cmd: String,
-}
 
 #[derive(Debug)]
 pub struct ProfilingData {
-    event_data: Vec<u8>,
-    string_table: StringTable,
-    pub metadata: Metadata,
+    event_decoder: EventDecoder,
 }
 
 impl ProfilingData {
@@ -50,16 +21,7 @@ impl ProfilingData {
 
         if paged_path.exists() {
             let data = fs::read(&paged_path)?;
-
-            verify_file_header(&data, FILE_MAGIC_TOP_LEVEL, Some(&paged_path), "top-level")?;
-
-            let mut split_data = measureme::split_streams(&data[FILE_HEADER_SIZE..]);
-
-            let string_data = split_data.remove(&PageTag::StringData).unwrap();
-            let index_data = split_data.remove(&PageTag::StringIndex).unwrap();
-            let event_data = split_data.remove(&PageTag::Events).unwrap();
-
-            ProfilingData::from_buffers(string_data, index_data, event_data, Some(&paged_path))
+            ProfilingData::from_paged_buffer(data, Some(&paged_path))
         } else {
             let mut msg = format!(
                 "Could not find profiling data file `{}`.",
@@ -82,44 +44,16 @@ impl ProfilingData {
         }
     }
 
-    pub fn from_paged_buffer(data: Vec<u8>) -> Result<ProfilingData, Box<dyn Error + Send + Sync>> {
-        verify_file_header(&data, FILE_MAGIC_TOP_LEVEL, None, "top-level")?;
-
-        let mut split_data = measureme::split_streams(&data[FILE_HEADER_SIZE..]);
-
-        let string_data = split_data.remove(&PageTag::StringData).unwrap();
-        let index_data = split_data.remove(&PageTag::StringIndex).unwrap();
-        let event_data = split_data.remove(&PageTag::Events).unwrap();
-
-        ProfilingData::from_buffers(string_data, index_data, event_data, None)
-    }
-
-    pub fn from_buffers(
-        string_data: Vec<u8>,
-        string_index: Vec<u8>,
-        events: Vec<u8>,
+    pub fn from_paged_buffer(
+        data: Vec<u8>,
         diagnostic_file_path: Option<&Path>,
     ) -> Result<ProfilingData, Box<dyn Error + Send + Sync>> {
-        let index_data = string_index;
-        let event_data = events;
+        let event_decoder = EventDecoder::new(data, diagnostic_file_path)?;
+        Ok(ProfilingData { event_decoder })
+    }
 
-        verify_file_header(
-            &event_data,
-            FILE_MAGIC_EVENT_STREAM,
-            diagnostic_file_path,
-            "event",
-        )?;
-
-        let string_table = StringTable::new(string_data, index_data, diagnostic_file_path)?;
-
-        let metadata = string_table.get_metadata().to_string();
-        let metadata: Metadata = serde_json::from_str(&metadata)?;
-
-        Ok(ProfilingData {
-            string_table,
-            event_data,
-            metadata,
-        })
+    pub fn metadata(&self) -> &Metadata {
+        self.event_decoder.metadata()
     }
 
     pub fn iter<'a>(&'a self) -> ProfilerEventIterator<'a> {
@@ -133,9 +67,7 @@ impl ProfilingData {
     }
 
     pub fn num_events(&self) -> usize {
-        let event_byte_count = self.event_data.len() - FILE_HEADER_SIZE;
-        assert!(event_byte_count % RAW_EVENT_SIZE == 0);
-        event_byte_count / RAW_EVENT_SIZE
+        self.event_decoder.num_events()
     }
 
     pub fn to_full_event<'a>(&'a self, light_weight_event: &LightweightEvent) -> Event<'a> {
@@ -143,45 +75,11 @@ impl ProfilingData {
     }
 
     pub(crate) fn decode_full_event<'a>(&'a self, event_index: usize) -> Event<'a> {
-        let event_start_addr = event_index_to_addr(event_index);
-        let event_end_addr = event_start_addr.checked_add(RAW_EVENT_SIZE).unwrap();
-
-        let raw_event_bytes = &self.event_data[event_start_addr..event_end_addr];
-        let raw_event = RawEvent::deserialize(raw_event_bytes);
-
-        let string_table = &self.string_table;
-
-        let payload = EventPayload::from_raw_event(&raw_event, self.metadata.start_time);
-
-        let event_id = string_table
-            .get(raw_event.event_id.to_string_id())
-            .to_string();
-        // Parse out the label and arguments from the `event_id`.
-        let (label, additional_data) = Event::parse_event_id(event_id);
-
-        Event {
-            event_kind: string_table.get(raw_event.event_kind).to_string(),
-            label,
-            additional_data,
-            payload,
-            thread_id: raw_event.thread_id,
-        }
+        self.event_decoder.decode_full_event(event_index)
     }
 
     fn decode_lightweight_event<'a>(&'a self, event_index: usize) -> LightweightEvent {
-        let event_start_addr = event_index_to_addr(event_index);
-        let event_end_addr = event_start_addr.checked_add(RAW_EVENT_SIZE).unwrap();
-
-        let raw_event_bytes = &self.event_data[event_start_addr..event_end_addr];
-        let raw_event = RawEvent::deserialize(raw_event_bytes);
-
-        let payload = EventPayload::from_raw_event(&raw_event, self.metadata.start_time);
-
-        LightweightEvent {
-            event_index,
-            payload,
-            thread_id: raw_event.thread_id,
-        }
+        self.event_decoder.decode_lightweight_event(event_index)
     }
 }
 
@@ -270,6 +168,11 @@ impl ProfilingDataBuilder {
         )
         .unwrap();
 
+        string_table.alloc_metadata(&*format!(
+            r#"{{ "start_time": {}, "process_id": {}, "cmd": "{}" }}"#,
+            0, 0, "test cmd",
+        ));
+
         ProfilingDataBuilder {
             event_sink,
             string_table_data_sink,
@@ -347,26 +250,21 @@ impl ProfilingDataBuilder {
         drop(self.string_table);
 
         let event_data = self.event_sink.into_bytes();
-        let data_bytes = Arc::try_unwrap(self.string_table_data_sink)
+        let string_data = Arc::try_unwrap(self.string_table_data_sink)
             .unwrap()
             .into_bytes();
-        let index_bytes = Arc::try_unwrap(self.string_table_index_sink)
+        let index_data = Arc::try_unwrap(self.string_table_index_sink)
             .unwrap()
             .into_bytes();
-
-        verify_file_header(&event_data, FILE_MAGIC_EVENT_STREAM, None, "event").unwrap();
-
-        let string_table = StringTable::new(data_bytes, index_bytes, None).unwrap();
-        let metadata = Metadata {
-            start_time: UNIX_EPOCH,
-            process_id: 0,
-            cmd: "test cmd".to_string(),
-        };
 
         ProfilingData {
-            event_data,
-            string_table,
-            metadata,
+            event_decoder: EventDecoder::from_separate_buffers(
+                string_data,
+                index_data,
+                event_data,
+                None,
+            )
+            .unwrap(),
         }
     }
 
@@ -379,10 +277,6 @@ impl ProfilingDataBuilder {
 }
 
 impl<'a> ExactSizeIterator for ProfilerEventIterator<'a> {}
-
-fn event_index_to_addr(event_index: usize) -> usize {
-    FILE_HEADER_SIZE + event_index * mem::size_of::<RawEvent>()
-}
 
 // This struct reflects what filenames were in old versions of measureme. It is
 // used only for giving helpful error messages now if a user tries to load old
@@ -407,8 +301,8 @@ impl ProfilerFiles {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::borrow::Cow;
-    use crate::event_payload::Timestamp;
+    use std::{borrow::Cow, time::SystemTime};
+    use crate::{EventPayload, Timestamp};
     use std::time::Duration;
 
     fn full_interval(

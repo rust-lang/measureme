@@ -1,12 +1,13 @@
 [package]
 name = "analyzeme"
-version = "9.1.2"
+version = "10.0.0"
 authors = ["Wesley Wiser <wwiser@gmail.com>", "Michael Woerister <michaelwoerister@posteo>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
 byteorder = "1.2.7"
+decodeme = { path = "../decodeme" }
 memchr = "2"
 measureme = { path = "../measureme" }
 rustc-hash = "1.0.1"

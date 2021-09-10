@@ -1,5 +1,4 @@
-use crate::event_payload::EventPayload;
-use crate::{Event, ProfilingData, Timestamp};
+use crate::{Event, EventPayload, ProfilingData, Timestamp};
 use measureme::{EventId, EventIdBuilder, Profiler, StringId};
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;

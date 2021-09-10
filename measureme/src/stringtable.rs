@@ -310,7 +310,7 @@ impl StringTableBuilder {
         self.index_sink.write_bytes_atomic(bytes);
     }
 
-    pub(crate) fn alloc_metadata<STR: SerializableString + ?Sized>(&self, s: &STR) {
+    pub fn alloc_metadata<STR: SerializableString + ?Sized>(&self, s: &STR) {
         let concrete_id = self.alloc(s);
         let virtual_id = StringId(METADATA_STRING_ID);
         assert!(virtual_id.is_virtual());
