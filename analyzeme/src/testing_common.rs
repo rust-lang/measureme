@@ -1,5 +1,5 @@
-use crate::timestamp::Timestamp;
 use crate::{Event, ProfilingData};
+use decodeme::timestamp::Timestamp;
 use measureme::{EventId, EventIdBuilder, Profiler, StringId};
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;

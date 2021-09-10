@@ -1,6 +1,6 @@
 [package]
 name = "flamegraph"
-version = "9.1.2"
+version = "9.1.3"
 authors = ["Wesley Wiser <wwiser@gmail.com>", "Michael Woerister <michaelwoerister@posteo>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"

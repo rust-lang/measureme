@@ -38,7 +38,7 @@ impl<'a> Event<'a> {
         }
     }
 
-    pub(crate) fn parse_event_id(event_id: Cow<'a, str>) -> (Cow<'a, str>, Vec<Cow<'a, str>>) {
+    pub fn parse_event_id(event_id: Cow<'a, str>) -> (Cow<'a, str>, Vec<Cow<'a, str>>) {
         let event_id = match event_id {
             Cow::Owned(s) => Cow::Owned(s.into_bytes()),
             Cow::Borrowed(s) => Cow::Borrowed(s.as_bytes()),

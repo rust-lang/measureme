@@ -100,7 +100,6 @@ mod test {
     use crate::ProfilingDataBuilder;
     use rustc_hash::FxHashMap;
 
-    #[ignore]
     #[test]
     fn basic_test() {
         let mut b = ProfilingDataBuilder::new();
@@ -138,7 +137,6 @@ mod test {
         assert_eq!(expected_stacks, recorded_stacks);
     }
 
-    #[ignore]
     #[test]
     fn multi_threaded_test() {
         let mut b = ProfilingDataBuilder::new();
