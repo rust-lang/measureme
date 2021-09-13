@@ -135,7 +135,7 @@ impl Profiler {
         &self,
         event_kind: StringId,
         event_id: EventId,
-        thread_id: u32
+        thread_id: u32,
     ) -> DetachedTiming {
         DetachedTiming {
             event_id,
@@ -148,10 +148,7 @@ impl Profiler {
     /// Creates the corresponding "end" event for
     /// the "start" event represented by `timing`. You
     /// must have obtained `timing` from the same `Profiler`
-    pub fn finish_recording_interval_event(
-        &self,
-        timing: DetachedTiming
-    ) {
+    pub fn finish_recording_interval_event(&self, timing: DetachedTiming) {
         drop(TimingGuard {
             profiler: self,
             event_id: timing.event_id,
