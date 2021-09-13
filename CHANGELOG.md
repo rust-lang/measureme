@@ -1,5 +1,9 @@
 # Changelog
 
+## [9.2.0] - 2021-05-21
+### Changed
+- `analyzeme`: Makes a couple of methods in ProfilingData public. ([GH-180])
+
 ## [9.1.2] - 2021-05-21
 ### Added
 - `measureme`: Allow recording interval events without using the drop guard ([GH-159])
@@ -92,6 +96,7 @@
 
 ## [0.2.0] - 2019-04-10
 
+[9.2.0]: https://github.com/rust-lang/measureme/releases/tag/9.2.0
 [9.1.2]: https://github.com/rust-lang/measureme/releases/tag/9.1.2
 [9.1.1]: https://github.com/rust-lang/measureme/releases/tag/9.1.1
 [9.1.0]: https://github.com/rust-lang/measureme/releases/tag/9.1.0
@@ -143,3 +148,4 @@
 [GH-155]: https://github.com/rust-lang/measureme/pull/155
 [GH-156]: https://github.com/rust-lang/measureme/pull/156
 [GH-159]: https://github.com/rust-lang/measureme/pull/159
+[GH-180]: https://github.com/rust-lang/measureme/pull/180
