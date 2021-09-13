@@ -1,6 +1,6 @@
 # Changelog
 
-## [9.2.0] - 2021-05-21
+## [9.2.0] - 2021-09-13
 ### Changed
 - `analyzeme`: Makes a couple of methods in ProfilingData public. ([GH-180])
 
