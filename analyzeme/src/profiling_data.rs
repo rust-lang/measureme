@@ -62,8 +62,7 @@ impl ProfilingData {
 
         let event_decoder: Box<dyn file_formats::EventDecoder> = match file_format_version {
             file_formats::v7::FILE_FORMAT => Box::new(file_formats::v7::EventDecoder::new(
-                data,
-                diagnostic_file_path,
+                data
             )?),
             file_formats::v8::FILE_FORMAT => Box::new(file_formats::v8::EventDecoder::new(
                 data,
@@ -108,7 +107,7 @@ impl ProfilingData {
         self.event_decoder.decode_full_event(event_index)
     }
 
-    fn decode_lightweight_event<'a>(&'a self, event_index: usize) -> LightweightEvent {
+    fn decode_lightweight_event(&self, event_index: usize) -> LightweightEvent {
         self.event_decoder.decode_lightweight_event(event_index)
     }
 }

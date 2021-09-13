@@ -5,7 +5,7 @@ use crate::{Event, LightweightEvent};
 pub use decodeme::EventDecoder;
 use decodeme::Metadata;
 
-pub const FILE_FORMAT: u32 = decodeme::internal::CURRENT_FILE_FORMAT_VERSION;
+pub const FILE_FORMAT: u32 = decodeme::CURRENT_FILE_FORMAT_VERSION;
 
 impl super::EventDecoder for EventDecoder {
     fn num_events(&self) -> usize {
@@ -16,11 +16,11 @@ impl super::EventDecoder for EventDecoder {
         self.metadata()
     }
 
-    fn decode_full_event<'a>(&'a self, event_index: usize) -> Event<'a> {
+    fn decode_full_event(&self, event_index: usize) -> Event<'_> {
         self.decode_full_event(event_index)
     }
 
-    fn decode_lightweight_event<'a>(&'a self, event_index: usize) -> LightweightEvent {
+    fn decode_lightweight_event(&self, event_index: usize) -> LightweightEvent {
         self.decode_lightweight_event(event_index)
     }
 }

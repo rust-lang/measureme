@@ -11,9 +11,8 @@ use event_payload::EventPayload;
 use lightweight_event::LightweightEvent;
 use measureme::{
     file_header::{
-        verify_file_header, FILE_HEADER_SIZE, FILE_MAGIC_EVENT_STREAM, FILE_MAGIC_TOP_LEVEL,
+        verify_file_header, FILE_MAGIC_EVENT_STREAM,
     },
-    PageTag, RawEvent,
 };
 
 pub mod event;
@@ -24,13 +23,11 @@ pub mod stringtable;
 // These re-exports allow us to use some types from the measureme version tied to this
 // version of decodeme, with explicitly mentioning that measureme version in downstream
 // Cargo.tomls.
-pub mod internal {
-    pub use measureme::file_header::CURRENT_FILE_FORMAT_VERSION;
-    pub use measureme::file_header::FILE_HEADER_SIZE;
-    pub use measureme::file_header::FILE_MAGIC_TOP_LEVEL;
-    pub use measureme::PageTag;
-    pub use measureme::RawEvent;
-}
+pub use measureme::file_header::CURRENT_FILE_FORMAT_VERSION;
+pub use measureme::file_header::FILE_HEADER_SIZE;
+pub use measureme::file_header::FILE_MAGIC_TOP_LEVEL;
+pub use measureme::PageTag;
+pub use measureme::RawEvent;
 
 use serde::{Deserialize, Deserializer};
 use stringtable::StringTable;
