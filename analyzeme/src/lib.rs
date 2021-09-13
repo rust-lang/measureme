@@ -24,3 +24,10 @@ pub use crate::profiling_data::{ProfilingData, ProfilingDataBuilder};
 pub use crate::stack_collapse::collapse_stacks;
 pub use crate::stringtable::{StringRef, StringTable};
 pub use crate::timestamp::Timestamp;
+
+
+// These are re-exported just for being used in v10.0.0 when supporting
+// old file formats. Starting in v10.0.0 these re-exports will become
+// part of the `decodeme` crate.
+pub use measureme::RawEvent;
+pub use measureme::file_header::CURRENT_FILE_FORMAT_VERSION;
