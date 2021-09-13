@@ -1,6 +1,6 @@
 [package]
 name = "crox"
-version = "9.1.2"
+version = "9.2.0"
 authors = ["Wesley Wiser <wwiser@gmail.com>"]
 edition = "2018"
 

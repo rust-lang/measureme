@@ -132,7 +132,7 @@ impl ProfilingData {
         event_byte_count / RAW_EVENT_SIZE
     }
 
-    pub(crate) fn decode_full_event<'a>(&'a self, event_index: usize) -> Event<'a> {
+    pub fn decode_full_event<'a>(&'a self, event_index: usize) -> Event<'a> {
         let event_start_addr = event_index_to_addr(event_index);
         let event_end_addr = event_start_addr.checked_add(RAW_EVENT_SIZE).unwrap();
 
@@ -158,7 +158,7 @@ impl ProfilingData {
         }
     }
 
-    fn decode_lightweight_event<'a>(&'a self, event_index: usize) -> LightweightEvent<'a> {
+    pub fn decode_lightweight_event<'a>(&'a self, event_index: usize) -> LightweightEvent<'a> {
         let event_start_addr = event_index_to_addr(event_index);
         let event_end_addr = event_start_addr.checked_add(RAW_EVENT_SIZE).unwrap();
 

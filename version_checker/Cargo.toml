@@ -1,6 +1,6 @@
 [package]
 name = "version_checker"
-version = "9.1.2"
+version = "9.2.0"
 authors = ["Michael Woerister <michaelwoerister@posteo>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
