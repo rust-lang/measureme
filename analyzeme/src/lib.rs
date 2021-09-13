@@ -10,6 +10,7 @@
 //! To retrieve an `Iterator` of all of the events in the file,
 //! call the [`ProfilingData::iter()`] method.
 
+mod file_formats;
 mod profiling_data;
 mod stack_collapse;
 pub mod testing_common;

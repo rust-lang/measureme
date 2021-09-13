@@ -1,7 +1,9 @@
-use crate::{Event, LightweightEvent};
-use decodeme::{EventDecoder, Metadata};
-// use crate::StringTable;
-use measureme::file_header::{write_file_header, FILE_EXTENSION, FILE_MAGIC_EVENT_STREAM};
+use crate::file_formats::EventDecoder;
+use crate::{file_formats, Event, LightweightEvent};
+use decodeme::{read_file_header, Metadata};
+use measureme::file_header::{
+    write_file_header, FILE_EXTENSION, FILE_MAGIC_EVENT_STREAM, FILE_MAGIC_TOP_LEVEL,
+};
 use measureme::{
     EventId, PageTag, RawEvent, SerializationSink, SerializationSinkBuilder, StringTableBuilder,
 };
@@ -12,7 +14,7 @@ use std::{error::Error, path::PathBuf};
 
 #[derive(Debug)]
 pub struct ProfilingData {
-    event_decoder: EventDecoder,
+    event_decoder: Box<dyn EventDecoder>,
 }
 
 impl ProfilingData {
@@ -48,7 +50,35 @@ impl ProfilingData {
         data: Vec<u8>,
         diagnostic_file_path: Option<&Path>,
     ) -> Result<ProfilingData, Box<dyn Error + Send + Sync>> {
-        let event_decoder = EventDecoder::new(data, diagnostic_file_path)?;
+        // let event_decoder = EventDecoder::new(data, diagnostic_file_path)?;
+        // Ok(ProfilingData { event_decoder })
+
+        let file_format_version = read_file_header(
+            &data,
+            FILE_MAGIC_TOP_LEVEL,
+            diagnostic_file_path,
+            "top-level",
+        )?;
+
+        let event_decoder: Box<dyn file_formats::EventDecoder> = match file_format_version {
+            file_formats::v7::FILE_FORMAT => Box::new(file_formats::v7::EventDecoder::new(
+                data,
+                diagnostic_file_path,
+            )?),
+            file_formats::v8::FILE_FORMAT => Box::new(file_formats::v8::EventDecoder::new(
+                data,
+                diagnostic_file_path,
+            )?),
+            unsupported_version => {
+                let msg = format!(
+                    "File version {} is not support by this version of measureme.",
+                    unsupported_version
+                );
+
+                return Err(From::from(msg));
+            }
+        };
+
         Ok(ProfilingData { event_decoder })
     }
 
@@ -258,13 +288,15 @@ impl ProfilingDataBuilder {
             .into_bytes();
 
         ProfilingData {
-            event_decoder: EventDecoder::from_separate_buffers(
-                string_data,
-                index_data,
-                event_data,
-                None,
-            )
-            .unwrap(),
+            event_decoder: Box::new(
+                file_formats::current::EventDecoder::from_separate_buffers(
+                    string_data,
+                    index_data,
+                    event_data,
+                    None,
+                )
+                .unwrap(),
+            ),
         }
     }
 
