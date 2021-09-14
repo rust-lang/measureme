@@ -20,9 +20,7 @@ pub struct EventDecoder {
 }
 
 impl EventDecoder {
-    pub fn new(
-        entire_file_data: Vec<u8>,
-    ) -> Result<EventDecoder, Box<dyn Error + Send + Sync>> {
+    pub fn new(entire_file_data: Vec<u8>) -> Result<EventDecoder, Box<dyn Error + Send + Sync>> {
         let legacy_profiling_data = ProfilingData::from_paged_buffer(entire_file_data)?;
 
         let metadata = Metadata {

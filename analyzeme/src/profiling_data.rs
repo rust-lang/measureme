@@ -61,18 +61,23 @@ impl ProfilingData {
         )?;
 
         let event_decoder: Box<dyn file_formats::EventDecoder> = match file_format_version {
-            file_formats::v7::FILE_FORMAT => Box::new(file_formats::v7::EventDecoder::new(
-                data
-            )?),
+            file_formats::v7::FILE_FORMAT => Box::new(file_formats::v7::EventDecoder::new(data)?),
             file_formats::v8::FILE_FORMAT => Box::new(file_formats::v8::EventDecoder::new(
                 data,
                 diagnostic_file_path,
             )?),
             unsupported_version => {
-                let msg = format!(
-                    "File version {} is not support by this version of measureme.",
-                    unsupported_version
-                );
+                let msg = if unsupported_version > file_formats::current::FILE_FORMAT {
+                    format!(
+                        "File version {} is too new for this version of measureme. Try upgrading your tools to the latest version.",
+                        unsupported_version
+                    )
+                } else {
+                    format!(
+                        "File version {} is too new for this version of the measureme tool suite. Try upgrading the tool suite to the latest version.",
+                        unsupported_version
+                    )
+                };
 
                 return Err(From::from(msg));
             }

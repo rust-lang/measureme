@@ -9,11 +9,7 @@ use std::{
 use event::Event;
 use event_payload::EventPayload;
 use lightweight_event::LightweightEvent;
-use measureme::{
-    file_header::{
-        verify_file_header, FILE_MAGIC_EVENT_STREAM,
-    },
-};
+use measureme::file_header::{verify_file_header, FILE_MAGIC_EVENT_STREAM};
 
 pub mod event;
 pub mod event_payload;
