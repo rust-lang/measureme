@@ -1,5 +1,11 @@
 # Changelog
 
+## [10.0.0] - 2021-09-xx
+
+### Changed
+- `analyzeme`: Version-specific parts split out into `decodeme` crate. ([GH-181])
+- `analyzeme`: The crate now supports load both v7 and v8 of the file format. ([GH-181])
+
 ## [9.2.0] - 2021-09-13
 ### Changed
 - `analyzeme`: Makes a couple of methods in ProfilingData public. ([GH-180])
@@ -149,3 +155,4 @@
 [GH-156]: https://github.com/rust-lang/measureme/pull/156
 [GH-159]: https://github.com/rust-lang/measureme/pull/159
 [GH-180]: https://github.com/rust-lang/measureme/pull/180
+[GH-181]: https://github.com/rust-lang/measureme/pull/181
