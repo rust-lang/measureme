@@ -5,8 +5,8 @@ use std::time::SystemTime;
 use crate::{LightweightEvent, ProfilingData};
 
 // This state is kept up-to-date while iteration over events.
-struct PerThreadState<'a> {
-    stack: Vec<LightweightEvent<'a>>,
+struct PerThreadState {
+    stack: Vec<LightweightEvent>,
     stack_id: String,
     start: SystemTime,
     end: SystemTime,
@@ -19,7 +19,7 @@ struct PerThreadState<'a> {
 // https://github.com/michaelwoerister/measureme/pull/1
 pub fn collapse_stacks<'a>(profiling_data: &ProfilingData) -> FxHashMap<String, u64> {
     let mut counters = FxHashMap::default();
-    let mut threads = FxHashMap::<_, PerThreadState<'_>>::default();
+    let mut threads = FxHashMap::<_, PerThreadState>::default();
 
     for current_event in profiling_data
         .iter()
@@ -48,7 +48,8 @@ pub fn collapse_stacks<'a>(profiling_data: &ProfilingData) -> FxHashMap<String, 
             }
 
             let popped = thread.stack.pop().unwrap();
-            let new_stack_id_len = thread.stack_id.len() - (popped.to_event().label.len() + 1);
+            let popped = profiling_data.to_full_event(&popped);
+            let new_stack_id_len = thread.stack_id.len() - (popped.label.len() + 1);
             thread.stack_id.truncate(new_stack_id_len);
         }
 
@@ -70,7 +71,7 @@ pub fn collapse_stacks<'a>(profiling_data: &ProfilingData) -> FxHashMap<String, 
         thread.stack_id.push(';');
         thread
             .stack_id
-            .push_str(&current_event.to_event().label[..]);
+            .push_str(&profiling_data.to_full_event(&current_event).label[..]);
 
         // Update current events self time
         let self_time = counters.entry(thread.stack_id.clone()).or_default();

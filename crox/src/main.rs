@@ -159,14 +159,14 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     continue;
                 }
             }
-            let full_event = event.to_event();
+            let full_event = data.to_full_event(&event);
             let crox_event = Event {
                 name: full_event.label.clone().into_owned(),
                 category: full_event.event_kind.clone().into_owned(),
                 event_type: EventType::Complete,
                 timestamp: event.start().unwrap().duration_since(UNIX_EPOCH).unwrap(),
                 duration,
-                process_id: data.metadata.process_id,
+                process_id: data.metadata().process_id,
                 thread_id: *thread_to_collapsed_thread
                     .get(&event.thread_id)
                     .unwrap_or(&event.thread_id),
@@ -176,12 +176,12 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
         // add crate name for the process_id
         let index_of_crate_name = data
-            .metadata
+            .metadata()
             .cmd
             .find(" --crate-name ")
             .map(|index| index + 14);
         if let Some(index) = index_of_crate_name {
-            let (_, last) = data.metadata.cmd.split_at(index);
+            let (_, last) = data.metadata().cmd.split_at(index);
             let (crate_name, _) = last.split_at(last.find(" ").unwrap_or(last.len()));
 
             let process_name = json!({
@@ -190,7 +190,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 "ts" : 0,
                 "tid" : 0,
                 "cat" : "",
-                "pid" : data.metadata.process_id,
+                "pid" : data.metadata().process_id,
                 "args": {
                     "name" : crate_name
                 }
@@ -204,9 +204,9 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             "ts" : 0,
             "tid" : 0,
             "cat" : "",
-            "pid" : data.metadata.process_id,
+            "pid" : data.metadata().process_id,
             "args": {
-                "sort_index" : data.metadata.start_time.duration_since(UNIX_EPOCH).unwrap().as_micros() as u64
+                "sort_index" : data.metadata().start_time.duration_since(UNIX_EPOCH).unwrap().as_micros() as u64
             }
         });
         seq.serialize_element(&process_name)?;

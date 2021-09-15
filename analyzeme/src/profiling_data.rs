@@ -1,47 +1,20 @@
-use crate::event::Event;
-use crate::event_payload::EventPayload;
-use crate::lightweight_event::LightweightEvent;
-use crate::StringTable;
+use crate::file_formats::EventDecoder;
+use crate::{file_formats, Event, LightweightEvent};
+use decodeme::{read_file_header, Metadata};
 use measureme::file_header::{
-    verify_file_header, write_file_header, FILE_EXTENSION, FILE_HEADER_SIZE,
-    FILE_MAGIC_EVENT_STREAM, FILE_MAGIC_TOP_LEVEL,
+    write_file_header, FILE_EXTENSION, FILE_MAGIC_EVENT_STREAM, FILE_MAGIC_TOP_LEVEL,
 };
 use measureme::{
     EventId, PageTag, RawEvent, SerializationSink, SerializationSinkBuilder, StringTableBuilder,
 };
-use serde::{Deserialize, Deserializer};
 use std::fs;
-use std::mem;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{error::Error, path::PathBuf};
-
-const RAW_EVENT_SIZE: usize = mem::size_of::<RawEvent>();
-
-fn system_time_from_nanos<'de, D>(deserializer: D) -> Result<SystemTime, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let duration_from_epoch = Duration::from_nanos(u64::deserialize(deserializer)?);
-    Ok(UNIX_EPOCH
-        .checked_add(duration_from_epoch)
-        .expect("a time that can be represented as SystemTime"))
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Metadata {
-    #[serde(deserialize_with = "system_time_from_nanos")]
-    pub start_time: SystemTime,
-    pub process_id: u32,
-    pub cmd: String,
-}
 
 #[derive(Debug)]
 pub struct ProfilingData {
-    event_data: Vec<u8>,
-    string_table: StringTable,
-    pub metadata: Metadata,
+    event_decoder: Box<dyn EventDecoder>,
 }
 
 impl ProfilingData {
@@ -50,16 +23,7 @@ impl ProfilingData {
 
         if paged_path.exists() {
             let data = fs::read(&paged_path)?;
-
-            verify_file_header(&data, FILE_MAGIC_TOP_LEVEL, Some(&paged_path), "top-level")?;
-
-            let mut split_data = measureme::split_streams(&data[FILE_HEADER_SIZE..]);
-
-            let string_data = split_data.remove(&PageTag::StringData).unwrap();
-            let index_data = split_data.remove(&PageTag::StringIndex).unwrap();
-            let event_data = split_data.remove(&PageTag::Events).unwrap();
-
-            ProfilingData::from_buffers(string_data, index_data, event_data, Some(&paged_path))
+            ProfilingData::from_paged_buffer(data, Some(&paged_path))
         } else {
             let mut msg = format!(
                 "Could not find profiling data file `{}`.",
@@ -82,97 +46,74 @@ impl ProfilingData {
         }
     }
 
-    pub fn from_paged_buffer(data: Vec<u8>) -> Result<ProfilingData, Box<dyn Error + Send + Sync>> {
-        verify_file_header(&data, FILE_MAGIC_TOP_LEVEL, None, "top-level")?;
-
-        let mut split_data = measureme::split_streams(&data[FILE_HEADER_SIZE..]);
-
-        let string_data = split_data.remove(&PageTag::StringData).unwrap();
-        let index_data = split_data.remove(&PageTag::StringIndex).unwrap();
-        let event_data = split_data.remove(&PageTag::Events).unwrap();
-
-        ProfilingData::from_buffers(string_data, index_data, event_data, None)
-    }
-
-    pub fn from_buffers(
-        string_data: Vec<u8>,
-        string_index: Vec<u8>,
-        events: Vec<u8>,
+    pub fn from_paged_buffer(
+        data: Vec<u8>,
         diagnostic_file_path: Option<&Path>,
     ) -> Result<ProfilingData, Box<dyn Error + Send + Sync>> {
-        let index_data = string_index;
-        let event_data = events;
+        // let event_decoder = EventDecoder::new(data, diagnostic_file_path)?;
+        // Ok(ProfilingData { event_decoder })
 
-        verify_file_header(
-            &event_data,
-            FILE_MAGIC_EVENT_STREAM,
+        let file_format_version = read_file_header(
+            &data,
+            FILE_MAGIC_TOP_LEVEL,
             diagnostic_file_path,
-            "event",
+            "top-level",
         )?;
 
-        let string_table = StringTable::new(string_data, index_data, diagnostic_file_path)?;
+        let event_decoder: Box<dyn file_formats::EventDecoder> = match file_format_version {
+            file_formats::v7::FILE_FORMAT => Box::new(file_formats::v7::EventDecoder::new(data)?),
+            file_formats::v8::FILE_FORMAT => Box::new(file_formats::v8::EventDecoder::new(
+                data,
+                diagnostic_file_path,
+            )?),
+            unsupported_version => {
+                let msg = if unsupported_version > file_formats::current::FILE_FORMAT {
+                    format!(
+                        "File version {} is too new for this version of measureme. Try upgrading your tools to the latest version.",
+                        unsupported_version
+                    )
+                } else {
+                    format!(
+                        "File version {} is too new for this version of the measureme tool suite. Try upgrading the tool suite to the latest version.",
+                        unsupported_version
+                    )
+                };
 
-        let metadata = string_table.get_metadata().to_string();
-        let metadata: Metadata = serde_json::from_str(&metadata)?;
+                return Err(From::from(msg));
+            }
+        };
 
-        Ok(ProfilingData {
-            string_table,
-            event_data,
-            metadata,
-        })
+        Ok(ProfilingData { event_decoder })
+    }
+
+    pub fn metadata(&self) -> &Metadata {
+        self.event_decoder.metadata()
     }
 
     pub fn iter<'a>(&'a self) -> ProfilerEventIterator<'a> {
         ProfilerEventIterator::new(&self)
     }
 
+    pub fn iter_full<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = Event<'a>> + DoubleEndedIterator + ExactSizeIterator + 'a {
+        self.iter().map(move |e| self.to_full_event(&e))
+    }
+
     pub fn num_events(&self) -> usize {
-        let event_byte_count = self.event_data.len() - FILE_HEADER_SIZE;
-        assert!(event_byte_count % RAW_EVENT_SIZE == 0);
-        event_byte_count / RAW_EVENT_SIZE
+        self.event_decoder.num_events()
+    }
+
+    pub fn to_full_event<'a>(&'a self, light_weight_event: &LightweightEvent) -> Event<'a> {
+        self.decode_full_event(light_weight_event.event_index)
     }
 
     pub(crate) fn decode_full_event<'a>(&'a self, event_index: usize) -> Event<'a> {
-        let event_start_addr = event_index_to_addr(event_index);
-        let event_end_addr = event_start_addr.checked_add(RAW_EVENT_SIZE).unwrap();
-
-        let raw_event_bytes = &self.event_data[event_start_addr..event_end_addr];
-        let raw_event = RawEvent::deserialize(raw_event_bytes);
-
-        let string_table = &self.string_table;
-
-        let payload = EventPayload::from_raw_event(&raw_event, self.metadata.start_time);
-
-        let event_id = string_table
-            .get(raw_event.event_id.to_string_id())
-            .to_string();
-        // Parse out the label and arguments from the `event_id`.
-        let (label, additional_data) = Event::parse_event_id(event_id);
-
-        Event {
-            event_kind: string_table.get(raw_event.event_kind).to_string(),
-            label,
-            additional_data,
-            payload,
-            thread_id: raw_event.thread_id,
-        }
+        self.event_decoder.decode_full_event(event_index)
     }
 
-    fn decode_lightweight_event<'a>(&'a self, event_index: usize) -> LightweightEvent<'a> {
-        let event_start_addr = event_index_to_addr(event_index);
-        let event_end_addr = event_start_addr.checked_add(RAW_EVENT_SIZE).unwrap();
-
-        let raw_event_bytes = &self.event_data[event_start_addr..event_end_addr];
-        let raw_event = RawEvent::deserialize(raw_event_bytes);
-
-        let payload = EventPayload::from_raw_event(&raw_event, self.metadata.start_time);
-
-        LightweightEvent {
-            data: self,
-            event_index,
-            payload,
-            thread_id: raw_event.thread_id,
-        }
+    fn decode_lightweight_event(&self, event_index: usize) -> LightweightEvent {
+        self.event_decoder.decode_lightweight_event(event_index)
     }
 }
 
@@ -193,9 +134,9 @@ impl<'a> ProfilerEventIterator<'a> {
 }
 
 impl<'a> Iterator for ProfilerEventIterator<'a> {
-    type Item = LightweightEvent<'a>;
+    type Item = LightweightEvent;
 
-    fn next(&mut self) -> Option<LightweightEvent<'a>> {
+    fn next(&mut self) -> Option<LightweightEvent> {
         if self.forward_event_idx == self.backward_event_idx {
             return None;
         }
@@ -260,6 +201,11 @@ impl ProfilingDataBuilder {
             string_table_index_sink.clone(),
         )
         .unwrap();
+
+        string_table.alloc_metadata(&*format!(
+            r#"{{ "start_time": {}, "process_id": {}, "cmd": "{}" }}"#,
+            0, 0, "test cmd",
+        ));
 
         ProfilingDataBuilder {
             event_sink,
@@ -338,26 +284,23 @@ impl ProfilingDataBuilder {
         drop(self.string_table);
 
         let event_data = self.event_sink.into_bytes();
-        let data_bytes = Arc::try_unwrap(self.string_table_data_sink)
+        let string_data = Arc::try_unwrap(self.string_table_data_sink)
             .unwrap()
             .into_bytes();
-        let index_bytes = Arc::try_unwrap(self.string_table_index_sink)
+        let index_data = Arc::try_unwrap(self.string_table_index_sink)
             .unwrap()
             .into_bytes();
-
-        verify_file_header(&event_data, FILE_MAGIC_EVENT_STREAM, None, "event").unwrap();
-
-        let string_table = StringTable::new(data_bytes, index_bytes, None).unwrap();
-        let metadata = Metadata {
-            start_time: UNIX_EPOCH,
-            process_id: 0,
-            cmd: "test cmd".to_string(),
-        };
 
         ProfilingData {
-            event_data,
-            string_table,
-            metadata,
+            event_decoder: Box::new(
+                file_formats::current::EventDecoder::from_separate_buffers(
+                    string_data,
+                    index_data,
+                    event_data,
+                    None,
+                )
+                .unwrap(),
+            ),
         }
     }
 
@@ -370,10 +313,6 @@ impl ProfilingDataBuilder {
 }
 
 impl<'a> ExactSizeIterator for ProfilerEventIterator<'a> {}
-
-fn event_index_to_addr(event_index: usize) -> usize {
-    FILE_HEADER_SIZE + event_index * mem::size_of::<RawEvent>()
-}
 
 // This struct reflects what filenames were in old versions of measureme. It is
 // used only for giving helpful error messages now if a user tries to load old
@@ -398,8 +337,8 @@ impl ProfilerFiles {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::borrow::Cow;
-    use crate::event_payload::Timestamp;
+    use std::{borrow::Cow, time::SystemTime};
+    use crate::{EventPayload, Timestamp};
     use std::time::Duration;
 
     fn full_interval(
@@ -437,7 +376,7 @@ mod tests {
             thread_id,
         }
     }
-    
+
     fn full_integer(
         event_kind: &'static str,
         label: &'static str,
@@ -454,14 +393,12 @@ mod tests {
     }
 
     fn lightweight_interval<'a>(
-        data: &'a ProfilingData,
         event_index: usize,
         thread_id: u32,
         start_nanos: u64,
         end_nanos: u64,
-    ) -> LightweightEvent<'a> {
+    ) -> LightweightEvent {
         LightweightEvent {
-            data,
             event_index,
             thread_id,
             payload: EventPayload::Timestamp(Timestamp::Interval {
@@ -472,13 +409,11 @@ mod tests {
     }
 
     fn lightweight_instant<'a>(
-        data: &'a ProfilingData,
         event_index: usize,
         thread_id: u32,
         timestamp_nanos: u64,
-    ) -> LightweightEvent<'a> {
+    ) -> LightweightEvent {
         LightweightEvent {
-            data,
             event_index,
             thread_id,
             payload: EventPayload::Timestamp(Timestamp::Instant(
@@ -488,13 +423,11 @@ mod tests {
     }
 
     fn lightweight_integer<'a>(
-        data: &'a ProfilingData,
         event_index: usize,
         thread_id: u32,
         value: u64,
-    ) -> LightweightEvent<'a> {
+    ) -> LightweightEvent {
         LightweightEvent {
-            data,
             event_index,
             thread_id,
             payload: EventPayload::Integer(value),
@@ -512,15 +445,15 @@ mod tests {
 
         let profiling_data = builder.into_profiling_data();
 
-        let events: Vec<LightweightEvent<'_>> = profiling_data.iter().collect();
+        let events: Vec<LightweightEvent> = profiling_data.iter().collect();
 
-        assert_eq!(events[0], lightweight_interval(&profiling_data, 0, 0, 10, 100));
-        assert_eq!(events[1], lightweight_interval(&profiling_data, 1, 1, 100, 110));
-        assert_eq!(events[2], lightweight_interval(&profiling_data, 2, 0, 120, 140));
+        assert_eq!(events[0], lightweight_interval(0, 0, 10, 100));
+        assert_eq!(events[1], lightweight_interval(1, 1, 100, 110));
+        assert_eq!(events[2], lightweight_interval(2, 0, 120, 140));
 
-        assert_eq!(events[0].to_event(), full_interval("k1", "id1", 0, 10, 100));
-        assert_eq!(events[1].to_event(), full_interval("k2", "id2", 1, 100, 110));
-        assert_eq!(events[2].to_event(), full_interval("k3", "id3", 0, 120, 140));
+        assert_eq!(profiling_data.to_full_event(&events[0]), full_interval("k1", "id1", 0, 10, 100));
+        assert_eq!(profiling_data.to_full_event(&events[1]), full_interval("k2", "id2", 1, 100, 110));
+        assert_eq!(profiling_data.to_full_event(&events[2]), full_interval("k3", "id3", 0, 120, 140));
     }
 
     #[test]
@@ -535,15 +468,15 @@ mod tests {
 
         let profiling_data = b.into_profiling_data();
 
-        let events: Vec<LightweightEvent<'_>> = profiling_data.iter().collect();
+        let events: Vec<LightweightEvent> = profiling_data.iter().collect();
 
-        assert_eq!(events[0], lightweight_interval(&profiling_data, 0, 0, 30, 90));
-        assert_eq!(events[1], lightweight_interval(&profiling_data, 1, 0, 20, 100));
-        assert_eq!(events[2], lightweight_interval(&profiling_data, 2, 0, 10, 100));
+        assert_eq!(events[0], lightweight_interval(0, 0, 30, 90));
+        assert_eq!(events[1], lightweight_interval(1, 0, 20, 100));
+        assert_eq!(events[2], lightweight_interval(2, 0, 10, 100));
 
-        assert_eq!(events[0].to_event(), full_interval("k3", "id3", 0, 30, 90));
-        assert_eq!(events[1].to_event(), full_interval("k2", "id2", 0, 20, 100));
-        assert_eq!(events[2].to_event(), full_interval("k1", "id1", 0, 10, 100));
+        assert_eq!(profiling_data.to_full_event(&events[0]), full_interval("k3", "id3", 0, 30, 90));
+        assert_eq!(profiling_data.to_full_event(&events[1]), full_interval("k2", "id2", 0, 20, 100));
+        assert_eq!(profiling_data.to_full_event(&events[2]), full_interval("k1", "id1", 0, 10, 100));
     }
 
     #[test]
@@ -563,22 +496,22 @@ mod tests {
 
         let profiling_data = b.into_profiling_data();
 
-        let events: Vec<LightweightEvent<'_>> = profiling_data.iter().collect();
+        let events: Vec<LightweightEvent> = profiling_data.iter().collect();
 
-        assert_eq!(events[0], lightweight_instant(&profiling_data, 0, 0, 70));
-        assert_eq!(events[1], lightweight_integer(&profiling_data, 1, 0, 42));
-        assert_eq!(events[2], lightweight_instant(&profiling_data, 2, 0, 75));
-        assert_eq!(events[3], lightweight_interval(&profiling_data, 3, 0, 30, 90));
-        assert_eq!(events[4], lightweight_interval(&profiling_data, 4, 0, 20, 92));
-        assert_eq!(events[5], lightweight_instant(&profiling_data, 5, 0, 95));
-        assert_eq!(events[6], lightweight_interval(&profiling_data, 6, 0, 10, 100));
+        assert_eq!(events[0], lightweight_instant(0, 0, 70));
+        assert_eq!(events[1], lightweight_integer(1, 0, 42));
+        assert_eq!(events[2], lightweight_instant(2, 0, 75));
+        assert_eq!(events[3], lightweight_interval(3, 0, 30, 90));
+        assert_eq!(events[4], lightweight_interval(4, 0, 20, 92));
+        assert_eq!(events[5], lightweight_instant(5, 0, 95));
+        assert_eq!(events[6], lightweight_interval(6, 0, 10, 100));
 
-        assert_eq!(events[0].to_event(), full_instant("k4", "id4", 0, 70));
-        assert_eq!(events[1].to_event(), full_integer("k5", "id5", 0, 42));
-        assert_eq!(events[2].to_event(), full_instant("k6", "id6", 0, 75));
-        assert_eq!(events[3].to_event(), full_interval("k3", "id3", 0, 30, 90));
-        assert_eq!(events[4].to_event(), full_interval("k2", "id2", 0, 20, 92));
-        assert_eq!(events[5].to_event(), full_instant("k7", "id7", 0, 95));
-        assert_eq!(events[6].to_event(), full_interval("k1", "id1", 0, 10, 100));
+        assert_eq!(profiling_data.to_full_event(&events[0]), full_instant("k4", "id4", 0, 70));
+        assert_eq!(profiling_data.to_full_event(&events[1]), full_integer("k5", "id5", 0, 42));
+        assert_eq!(profiling_data.to_full_event(&events[2]), full_instant("k6", "id6", 0, 75));
+        assert_eq!(profiling_data.to_full_event(&events[3]), full_interval("k3", "id3", 0, 30, 90));
+        assert_eq!(profiling_data.to_full_event(&events[4]), full_interval("k2", "id2", 0, 20, 92));
+        assert_eq!(profiling_data.to_full_event(&events[5]), full_instant("k7", "id7", 0, 95));
+        assert_eq!(profiling_data.to_full_event(&events[6]), full_interval("k1", "id1", 0, 10, 100));
     }
 }
