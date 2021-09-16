@@ -63,6 +63,13 @@ impl EventPayload {
             Self::Integer(_) => None,
         }
     }
+
+    pub fn integer(&self) -> Option<u64> {
+        match self {
+            Self::Timestamp(_) => None,
+            Self::Integer(i) => Some(*i),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]

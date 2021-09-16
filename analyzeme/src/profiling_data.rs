@@ -333,13 +333,12 @@ impl ProfilerFiles {
     }
 }
 
-#[rustfmt::skip]
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{borrow::Cow, time::SystemTime};
     use crate::{EventPayload, Timestamp};
     use std::time::Duration;
+    use std::{borrow::Cow, time::SystemTime};
 
     fn full_interval(
         event_kind: &'static str,
@@ -422,11 +421,7 @@ mod tests {
         }
     }
 
-    fn lightweight_integer<'a>(
-        event_index: usize,
-        thread_id: u32,
-        value: u64,
-    ) -> LightweightEvent {
+    fn lightweight_integer<'a>(event_index: usize, thread_id: u32, value: u64) -> LightweightEvent {
         LightweightEvent {
             event_index,
             thread_id,
@@ -434,6 +429,7 @@ mod tests {
         }
     }
 
+    #[rustfmt::skip]
     #[test]
     fn build_interval_sequence() {
         let mut builder = ProfilingDataBuilder::new();
@@ -456,6 +452,7 @@ mod tests {
         assert_eq!(profiling_data.to_full_event(&events[2]), full_interval("k3", "id3", 0, 120, 140));
     }
 
+    #[rustfmt::skip]
     #[test]
     fn build_nested_intervals() {
         let mut b = ProfilingDataBuilder::new();
@@ -479,6 +476,7 @@ mod tests {
         assert_eq!(profiling_data.to_full_event(&events[2]), full_interval("k1", "id1", 0, 10, 100));
     }
 
+    #[rustfmt::skip]
     #[test]
     fn build_intervals_and_instants() {
         let mut b = ProfilingDataBuilder::new();
@@ -513,5 +511,161 @@ mod tests {
         assert_eq!(profiling_data.to_full_event(&events[4]), full_interval("k2", "id2", 0, 20, 92));
         assert_eq!(profiling_data.to_full_event(&events[5]), full_instant("k7", "id7", 0, 95));
         assert_eq!(profiling_data.to_full_event(&events[6]), full_interval("k1", "id1", 0, 10, 100));
+    }
+
+    /// Tests that `ProfilingData` can handle more than one file format.
+    ///
+    /// ## Adding new tests
+    ///
+    /// Once you have added a new file format, generate a .mm_profdata file that has the new file version number.
+    /// Make sure the file is gzipped as they can get quite large and we don't want that messing with git history.
+    /// You'll also likely want to use the `mmedit` utility to remove event pages from the file as it's not necessary
+    /// to test a file with more than one page.
+    ///
+    /// Then you can add `assert!` tests. It is ok to put random numbers into the asserts and to let the error messages
+    /// tell you what should be expected. You can trust the numbers because you assume that the rest of the test suite
+    /// makes sure that the implementation works for the current version of the file format and this is just a regression
+    /// test for the future.
+    mod file_format_compatibility {
+        use super::*;
+        use std::collections::{HashMap, HashSet};
+        use std::io::Read;
+
+        #[test]
+        fn can_read_v7_profdata_files() {
+            let (data, file_format_version) =
+                read_data_and_version("tests/profdata/v7.mm_profdata.gz");
+            assert_eq!(file_format_version, file_formats::v7::FILE_FORMAT);
+            let profiling_data = ProfilingData::from_paged_buffer(data, None)
+                .expect("Creating the profiling data failed");
+            let grouped_events = group_events(&profiling_data);
+            let event_kinds = grouped_events
+                .keys()
+                .map(|k| k.as_str())
+                .collect::<HashSet<_>>();
+            let expect_event_kinds = vec!["GenericActivity", "IncrementalResultHashing", "Query"]
+                .into_iter()
+                .collect::<HashSet<_>>();
+            assert_eq!(event_kinds, expect_event_kinds);
+
+            let generic_activity_len = 6425;
+            let incremental_hashing_len = 2237;
+            let query_len = 2260;
+            assert_eq!(
+                grouped_events["GenericActivity"].len(),
+                generic_activity_len
+            );
+            assert_eq!(
+                grouped_events["IncrementalResultHashing"].len(),
+                incremental_hashing_len
+            );
+            assert_eq!(grouped_events["Query"].len(), query_len);
+
+            assert_eq!(
+                &*grouped_events["GenericActivity"][generic_activity_len / 2].label,
+                "incr_comp_encode_dep_graph"
+            );
+            assert_eq!(
+                grouped_events["GenericActivity"][generic_activity_len / 2].duration(),
+                Some(Duration::from_nanos(200))
+            );
+
+            assert_eq!(
+                &*grouped_events["IncrementalResultHashing"][incremental_hashing_len - 1].label,
+                "item_children"
+            );
+            assert_eq!(
+                grouped_events["IncrementalResultHashing"][incremental_hashing_len - 1].duration(),
+                Some(Duration::from_nanos(300))
+            );
+
+            assert_eq!(&*grouped_events["Query"][0].label, "hir_crate");
+            assert_eq!(
+                grouped_events["Query"][0].duration(),
+                Some(Duration::from_nanos(16800))
+            );
+        }
+
+        #[test]
+        fn can_read_v8_profdata_files() {
+            let (data, file_format_version) =
+                read_data_and_version("tests/profdata/v8.mm_profdata.gz");
+            assert_eq!(file_format_version, file_formats::v8::FILE_FORMAT);
+            let profiling_data = ProfilingData::from_paged_buffer(data, None)
+                .expect("Creating the profiling data failed");
+            let grouped_events = group_events(&profiling_data);
+            let event_kinds = grouped_events
+                .keys()
+                .map(|k| k.as_str())
+                .collect::<HashSet<_>>();
+            let expect_event_kinds = vec!["GenericActivity", "IncrementalResultHashing", "Query"]
+                .into_iter()
+                .collect::<HashSet<_>>();
+            assert_eq!(event_kinds, expect_event_kinds);
+
+            let generic_activity_len = 6429;
+            let incremental_hashing_len = 2235;
+            let query_len = 2258;
+            assert_eq!(
+                grouped_events["GenericActivity"].len(),
+                generic_activity_len
+            );
+            assert_eq!(
+                grouped_events["IncrementalResultHashing"].len(),
+                incremental_hashing_len
+            );
+            assert_eq!(grouped_events["Query"].len(), query_len);
+
+            assert_eq!(
+                &*grouped_events["GenericActivity"][generic_activity_len / 2].label,
+                "metadata_decode_entry_implementations_of_trait"
+            );
+            assert_eq!(
+                grouped_events["GenericActivity"][generic_activity_len / 2].duration(),
+                Some(Duration::from_nanos(1200))
+            );
+
+            assert_eq!(
+                &*grouped_events["IncrementalResultHashing"][incremental_hashing_len - 1].label,
+                "item_children"
+            );
+            assert_eq!(
+                grouped_events["IncrementalResultHashing"][incremental_hashing_len - 1].duration(),
+                Some(Duration::from_nanos(500))
+            );
+
+            assert_eq!(&*grouped_events["Query"][0].label, "hir_crate");
+            assert_eq!(
+                grouped_events["Query"][0].duration(),
+                Some(Duration::from_nanos(1752900))
+            );
+        }
+
+        fn read_data_and_version(file_path: &str) -> (Vec<u8>, u32) {
+            let data = std::fs::read(file_path).expect("Test data not found");
+            let mut gz = flate2::read::GzDecoder::new(&data[..]);
+            let mut data = Vec::new();
+            gz.read_to_end(&mut data).unwrap();
+
+            let file_format_version =
+                read_file_header(&data, FILE_MAGIC_TOP_LEVEL, None, "top-level")
+                    .expect("Can't read file header");
+            (data, file_format_version)
+        }
+
+        fn group_events(profiling_data: &ProfilingData) -> HashMap<String, Vec<Event>> {
+            let events = profiling_data.iter_full().collect::<Vec<_>>();
+            assert_eq!(events.len(), profiling_data.num_events());
+
+            let mut grouped_events: HashMap<String, Vec<Event>> = HashMap::new();
+            for e in events.into_iter() {
+                grouped_events
+                    .entry(e.event_kind.clone().into_owned())
+                    .or_default()
+                    .push(e);
+            }
+
+            grouped_events
+        }
     }
 }

@@ -23,6 +23,10 @@ impl<'a> Event<'a> {
         self.payload.duration()
     }
 
+    pub fn integer(&self) -> Option<u64> {
+        self.payload.integer()
+    }
+
     pub(crate) fn parse_event_id(event_id: Cow<'a, str>) -> (Cow<'a, str>, Vec<Cow<'a, str>>) {
         let event_id = match event_id {
             Cow::Owned(s) => Cow::Owned(s.into_bytes()),
