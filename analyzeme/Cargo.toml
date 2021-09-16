@@ -17,3 +17,6 @@ serde_json = "1.0"
 # Depending on older versions of this crate allows us to keep supporting older
 # file formats.
 analyzeme_9_2_0 = { package = "analyzeme", git = "https://github.com/rust-lang/measureme", tag = "9.2.0" }
+
+[dev-dependencies]
+flate2 = "1.0"
