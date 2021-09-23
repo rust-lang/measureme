@@ -2,7 +2,10 @@ name: Rust
 
 on:
   push:
-    branches: [ master ]
+    branches: [ 
+      master,
+      auto    # used for bors 
+    ]
   pull_request:
     branches: [ master ]
 
