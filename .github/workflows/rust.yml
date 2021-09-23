@@ -2,7 +2,11 @@ name: Rust
 
 on:
   push:
-    branches: [ master ]
+    branches: [ 
+      master,
+      auto,   # used for bors
+      try     # used for bors
+    ]
   pull_request:
     branches: [ master ]
 
@@ -84,3 +88,26 @@ jobs:
       with:
         command: check
         args: --verbose --lib --bins --tests
+
+  # These jobs doesn't actually test anything, but they're only used to tell
+  # bors the build completed, as there is no practical way to detect when a
+  # workflow is successful listening to webhooks only.
+  #
+  # ALL THE PREVIOUS JOBS NEED TO BE ADDED TO THE `needs` SECTION OF THIS JOB!
+  end-success:
+    name: bors build finished
+    runs-on: ubuntu-latest
+    needs: [build_stable, build_beta, build_nightly, check_big_endian]
+    if: github.event.pusher.name == 'bors' && success()
+    steps:
+      - name: mark the job as a success
+        run: exit 0
+
+  end-failure:
+    name: bors build finished
+    runs-on: ubuntu-latest
+    needs: [build_stable, build_beta, build_nightly, check_big_endian]
+    if: github.event.pusher.name == 'bors' && (failure() || cancelled())
+    steps:
+      - name: mark the job as a failure
+        run: exit 1
