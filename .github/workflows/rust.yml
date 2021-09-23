@@ -4,7 +4,8 @@ on:
   push:
     branches: [ 
       master,
-      auto    # used for bors 
+      auto,   # used for bors
+      try     # used for bors
     ]
   pull_request:
     branches: [ master ]
