@@ -543,16 +543,20 @@ mod hw {
                 asm!(
                     // Dummy `cpuid(0)` to serialize instruction execution.
                     "xor eax, eax",
+                    // LLVM sometimes reserves `ebx` for its internal use, we so we need to use
+                    // a scratch register for it instead.
+                    "mov {tmp_rbx:r}, rbx",
                     "cpuid",
+                    "mov rbx, {tmp_rbx:r}",
 
                     "mov ecx, {rdpmc_ecx:e}",
                     "rdpmc",
                     rdpmc_ecx = in(reg) reg_idx,
+                    tmp_rbx = out(reg) _,
                     out("eax") lo,
                     out("edx") hi,
 
                     // `cpuid` clobbers (not overwritten by `rdpmc`).
-                    out("ebx") _,
                     out("ecx") _,
 
                     options(nostack),
@@ -574,7 +578,11 @@ mod hw {
             asm!(
                 // Dummy `cpuid(0)` to serialize instruction execution.
                 "xor eax, eax",
+                // LLVM sometimes reserves `ebx` for its internal use, we so we need to use
+                // a scratch register for it instead.
+                "mov {tmp_rbx:r}, rbx",
                 "cpuid",
+                "mov rbx, {tmp_rbx:r}",
 
                 "mov ecx, {a_rdpmc_ecx:e}",
                 "rdpmc",
@@ -586,11 +594,11 @@ mod hw {
                 a_rdpmc_eax = out(reg) a_lo,
                 a_rdpmc_edx = out(reg) a_hi,
                 b_rdpmc_ecx = in(reg) b_reg_idx,
+                tmp_rbx = out(reg) _,
                 out("eax") b_lo,
                 out("edx") b_hi,
 
                 // `cpuid` clobbers (not overwritten by `rdpmc`).
-                out("ebx") _,
                 out("ecx") _,
 
                 options(nostack),
