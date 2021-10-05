@@ -525,47 +525,22 @@ mod hw {
     /// the width of the register (32 to 64 bits, e.g. 48-bit seems common).
     #[inline(always)]
     fn rdpmc(reg_idx: u32) -> u64 {
-        let (lo, hi): (u32, u32);
-        unsafe {
-            // NOTE(eddyb) below comment is outdated (the other branch uses `cpuid`).
-            if cfg!(unserialized_rdpmc) && false {
-                // FIXME(eddyb) the Intel and AMD manuals warn about the need for
-                // "serializing instructions" before/after `rdpmc`, if avoiding any
-                // reordering is desired, but do not agree on the full set of usable
-                // "serializing instructions" (e.g. `mfence` isn't listed in both).
-                //
-                // The only usable, and guaranteed to work, "serializing instruction"
-                // appears to be `cpuid`, but it doesn't seem easy to use, especially
-                // due to the overlap in registers with `rdpmc` itself, and it might
-                // have too high of a cost, compared to serialization benefits (if any).
-                asm!("rdpmc", in("ecx") reg_idx, out("eax") lo, out("edx") hi, options(nostack));
-            } else {
-                asm!(
-                    // Dummy `cpuid(0)` to serialize instruction execution.
-                    "xor %eax, %eax", // Intel syntax: "xor eax, eax"
-                    "cpuid",
-
-                    "mov {rdpmc_ecx:e}, %ecx", // Intel syntax: "mov ecx, {rdpmc_ecx:e}"
-                    "rdpmc",
-                    rdpmc_ecx = in(reg) reg_idx,
-                    out("eax") lo,
-                    out("edx") hi,
-
-                    // `cpuid` clobbers (not overwritten by `rdpmc`).
-                    out("ebx") _,
-                    out("ecx") _,
-
-                    options(nostack),
-
-                    // HACK(eddyb) LLVM 9 and older do not support modifiers
-                    // in Intel syntax inline asm; whenever Rust minimum LLVM
-                    // version becomes LLVM 10, remove and replace above
-                    // instructions with Intel syntax version (from comments).
-                    options(att_syntax),
-                );
-            }
+        // NOTE(eddyb) below comment is outdated (the other branch uses `cpuid`).
+        if cfg!(unserialized_rdpmc) && false {
+            // FIXME(eddyb) the Intel and AMD manuals warn about the need for
+            // "serializing instructions" before/after `rdpmc`, if avoiding any
+            // reordering is desired, but do not agree on the full set of usable
+            // "serializing instructions" (e.g. `mfence` isn't listed in both).
+            //
+            // The only usable, and guaranteed to work, "serializing instruction"
+            // appears to be `cpuid`, but it doesn't seem easy to use, especially
+            // due to the overlap in registers with `rdpmc` itself, and it might
+            // have too high of a cost, compared to serialization benefits (if any).
+            unserialized_rdpmc(reg_idx)
+        } else {
+            serialize_instruction_execution();
+            unserialized_rdpmc(reg_idx)
         }
-        lo as u64 | (hi as u64) << 32
     }
 
     /// Read two hardware performance counters at once (see `rdpmc`).
@@ -574,44 +549,49 @@ mod hw {
     /// only requires one "serializing instruction", rather than two.
     #[inline(always)]
     fn rdpmc_pair(a_reg_idx: u32, b_reg_idx: u32) -> (u64, u64) {
-        let (a_lo, a_hi): (u32, u32);
-        let (b_lo, b_hi): (u32, u32);
+        serialize_instruction_execution();
+        (unserialized_rdpmc(a_reg_idx), unserialized_rdpmc(b_reg_idx))
+    }
+
+    /// Dummy `cpuid(0)` to serialize instruction execution.
+    #[inline(always)]
+    fn serialize_instruction_execution() {
         unsafe {
             asm!(
-                // Dummy `cpuid(0)` to serialize instruction execution.
-                "xor %eax, %eax", // Intel syntax: "xor eax, eax"
+                "xor eax, eax",
+                // LLVM sometimes reserves `ebx` for its internal use, so we need to use
+                // a scratch register for it instead.
+                "mov {tmp_rbx:r}, rbx",
                 "cpuid",
-
-                "mov {a_rdpmc_ecx:e}, %ecx", // Intel syntax: "mov ecx, {a_rdpmc_ecx:e}"
-                "rdpmc",
-                "mov %eax, {a_rdpmc_eax:e}", // Intel syntax: "mov {a_rdpmc_eax:e}, eax"
-                "mov %edx, {a_rdpmc_edx:e}", // Intel syntax: "mov {a_rdpmc_edx:e}, edx"
-                "mov {b_rdpmc_ecx:e}, %ecx", // Intel syntax: "mov ecx, {b_rdpmc_ecx:e}"
-                "rdpmc",
-                a_rdpmc_ecx = in(reg) a_reg_idx,
-                a_rdpmc_eax = out(reg) a_lo,
-                a_rdpmc_edx = out(reg) a_hi,
-                b_rdpmc_ecx = in(reg) b_reg_idx,
-                out("eax") b_lo,
-                out("edx") b_hi,
-
-                // `cpuid` clobbers (not overwritten by `rdpmc`).
-                out("ebx") _,
-                out("ecx") _,
+                "mov rbx, {tmp_rbx:r}",
+                tmp_rbx = lateout(reg) _,
+                // `cpuid` clobbers.
+                lateout("eax") _,
+                lateout("edx") _,
+                lateout("ecx") _,
 
                 options(nostack),
-
-                // HACK(eddyb) LLVM 9 and older do not support modifiers
-                // in Intel syntax inline asm; whenever Rust minimum LLVM
-                // version becomes LLVM 10, remove and replace above
-                // instructions with Intel syntax version (from comments).
-                options(att_syntax),
             );
         }
-        (
-            a_lo as u64 | (a_hi as u64) << 32,
-            b_lo as u64 | (b_hi as u64) << 32,
-        )
+    }
+
+    /// Read the hardware performance counter indicated by `reg_idx`.
+    ///
+    /// If the counter is signed, sign extension should be performed based on
+    /// the width of the register (32 to 64 bits, e.g. 48-bit seems common).
+    #[inline(always)]
+    fn unserialized_rdpmc(reg_idx: u32) -> u64 {
+        let (lo, hi): (u32, u32);
+        unsafe {
+            asm!(
+                "rdpmc",
+                in("ecx") reg_idx,
+                lateout("eax") lo,
+                lateout("edx") hi,
+                options(nostack)
+            );
+        }
+        lo as u64 | (hi as u64) << 32
     }
 
     /// Categorization of `x86_64` CPUs, primarily based on how they
@@ -815,17 +795,10 @@ mod hw {
                             let mut _tmp: u64 = 0;
                             unsafe {
                                 asm!(
-                                    // Intel syntax: "lock xadd [{atomic}], {tmp}"
-                                    "lock xadd {tmp}, ({atomic})",
+                                    "lock xadd qword ptr [{atomic}], {tmp}",
 
                                     atomic = in(reg) &mut atomic,
                                     tmp = inout(reg) _tmp,
-
-                                    // HACK(eddyb) LLVM 9 and older do not support modifiers
-                                    // in Intel syntax inline asm; whenever Rust minimum LLVM
-                                    // version becomes LLVM 10, remove and replace above
-                                    // instructions with Intel syntax version (from comments).
-                                    options(att_syntax),
                                 );
                             }
 
