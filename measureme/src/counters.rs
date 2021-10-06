@@ -558,12 +558,12 @@ mod hw {
     fn serialize_instruction_execution() {
         unsafe {
             asm!(
-                "xor eax, eax",
+                "xor %eax, %eax", // Intel syntax: "xor eax, eax"
                 // LLVM sometimes reserves `ebx` for its internal use, so we need to use
                 // a scratch register for it instead.
-                "mov {tmp_rbx:r}, rbx",
+                "mov %rbx, {tmp_rbx:r}", // Intel syntax: "mov {tmp_rbx:r}, rbx"
                 "cpuid",
-                "mov rbx, {tmp_rbx:r}",
+                "mov {tmp_rbx:r}, %rbx", // Intel syntax: "mov rbx, {tmp_rbx:r}"
                 tmp_rbx = lateout(reg) _,
                 // `cpuid` clobbers.
                 lateout("eax") _,
@@ -571,6 +571,11 @@ mod hw {
                 lateout("ecx") _,
 
                 options(nostack),
+                // Older versions of LLVM do not support modifiers in
+                // Intel syntax inline asm; whenever Rust minimum LLVM version
+                // supports Intel syntax inline asm, remove and replace above
+                // instructions with Intel syntax version (from comments).
+                options(att_syntax),
             );
         }
     }
@@ -588,7 +593,12 @@ mod hw {
                 in("ecx") reg_idx,
                 lateout("eax") lo,
                 lateout("edx") hi,
-                options(nostack)
+                options(nostack),
+                // Older versions of LLVM do not support modifiers in
+                // Intel syntax inline asm; whenever Rust minimum LLVM version
+                // supports Intel syntax inline asm, remove and replace above
+                // instructions with Intel syntax version (from comments).
+                options(att_syntax),
             );
         }
         lo as u64 | (hi as u64) << 32
