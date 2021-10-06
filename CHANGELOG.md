@@ -1,6 +1,6 @@
 # Changelog
 
-## [10.0.0] - 2021-09-xx
+## [10.0.0] - 2021-10-06
 
 ### Changed
 - `analyzeme`: Version-specific parts split out into `decodeme` crate. ([GH-181])
