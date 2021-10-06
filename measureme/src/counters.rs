@@ -805,10 +805,18 @@ mod hw {
                             let mut _tmp: u64 = 0;
                             unsafe {
                                 asm!(
-                                    "lock xadd qword ptr [{atomic}], {tmp}",
+                                    // Intel syntax: "lock xadd [{atomic}], {tmp}"
+                                    "lock xadd {tmp}, ({atomic})",
 
                                     atomic = in(reg) &mut atomic,
                                     tmp = inout(reg) _tmp,
+
+                                    // Older versions of LLVM do not support modifiers in
+                                    // Intel syntax inline asm; whenever Rust minimum LLVM
+                                    // version supports Intel syntax inline asm, remove
+                                    // and replace above instructions with Intel syntax
+                                    // version (from comments).
+                                    options(att_syntax),
                                 );
                             }
 
