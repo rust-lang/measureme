@@ -1,4 +1,4 @@
-# measureme [![Build Status](https://travis-ci.com/rust-lang/measureme.svg?branch=master)](https://travis-ci.com/rust-lang/measureme)
+# measureme [![Rust](https://github.com/rust-lang/measureme/actions/workflows/rust.yml/badge.svg)](https://github.com/rust-lang/measureme/actions/workflows/rust.yml)
 Support crate for rustc's self-profiling feature
 
 This crate is maintained by the Rust compiler team and in particular by the
@@ -21,7 +21,7 @@ It contains two main modes:
 - `summarize` which groups the profiling events and orders the results by time taken.
 - `diff` which compares two profiles and outputs a summary of the differences.
 
-[Learn more](./summarize/Readme.md)
+[Learn more](./summarize/README.md)
 
 ### stack_collapse
 
@@ -39,6 +39,6 @@ It contains two main modes:
 
 `crox` turns `measureme` profiling data into files that can be visualized by the Chromium performance tools.
 
-[Learn more](./crox/Readme.md)
+[Learn more](./crox/README.md)
 
 [wg-self-profile]: https://rust-lang.github.io/compiler-team/working-groups/self-profile/

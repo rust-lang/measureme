@@ -17,7 +17,7 @@ $ cargo rustc -- -Z self-profile
 
 ```
 $ # Install crox if you haven't done so yet.
-$ cargo install --git https://github.com/rust-lang/measureme --tag 9.1.2 crox
+$ cargo install --git https://github.com/rust-lang/measureme --branch stable crox
 
 $ crox {crate name}-{pid}.mm_profdata
 ```

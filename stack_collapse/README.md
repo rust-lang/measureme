@@ -7,7 +7,7 @@ stack-collapse is a tool to produce [Flame Graph](https://github.com/brendangreg
 ```bash
 $ # Install stack_collapse if you haven't done so yet.
 
-$ cargo install --git https://github.com/rust-lang/measureme --tag 9.1.2 stack_collapse
+$ cargo install --git https://github.com/rust-lang/measureme --branch stable stack_collapse
 
 $ git clone https://github.com/rust-lang/regex.git
 
