@@ -7,7 +7,7 @@ flamegraph is a tool to produce [Flame Graph](https://github.com/brendangregg/Fl
 ```bash
 # Install flamegraph if you haven't done so yet.
 
-$ cargo install --git https://github.com/rust-lang/measureme --tag 9.1.2 flamegraph
+$ cargo install --git https://github.com/rust-lang/measureme --branch stable flamegraph
 
 $ git clone https://github.com/rust-lang/regex.git
 
