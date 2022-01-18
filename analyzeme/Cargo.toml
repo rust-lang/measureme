@@ -6,13 +6,10 @@ edition = "2018"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-byteorder = "1.2.7"
 decodeme = { path = "../decodeme" }
 memchr = "2"
 measureme = { path = "../measureme" }
 rustc-hash = "1.0.1"
-serde = { version = "1.0", features = [ "derive" ] }
-serde_json = "1.0"
 
 # Depending on older versions of this crate allows us to keep supporting older
 # file formats.
