@@ -113,9 +113,9 @@ impl EventDecoder {
 
         let mut split_data = measureme::split_streams(&entire_file_data[FILE_HEADER_SIZE..]);
 
-        let string_data = split_data.remove(&PageTag::StringData).unwrap();
-        let index_data = split_data.remove(&PageTag::StringIndex).unwrap();
-        let event_data = split_data.remove(&PageTag::Events).unwrap();
+        let string_data = split_data.remove(&PageTag::StringData).expect("Invalid file: No string data found");
+        let index_data = split_data.remove(&PageTag::StringIndex).expect("Invalid file: No string index data found");
+        let event_data = split_data.remove(&PageTag::Events).expect("Invalid file: No event data found");
 
         Self::from_separate_buffers(string_data, index_data, event_data, diagnostic_file_path)
     }
