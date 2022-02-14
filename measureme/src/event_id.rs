@@ -83,7 +83,7 @@ impl<'p> EventIdBuilder<'p> {
 
     pub fn from_label_and_args(&self, label: StringId, args: &[StringId]) -> EventId {
         // Store up to 7 components on the stack: 1 label + 3 arguments + 3 argument separators
-        let mut parts = SmallVec::<[StringComponent; 7]>::with_capacity(1 + args.len() * 2);
+        let mut parts = SmallVec::<[StringComponent<'_>; 7]>::with_capacity(1 + args.len() * 2);
 
         parts.push(StringComponent::Ref(label));
 

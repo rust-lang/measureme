@@ -118,7 +118,7 @@ pub fn perform_analysis(data: ProfilingData) -> Results {
 
     let mut query_data = FxHashMap::<String, QueryData>::default();
     let mut artifact_sizes = BTreeMap::<Cow<'_, str>, ArtifactSize>::default();
-    let mut threads = FxHashMap::<_, PerThreadState>::default();
+    let mut threads = FxHashMap::<_, PerThreadState<'_>>::default();
 
     let mut record_event_data = |label: &Cow<'_, str>, f: &dyn Fn(&mut QueryData)| {
         if let Some(data) = query_data.get_mut(&label[..]) {

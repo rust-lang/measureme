@@ -57,7 +57,7 @@ impl Sub for SignedDuration {
 }
 
 impl fmt::Debug for SignedDuration {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.is_positive {
             write!(f, "+")?;
         } else {
