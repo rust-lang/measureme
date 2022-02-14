@@ -322,7 +322,7 @@ impl<'a, I: BackwardsIterator<Item = SampleInterval<WithParent<Event<'a>>>>> Bac
         match self.sample_intervals_per_profile.get_mut(0)?.next_back() {
             Some(interval) => {
                 let first_duration = interval.duration();
-                let descriptions = interval.map_event(WithParent::<EventDescription>::from);
+                let descriptions = interval.map_event(WithParent::<EventDescription<'_>>::from);
 
                 // FIXME(eddyb) maybe extract this part into an `Iterator` impl? but it
                 // would be hard to return an interable that doesn't allocate nor borrow
@@ -344,7 +344,7 @@ impl<'a, I: BackwardsIterator<Item = SampleInterval<WithParent<Event<'a>>>>> Bac
                         // of each profile are themselves identical.
                         assert_eq!(
                             descriptions,
-                            interval.map_event(WithParent::<EventDescription>::from),
+                            interval.map_event(WithParent::<EventDescription<'_>>::from),
                             "`summarize aggregate` requires identical sequences of events"
                         );
 

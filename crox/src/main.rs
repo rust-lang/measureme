@@ -120,7 +120,7 @@ fn generate_thread_to_collapsed_thread_mapping(
     thread_to_collapsed_thread
 }
 
-fn get_args(full_event: &analyzeme::Event) -> Option<FxHashMap<String, String>> {
+fn get_args(full_event: &analyzeme::Event<'_>) -> Option<FxHashMap<String, String>> {
     if !full_event.additional_data.is_empty() {
         Some(
             full_event
