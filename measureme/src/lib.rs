@@ -32,7 +32,6 @@
 //!
 //! [`Counter`]: counters::Counter
 #![deny(warnings)]
-#![cfg_attr(feature = "nightly", feature(asm))]
 
 #[macro_use]
 extern crate log;

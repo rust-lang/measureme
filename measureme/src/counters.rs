@@ -19,7 +19,6 @@
 //! performance counter support ([#143](https://github.com/rust-lang/measureme/pull/143)).*
 //!
 //! The hardware performance counters (i.e. all counters other than `wall-time`) are limited to:
-//! * nightly Rust (gated on `features = ["nightly"]`), for `asm!`
 //! * Linux, for out-of-the-box performance counter reads from userspace
 //!   * other OSes could work through custom kernel extensions/drivers, in the future
 //! * `x86_64` CPUs, mostly due to lack of other available test hardware
@@ -300,10 +299,11 @@ const BUG_REPORT_MSG: &str =
     "please report this to https://github.com/rust-lang/measureme/issues/new";
 
 /// Linux x86_64 implementation based on `perf_event_open` and `rdpmc`.
-#[cfg(all(feature = "nightly", target_arch = "x86_64", target_os = "linux"))]
+#[cfg(all(target_arch = "x86_64", target_os = "linux"))]
 mod hw {
     use memmap2::{Mmap, MmapOptions};
     use perf_event_open_sys::{bindings::*, perf_event_open};
+    use std::arch::asm;
     use std::convert::TryInto;
     use std::error::Error;
     use std::fs;
@@ -934,7 +934,7 @@ mod hw {
     }
 }
 
-#[cfg(not(all(feature = "nightly", target_arch = "x86_64", target_os = "linux")))]
+#[cfg(not(all(target_arch = "x86_64", target_os = "linux")))]
 mod hw {
     use std::error::Error;
 
@@ -984,10 +984,6 @@ mod hw {
                 }
                 msg += s;
             };
-
-            if cfg!(not(feature = "nightly")) {
-                add_error("only supported with measureme's \"nightly\" feature");
-            }
 
             if cfg!(not(target_arch = "x86_64")) {
                 add_error("only supported architecture is x86_64");
