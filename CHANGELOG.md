@@ -1,10 +1,19 @@
 # Changelog
 
+## [10.1.0] - 2022-06-24
+
+### Changed
+- Change install instructions to use stable branch ([GH-189])
+- `analyzeme`: Remove some unused dependencies ([GH-192])
+- `decodeme`: Generate nicer panic messages for incomplete data files ([GH-193])
+- Fix build warnings from Rust 2018 idioms ([GH-194])
+- `measureme`: Allow capturing hardware performance counters on stable compilers ([GH-195])
+
 ## [10.0.0] - 2021-10-06
 
 ### Changed
 - `analyzeme`: Version-specific parts split out into `decodeme` crate. ([GH-181])
-- `analyzeme`: The crate now supports load both v7 and v8 of the file format. ([GH-181])
+- `analyzeme`: The crate now supports loading both v7 and v8 of the file format. ([GH-181])
 
 ## [9.2.0] - 2021-09-13
 ### Changed
@@ -156,3 +165,8 @@
 [GH-159]: https://github.com/rust-lang/measureme/pull/159
 [GH-180]: https://github.com/rust-lang/measureme/pull/180
 [GH-181]: https://github.com/rust-lang/measureme/pull/181
+[GH-189]: https://github.com/rust-lang/measureme/pull/189
+[GH-192]: https://github.com/rust-lang/measureme/pull/192
+[GH-193]: https://github.com/rust-lang/measureme/pull/193
+[GH-194]: https://github.com/rust-lang/measureme/pull/194
+[GH-195]: https://github.com/rust-lang/measureme/pull/195
