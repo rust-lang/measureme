@@ -321,13 +321,10 @@ mod hw {
             counter_type: super::HwCounterType,
         ) -> Result<Self, Box<dyn Error + Send + Sync>> {
             let (type_, hw_id) = match counter_type {
-                super::HwCounterType::Instructions => (
-                    perf_type_id_PERF_TYPE_HARDWARE,
-                    perf_hw_id_PERF_COUNT_HW_INSTRUCTIONS,
-                ),
-                super::HwCounterType::Irqs => {
-                    (perf_type_id_PERF_TYPE_RAW, model.irqs_counter_config()?)
+                super::HwCounterType::Instructions => {
+                    (PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS)
                 }
+                super::HwCounterType::Irqs => (PERF_TYPE_RAW, model.irqs_counter_config()?),
                 super::HwCounterType::Raw0420 => {
                     match model {
                         CpuModel::Amd(AmdGen::Zen) => {}
@@ -338,7 +335,7 @@ mod hw {
                         ),
                     }
 
-                    (perf_type_id_PERF_TYPE_RAW, 0x04_20)
+                    (PERF_TYPE_RAW, 0x04_20)
                 }
             };
             Self::with_type_and_hw_id(type_, hw_id)
@@ -792,7 +789,7 @@ mod hw {
                     // which only reliably remains `0` when `SpecLockMap` is disabled.
                     if matches!(gen, Zen | UnknownMaybeZenLike) {
                         if let Ok(spec_lock_map_commit) =
-                            Counter::with_type_and_hw_id(perf_type_id_PERF_TYPE_RAW, 0x08_25)
+                            Counter::with_type_and_hw_id(PERF_TYPE_RAW, 0x08_25)
                         {
                             use super::HwCounterRead;
 
