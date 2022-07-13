@@ -7,9 +7,9 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::{path::PathBuf, time::Duration};
 
+use clap::Parser;
 use prettytable::{Cell, Row, Table};
 use serde::Serialize;
-use structopt::StructOpt;
 
 mod aggregate;
 mod analysis;
@@ -19,47 +19,47 @@ mod signed_duration;
 
 use query_data::Results;
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 struct AggregateOpt {
     files: Vec<PathBuf>,
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 struct DiffOpt {
     base: PathBuf,
     change: PathBuf,
 
-    #[structopt(short = "e", long = "exclude")]
+    #[clap(short = 'e', long = "exclude")]
     exclude: Vec<String>,
 
-    #[structopt(long = "json")]
+    #[clap(long = "json")]
     json: bool,
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 struct SummarizeOpt {
     file_prefix: PathBuf,
 
     /// Writes the analysis to a json file next to <file_prefix> instead of stdout
-    #[structopt(long = "json")]
+    #[clap(long = "json")]
     json: bool,
 
     /// Filter the output to items whose self-time is greater than this value
-    #[structopt(short = "pa", long = "percent-above", default_value = "0.0")]
+    #[clap(short = 'p', long = "percent-above", default_value = "0.0")]
     percent_above: f64,
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 enum Opt {
     /// Processes a set of trace files with identical events and analyze variance
-    #[structopt(name = "aggregate")]
+    #[clap(name = "aggregate")]
     Aggregate(AggregateOpt),
 
-    #[structopt(name = "diff")]
+    #[clap(name = "diff")]
     Diff(DiffOpt),
 
     /// Processes trace files and produces a summary
-    #[structopt(name = "summarize")]
+    #[clap(name = "summarize")]
     Summarize(SummarizeOpt),
 }
 

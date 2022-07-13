@@ -2,17 +2,17 @@ use std::{convert::TryInto, error::Error, path::PathBuf};
 
 use decodeme::{read_file_header, PageTag, FILE_HEADER_SIZE, FILE_MAGIC_TOP_LEVEL};
 
-use structopt::StructOpt;
+use clap::Parser;
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 struct TruncateOpt {
     file: PathBuf,
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 enum Opt {
     /// Truncate to a single page per tag
-    #[structopt(name = "truncate")]
+    #[clap(name = "truncate")]
     Truncate(TruncateOpt),
 }
 

@@ -7,11 +7,11 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use analyzeme::{ProfilingData, Timestamp};
 use measureme::file_header::FILE_EXTENSION;
 
+use clap::Parser;
 use serde::ser::SerializeSeq;
 use serde::{Serialize, Serializer};
 use serde_json::json;
 use std::cmp;
-use structopt::StructOpt;
 
 fn as_micros<S: Serializer>(d: &Duration, s: S) -> Result<S::Ok, S::Error> {
     let v = (d.as_secs() * 1_000_000) + (d.subsec_nanos() as u64 / 1_000);
@@ -43,18 +43,18 @@ struct Event {
     args: Option<FxHashMap<String, String>>,
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 struct Opt {
-    #[structopt(required_unless = "dir")]
+    #[clap(required_unless = "dir")]
     file_prefix: Vec<PathBuf>,
     /// all event trace files in dir will be merged to one chrome_profiler.json file
-    #[structopt(long = "dir")]
+    #[clap(long = "dir")]
     dir: Option<PathBuf>,
     /// collapse threads without overlapping events
-    #[structopt(long = "collapse-threads")]
+    #[clap(long = "collapse-threads")]
     collapse_threads: bool,
     /// filter out events with shorter duration (in microseconds)
-    #[structopt(long = "minimum-duration")]
+    #[clap(long = "minimum-duration")]
     minimum_duration: Option<u128>,
 }
 
