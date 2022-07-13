@@ -1,15 +1,15 @@
 use analyzeme::{Event, EventPayload, ProfilingData, Timestamp};
+use clap::Parser;
 use std::error::Error;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
-use structopt::StructOpt;
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 struct Opt {
     file_prefix: PathBuf,
 
     /// Filter to events which occured on the specified thread id
-    #[structopt(short = "t", long = "thread-id")]
+    #[clap(short = 't', long = "thread-id")]
     thread_id: Option<u32>,
 }
 

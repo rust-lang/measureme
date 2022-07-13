@@ -8,4 +8,4 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 measureme = { path = "../measureme" }
 analyzeme = { path = "../analyzeme" }
-structopt = "0.3"
+clap = { version = "3.2", features = ["derive"] }

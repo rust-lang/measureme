@@ -4,9 +4,9 @@ use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 
 use analyzeme::{collapse_stacks, ProfilingData};
-use structopt::StructOpt;
+use clap::Parser;
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 struct Opt {
     file_prefix: PathBuf,
 }

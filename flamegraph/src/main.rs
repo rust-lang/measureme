@@ -4,10 +4,10 @@ use std::io::BufWriter;
 use std::path::PathBuf;
 
 use analyzeme::{collapse_stacks, ProfilingData};
+use clap::Parser;
 use inferno::flamegraph::{from_lines, Options as FlamegraphOptions};
-use structopt::StructOpt;
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 struct Opt {
     file_prefix: PathBuf,
 }
