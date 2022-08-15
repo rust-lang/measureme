@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate prettytable;
 
+use analyzeme::AnalysisResults;
 use analyzeme::ProfilingData;
 use std::error::Error;
 use std::fs::File;
@@ -12,12 +13,7 @@ use serde::Serialize;
 use structopt::StructOpt;
 
 mod aggregate;
-mod analysis;
 mod diff;
-mod query_data;
-mod signed_duration;
-
-use query_data::Results;
 
 #[derive(StructOpt, Debug)]
 struct AggregateOpt {
@@ -63,16 +59,16 @@ enum Opt {
     Summarize(SummarizeOpt),
 }
 
-fn process_results(file: &PathBuf) -> Result<Results, Box<dyn Error + Send + Sync>> {
+fn process_results(file: &PathBuf) -> Result<AnalysisResults, Box<dyn Error + Send + Sync>> {
     if file.ends_with("json") {
         let reader = BufReader::new(File::open(&file)?);
 
-        let results: Results = serde_json::from_reader(reader)?;
+        let results: AnalysisResults = serde_json::from_reader(reader)?;
         Ok(results)
     } else {
         let data = ProfilingData::new(&file)?;
 
-        Ok(analysis::perform_analysis(data))
+        Ok(data.perform_analysis())
     }
 }
 
@@ -172,7 +168,7 @@ fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
 fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
     let data = ProfilingData::new(&opt.file_prefix)?;
 
-    let mut results = analysis::perform_analysis(data);
+    let mut results = data.perform_analysis();
 
     //just output the results into a json file
     if opt.json {
