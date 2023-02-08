@@ -1,5 +1,12 @@
 # Changelog
 
+## [10.1.1] - 2023-02-08
+
+### Changed
+- `measureme`: Update `perf-event-open-sys` to 3.0 ([GH-198])
+- Move profile data analysis into analyzeme from summarizeme ([GH-200])
+- `summarize`: Update `prettytable` dependency to avoid segfaults on large profiles ([GH-202])
+
 ## [10.1.0] - 2022-06-24
 
 ### Changed
@@ -111,6 +118,9 @@
 
 ## [0.2.0] - 2019-04-10
 
+[10.1.1]: https://github.com/rust-lang/measureme/releases/tag/10.1.1
+[10.1.0]: https://github.com/rust-lang/measureme/releases/tag/10.1.0
+[10.0.0]: https://github.com/rust-lang/measureme/releases/tag/10.0.0
 [9.2.0]: https://github.com/rust-lang/measureme/releases/tag/9.2.0
 [9.1.2]: https://github.com/rust-lang/measureme/releases/tag/9.1.2
 [9.1.1]: https://github.com/rust-lang/measureme/releases/tag/9.1.1
@@ -170,3 +180,6 @@
 [GH-193]: https://github.com/rust-lang/measureme/pull/193
 [GH-194]: https://github.com/rust-lang/measureme/pull/194
 [GH-195]: https://github.com/rust-lang/measureme/pull/195
+[GH-198]: https://github.com/rust-lang/measureme/pull/198
+[GH-200]: https://github.com/rust-lang/measureme/pull/200
+[GH-202]: https://github.com/rust-lang/measureme/pull/202

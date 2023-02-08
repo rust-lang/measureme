@@ -1,6 +1,6 @@
 [package]
 name = "summarize"
-version = "10.1.0"
+version = "10.1.1"
 authors = ["Wesley Wiser <wwiser@gmail.com>", "Michael Woerister <michaelwoerister@posteo>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
