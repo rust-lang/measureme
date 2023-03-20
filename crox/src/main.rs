@@ -32,7 +32,6 @@ struct Event {
     #[serde(rename = "ph")]
     event_type: EventType,
     #[serde(rename = "ts", serialize_with = "as_micros")]
-    #[serde()]
     timestamp: Duration,
     #[serde(rename = "dur", serialize_with = "as_micros")]
     duration: Duration,
