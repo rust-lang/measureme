@@ -93,7 +93,11 @@ impl<'a> Parser<'a> {
 
         self.pos = end;
 
-        if self.full_text[start..end].iter().any(u8::is_ascii_control) {
+        if self.full_text[start..end]
+            .iter()
+            .filter(|x| !x.is_ascii_whitespace())
+            .any(u8::is_ascii_control)
+        {
             return self.err("Found ASCII control character in <text>");
         }
 
@@ -146,6 +150,14 @@ mod tests {
     }
 
     #[test]
+    fn parse_event_id_with_control_char() {
+        let (label, args) = Event::parse_event_id(Cow::from("foo\x1b"));
+
+        assert_eq!(label, "<parse error>");
+        assert!(args.is_empty());
+    }
+
+    #[test]
     fn parse_event_id_one_arg() {
         let (label, args) = Event::parse_event_id(Cow::from("foo\x1emy_arg"));
 
@@ -162,5 +174,23 @@ mod tests {
             args,
             vec![Cow::from("arg1"), Cow::from("arg2"), Cow::from("arg3")]
         );
+    }
+
+    #[test]
+    fn parse_event_id_args_with_whitespace() {
+        let (label, args) = Event::parse_event_id(Cow::from("foo\x1earg\n1\x1earg\t2\x1earg 3"));
+
+        assert_eq!(label, "foo");
+        assert_eq!(
+            args,
+            vec![Cow::from("arg\n1"), Cow::from("arg\t2"), Cow::from("arg 3")]
+        );
+    }
+
+    #[test]
+    fn parse_event_id_args_with_control_char() {
+        let (label, args) = Event::parse_event_id(Cow::from("foo\x1earg\x1b1"));
+        assert_eq!(label, "foo");
+        assert!(args.is_empty());
     }
 }

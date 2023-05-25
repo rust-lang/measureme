@@ -8,11 +8,11 @@ use crate::{Profiler, StringComponent, StringId};
 ///   <event_id> = <label> {<argument>}
 ///   <label> = <text>
 ///   <argument> = '\x1E' <text>
-///   <text> = regex([^[[:cntrl:]]]+) // Anything but ASCII control characters
+///   <text> = regex([[[:^cntrl:]][[:space:]]]+) // Anything but ASCII control characters except for whitespace.
 ///  ```
 ///
 /// This means there's always a "label", followed by an optional list of
-/// arguments. Future versions my support other optional suffixes (with a tag
+/// arguments. Future versions may support other optional suffixes (with a tag
 /// other than '\x11' after the '\x1E' separator), such as a "category".
 
 /// The byte used to separate arguments from the label and each other.
