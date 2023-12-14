@@ -1,0 +1,40 @@
+# This workflow checks that we can handle the self-profile output of the nightly compiler
+# from the measureme's stable branch.
+name: Check stable branch with nightly compiler
+
+on:
+  schedule:
+    # Run at 6:30 every day
+    - cron: '30 6 * * *'
+
+jobs:
+  check-stable:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: stable
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+    - name: Build
+      run: cargo build --all
+    - name: Generate self-profile
+      run: RUSTFLAGS="-Zself-profile" cargo +nightly build --bin crox
+    - name: Check crox
+      run: |
+        ./target/debug/crox crox-*.mm_profdata
+        # Check that the file was generated and is non-empty
+        test -s chrome_profiler.json
+    - name: Check flamegraph
+      run: |
+        ./target/debug/flamegraph crox-*.mm_profdata
+        test -s rustc.svg
+    - name: Check stack_collapse
+      run: |
+        ./target/debug/stack_collapse crox-*.mm_profdata
+        test -s out.stacks_folded
+    - name: Check summarize
+      run: |
+        ./target/debug/summarize summarize crox-*.mm_profdata > summary.txt
+        test -s summary.txt
