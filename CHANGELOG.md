@@ -1,8 +1,19 @@
 # Changelog
 
+## [10.1.2] - 2023-12-14
+
+### Changed
+
+- Change Cli parser from StructOpt to Clap ([GH-199])
+- `crox`: Remove malformed serde attribute ([GH-205])
+- `decodeme`: Allow whitespace control chars in EventId texts ([GH-208])
+- `measureme`: bump parking_lot to 0.12 to sync with rustc ([GH-209])
+- Allow copying example shell scripts ([GH-211])
+
 ## [10.1.1] - 2023-02-08
 
 ### Changed
+
 - `measureme`: Update `perf-event-open-sys` to 3.0 ([GH-198])
 - Move profile data analysis into analyzeme from summarizeme ([GH-200])
 - `summarize`: Update `prettytable` dependency to avoid segfaults on large profiles ([GH-202])
@@ -10,6 +21,7 @@
 ## [10.1.0] - 2022-06-24
 
 ### Changed
+
 - Change install instructions to use stable branch ([GH-189])
 - `analyzeme`: Remove some unused dependencies ([GH-192])
 - `decodeme`: Generate nicer panic messages for incomplete data files ([GH-193])
@@ -19,47 +31,63 @@
 ## [10.0.0] - 2021-10-06
 
 ### Changed
+
 - `analyzeme`: Version-specific parts split out into `decodeme` crate. ([GH-181])
 - `analyzeme`: The crate now supports loading both v7 and v8 of the file format. ([GH-181])
 
 ## [9.2.0] - 2021-09-13
+
 ### Changed
+
 - `analyzeme`: Makes a couple of methods in ProfilingData public. ([GH-180])
 
 ## [9.1.2] - 2021-05-21
+
 ### Added
+
 - `measureme`: Allow recording interval events without using the drop guard ([GH-159])
 
 ## [9.1.1] - 2021-04-23
+
 ### Changed
+
 - `crox`: Update the `--dir` flag to look for the correct file extension for traces ([GH-155])
 - `measureme`: Update the `memmap` dependency to `memmap2` which is actively maintained ([GH-156])
 
 ## [9.1.0] - 2021-02-19
+
 ### Added
+
 - `measureme`: Add support for using hardware performance counters instead of wall-clock times. ([GH-143])
 - `summarize`: Add `aggregate` sub-command for analyzing sets of profiles ([GH-129])
 
 ### Changed
+
 - `analyzeme`: Provide functions to decode paged buffer data from memory ([GH-142])
 - `analyzeme`: Fix blocked events not being counted in total invocation count ([GH-148])
 - `analyzeme`: Return error instead of panicking if the input file is too small ([GH-151])
 - Cleanup intra-doc links ([GH-146])
 
 ## [9.0.0] - 2020-10-07
+
 ### Added
+
 - `measureme`: Added a function to create `EventId`s with multiple arguments ([GH-138])
 
 ### Changed
+
 - We now use the standard semantic versioning system. As this is the 9th breaking change, we're adopting `9.0` as the version number
 - `measureme`: Allow recording up to 4gb of string data instead of the old limit of 1gb ([GH-137])
 
 ## [0.8.0] - 2020-10-01
+
 ### Added
+
 - `analyzeme`: Profiling data can now be constructed directly from memory without having to touch the filesystem ([GH-123])
 - `summarize`: A new "Time" column shows the total amount of time spent executing the query including sub-queries ([GH-109])
 
 ### Changed
+
 - `crox`: Event argument data is now included in the output file ([GH-108])
 - `measureme`: Trace data is now recorded into a single file instead of three files ([GH-132])
 - `mmview`: Do not panic when there are no events ([GH-119])
@@ -68,35 +96,47 @@
 - `summarize`: Only show the "Cache hits", "Blocked Time" and "Incremental load time" columns if that data is present in the trace ([GH-116])
 
 ## [0.7.1] - 2020-01-02
+
 ### Changed
+
 - `measureme`: Fix compilation error on big endian systems ([GH-103])
 
 ## [0.7.0] - 2019-12-18
+
 ### Changed
+
 - `measureme`: Events can now have "arguments" which record additional data about the event ([GH-101])
 
 ## [0.6.0] - 2019-12-11
+
 ### Added
+
 - `measureme`: Added `SerializationSink::write_bytes_atomic` that optimizes handling of existing buffers ([GH-97])
 
 ### Changed
+
 - `summarize`: Fixed a crash when incr_cache_load events would have child events ([GH-93])
 - `measureme`: Replaced notion of "reserved" StringIds with simpler "virtual" StringIds ([GH-98])
 
 ## [0.5.0] - 2019-12-02
+
 ### Added
+
 - `flamegraph`: new tool that uses the `inferno` crate to generate flamegraph svg files ([GH-73])
 - `crox`: Added the `--dir` parameter to merge all events files in dir in to one trace file ([GH-84])
 - `crox`: Added possibility to add multiple `file_prefix` parameters to merge all them to one trace file ([GH-84])
 - `summarize`: Added self_time_change as percentage change of self_time from base to the `diff` sub command ([GH-87])
 
 ### Changed
+
 - `measureme`: Stringtable data is recorded in a more compact format ([GH-90])
 - `measureme`: Events are recorded in a more compact format ([GH-76])
 - `stack_collapse`: Removed the `--interval` commandline option ([GH-76])
 
 ## [0.4.0] - 2019-10-24
+
 ### Added
+
 - `measureme`: Added RAII-based API for recording events ([GH-70])
 - `measureme`: Added support for compiling the library under wasm/wasi ([GH-43])
 - `mmview`: Added the `-t` flag to limit output to results on the specified thread id ([GH-49])
@@ -105,11 +145,14 @@
 - `crox`: Added the `--minimum-duration` flag to filter out events under the specified number of microseconds ([GH-60])
 
 ### Changed
+
 - `summarize`: Moved summarization under the `summarize` sub command ([GH-50])
 - `crox`: Output files are now up to 50% smaller ([GH-59])
 
 ## [0.3.0] - 2019-05-14
+
 ### Added
+
 - `summarize`: New CLI argument `percent-above` for `summarize` crate ([GH-32])
 - `summarize`: Added documentation ([GH-35])
 - `measureme`: Added a version tag to the binary event file format ([GH-41])
@@ -118,6 +161,7 @@
 
 ## [0.2.0] - 2019-04-10
 
+[10.1.2]: https://github.com/rust-lang/measureme/releases/tag/10.1.2
 [10.1.1]: https://github.com/rust-lang/measureme/releases/tag/10.1.1
 [10.1.0]: https://github.com/rust-lang/measureme/releases/tag/10.1.0
 [10.0.0]: https://github.com/rust-lang/measureme/releases/tag/10.0.0
@@ -181,5 +225,10 @@
 [GH-194]: https://github.com/rust-lang/measureme/pull/194
 [GH-195]: https://github.com/rust-lang/measureme/pull/195
 [GH-198]: https://github.com/rust-lang/measureme/pull/198
+[GH-199]: https://github.com/rust-lang/measureme/pull/199
 [GH-200]: https://github.com/rust-lang/measureme/pull/200
 [GH-202]: https://github.com/rust-lang/measureme/pull/202
+[GH-205]: https://github.com/rust-lang/measureme/pull/205
+[GH-208]: https://github.com/rust-lang/measureme/pull/208
+[GH-209]: https://github.com/rust-lang/measureme/pull/209
+[GH-211]: https://github.com/rust-lang/measureme/pull/211
