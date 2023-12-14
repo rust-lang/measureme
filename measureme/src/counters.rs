@@ -108,6 +108,10 @@
 //! Also keep in mind that instruction counts do not properly reflect all kinds
 //! of workloads, e.g. SIMD throughput and cache locality are unaccounted for.
 
+// FIXME: Use a cargo feature for accurate_seqlock_rdpmc and unserialized_rdpmc
+//        so we don't need this:
+#![allow(unexpected_cfgs)]
+
 use std::error::Error;
 use std::time::Instant;
 
