@@ -2,7 +2,7 @@ name: Rust
 
 on:
   push:
-    branches: [ 
+    branches: [
       master,
       auto,   # used for bors
       try     # used for bors
@@ -29,10 +29,10 @@ jobs:
       run: cargo test --verbose --all
     - name: Docs
       run: cargo doc --verbose --all
-  
+
   build_beta:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v2
     - uses: actions-rs/toolchain@v1
@@ -54,7 +54,7 @@ jobs:
 
   build_nightly:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v2
     - uses: actions-rs/toolchain@v1
@@ -64,19 +64,19 @@ jobs:
     - uses: actions-rs/cargo@v1
       with:
         command: build
-        args: --verbose --all
+        args: --verbose --all -Zcheck-cfg
     - uses: actions-rs/cargo@v1
       with:
         command: test
-        args: --verbose --all
+        args: --verbose --all -Zcheck-cfg
     - uses: actions-rs/cargo@v1
       with:
         command: doc
         args: --verbose --all
-      
+
   check_big_endian:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v2
     - uses: actions-rs/toolchain@v1
