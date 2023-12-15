@@ -17,10 +17,12 @@ use std::convert::TryInto;
 use std::error::Error;
 use std::path::Path;
 
+const INDEX_ENTRY_SIZE: usize = std::mem::size_of::<StringId>() + std::mem::size_of::<Addr>();
+
 fn deserialize_index_entry(bytes: &[u8]) -> (StringId, Addr) {
     (
-        StringId::new(u32::from_le_bytes(bytes[0..4].try_into().unwrap())),
-        Addr(u32::from_le_bytes(bytes[4..8].try_into().unwrap())),
+        StringId::new(u64::from_le_bytes(bytes[0..8].try_into().unwrap())),
+        Addr(u64::from_le_bytes(bytes[8..16].try_into().unwrap())),
     )
 }
 
@@ -152,9 +154,9 @@ fn decode_string_ref_from_data(bytes: &[u8]) -> StringId {
     // refs, where the first byte is STRING_REF_TAG and the
     // following 4 bytes are a little-endian u32 string ID value.
     assert!(bytes[0] == STRING_REF_TAG);
-    assert!(STRING_REF_ENCODED_SIZE == 5);
+    assert!(STRING_REF_ENCODED_SIZE == 9);
 
-    let id = u32::from_le_bytes(bytes[1..5].try_into().unwrap());
+    let id = u64::from_le_bytes(bytes[1..9].try_into().unwrap());
     StringId::new(id)
 }
 
@@ -185,9 +187,15 @@ impl StringTable {
             "StringTable Index",
         )?;
 
-        assert!(index_data.len() % 8 == 0);
+        // The non-header data should be divisible into index entries.
+        assert!(
+            (index_data.len() - measureme::file_header::FILE_HEADER_SIZE) % INDEX_ENTRY_SIZE == 0,
+            "StringTable index size appears malformed",
+        );
+        assert_eq!(INDEX_ENTRY_SIZE, 16);
+
         let index: FxHashMap<_, _> = strip_file_header(&index_data)
-            .chunks(8)
+            .chunks(INDEX_ENTRY_SIZE)
             .map(deserialize_index_entry)
             .collect();
 

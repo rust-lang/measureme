@@ -38,7 +38,7 @@ where
         .expect("a time that can be represented as SystemTime"))
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Metadata {
     #[serde(deserialize_with = "system_time_from_nanos")]
     pub start_time: SystemTime,
@@ -113,9 +113,15 @@ impl EventDecoder {
 
         let mut split_data = measureme::split_streams(&entire_file_data[FILE_HEADER_SIZE..]);
 
-        let string_data = split_data.remove(&PageTag::StringData).expect("Invalid file: No string data found");
-        let index_data = split_data.remove(&PageTag::StringIndex).expect("Invalid file: No string index data found");
-        let event_data = split_data.remove(&PageTag::Events).expect("Invalid file: No event data found");
+        let string_data = split_data
+            .remove(&PageTag::StringData)
+            .expect("Invalid file: No string data found");
+        let index_data = split_data
+            .remove(&PageTag::StringIndex)
+            .expect("Invalid file: No string index data found");
+        let event_data = split_data
+            .remove(&PageTag::Events)
+            .expect("Invalid file: No event data found");
 
         Self::from_separate_buffers(string_data, index_data, event_data, diagnostic_file_path)
     }
@@ -151,8 +157,8 @@ impl EventDecoder {
         event_byte_count / RAW_EVENT_SIZE
     }
 
-    pub fn metadata(&self) -> &Metadata {
-        &self.metadata
+    pub fn metadata(&self) -> Metadata {
+        self.metadata.clone()
     }
 
     pub fn decode_full_event<'a>(&'a self, event_index: usize) -> Event<'a> {

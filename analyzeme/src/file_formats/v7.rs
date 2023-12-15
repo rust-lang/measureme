@@ -41,8 +41,8 @@ impl super::EventDecoder for EventDecoder {
         self.legacy_profiling_data.num_events()
     }
 
-    fn metadata(&self) -> &Metadata {
-        &self.metadata
+    fn metadata(&self) -> Metadata {
+        self.metadata.clone()
     }
 
     fn decode_full_event(&self, event_index: usize) -> Event<'_> {

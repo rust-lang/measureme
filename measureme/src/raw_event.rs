@@ -214,7 +214,7 @@ mod tests {
     #[test]
     fn raw_event_has_expected_size() {
         // A test case to prevent accidental regressions of RawEvent's size.
-        assert_eq!(std::mem::size_of::<RawEvent>(), 24);
+        assert_eq!(std::mem::size_of::<RawEvent>(), 32);
     }
 
     #[test]

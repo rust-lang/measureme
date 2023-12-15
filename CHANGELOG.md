@@ -1,5 +1,11 @@
 # Changelog
 
+## [11.0.0] - 2023-12-14
+
+### Changed
+- `measureme`: Update StringId and Addr sizes from u32 to u64 ([GH-216])
+- `analyzeme`: v9 file format, which uses larger events ([GH-216])
+
 ## [10.1.2] - 2023-12-14
 
 ### Changed
@@ -232,3 +238,4 @@
 [GH-208]: https://github.com/rust-lang/measureme/pull/208
 [GH-209]: https://github.com/rust-lang/measureme/pull/209
 [GH-211]: https://github.com/rust-lang/measureme/pull/211
+[GH-216]: https://github.com/rust-lang/measureme/pull/216

@@ -70,7 +70,7 @@ impl std::convert::TryFrom<u8> for PageTag {
 // TODO: Evaluate if it makes sense to add a type tag to `Addr` in order to
 //       prevent accidental use of `Addr` values with the wrong address space.
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
-pub struct Addr(pub u32);
+pub struct Addr(pub u64);
 
 impl Addr {
     pub fn as_usize(self) -> usize {
@@ -169,7 +169,7 @@ impl<'a> Write for StdWriteAdapter<'a> {
 #[derive(Debug)]
 struct SerializationSinkInner {
     buffer: Vec<u8>,
-    addr: u32,
+    addr: u64,
 }
 
 /// This state is shared between all `SerializationSink`s writing to the same
@@ -326,7 +326,7 @@ impl SerializationSink {
         buffer.resize(buf_end, 0u8);
         write(&mut buffer[buf_start..buf_end]);
 
-        *addr += num_bytes as u32;
+        *addr += num_bytes as u64;
 
         Addr(curr_addr)
     }
@@ -356,7 +356,7 @@ impl SerializationSink {
         } = *data;
 
         let curr_addr = Addr(*addr);
-        *addr += bytes.len() as u32;
+        *addr += bytes.len() as u64;
 
         let mut bytes_left = bytes;
 
@@ -438,7 +438,7 @@ mod tests {
                 tags.iter().map(|&tag| sink_builder.new_sink(tag)).collect();
 
             for chunk_index in 0..chunk_count {
-                let expected_addr = Addr((chunk_index * chunk_size) as u32);
+                let expected_addr = Addr((chunk_index * chunk_size) as u64);
                 for sink in sinks.iter() {
                     assert_eq!(write(sink, &expected_chunk[..]), expected_addr);
                 }

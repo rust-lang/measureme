@@ -7,6 +7,7 @@ use measureme::file_header::{
 use measureme::{
     EventId, PageTag, RawEvent, SerializationSink, SerializationSinkBuilder, StringTableBuilder,
 };
+use std::cell::OnceCell;
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
@@ -15,6 +16,7 @@ use std::{error::Error, path::PathBuf};
 #[derive(Debug)]
 pub struct ProfilingData {
     event_decoder: Box<dyn EventDecoder>,
+    metadata: OnceCell<Metadata>,
 }
 
 impl ProfilingData {
@@ -50,9 +52,6 @@ impl ProfilingData {
         data: Vec<u8>,
         diagnostic_file_path: Option<&Path>,
     ) -> Result<ProfilingData, Box<dyn Error + Send + Sync>> {
-        // let event_decoder = EventDecoder::new(data, diagnostic_file_path)?;
-        // Ok(ProfilingData { event_decoder })
-
         let file_format_version = read_file_header(
             &data,
             FILE_MAGIC_TOP_LEVEL,
@@ -63,6 +62,10 @@ impl ProfilingData {
         let event_decoder: Box<dyn file_formats::EventDecoder> = match file_format_version {
             file_formats::v7::FILE_FORMAT => Box::new(file_formats::v7::EventDecoder::new(data)?),
             file_formats::v8::FILE_FORMAT => Box::new(file_formats::v8::EventDecoder::new(
+                data,
+                diagnostic_file_path,
+            )?),
+            file_formats::v9::FILE_FORMAT => Box::new(file_formats::v9::EventDecoder::new(
                 data,
                 diagnostic_file_path,
             )?),
@@ -83,11 +86,15 @@ impl ProfilingData {
             }
         };
 
-        Ok(ProfilingData { event_decoder })
+        Ok(ProfilingData {
+            event_decoder,
+            metadata: OnceCell::new(),
+        })
     }
 
     pub fn metadata(&self) -> &Metadata {
-        self.event_decoder.metadata()
+        // Cache the metadata during the first access
+        self.metadata.get_or_init(|| self.event_decoder.metadata())
     }
 
     pub fn iter<'a>(&'a self) -> ProfilerEventIterator<'a> {
@@ -301,6 +308,7 @@ impl ProfilingDataBuilder {
                 )
                 .unwrap(),
             ),
+            metadata: OnceCell::new(),
         }
     }
 
@@ -639,6 +647,86 @@ mod tests {
                 grouped_events["Query"][0].duration(),
                 Some(Duration::from_nanos(1752900))
             );
+        }
+
+        // To generate this revision, a v9 revision of the rust toolchain was
+        // created, and "rustup toolchain link" was used to name it "bespoke".
+        // Then, the following commands were executed:
+        //
+        //   # Make a small test binary and profile it.
+        //   cargo new --bin testbinary
+        //   cargo +bespoke rustc --bin testbinary -- -Zself-profile
+        //
+        //   # Gzip the output profdata.
+        //   gzip testbinary-...mm_profdata
+        //   mv testbinary-...mm_profdata.gz v9.mm_profdata.gz
+        #[test]
+        fn can_read_v9_profdata_files() {
+            let (data, file_format_version) =
+                read_data_and_version("tests/profdata/v9.mm_profdata.gz");
+            assert_eq!(file_format_version, file_formats::v9::FILE_FORMAT);
+            let profiling_data = ProfilingData::from_paged_buffer(data, None)
+                .expect("Creating the profiling data failed");
+            let grouped_events = group_events(&profiling_data);
+            let event_kinds = grouped_events
+                .keys()
+                .map(|k| k.as_str())
+                .collect::<HashSet<_>>();
+            let expect_event_kinds = vec![
+                "GenericActivity",
+                "IncrementalResultHashing",
+                "Query",
+                "ArtifactSize",
+            ]
+            .into_iter()
+            .collect::<HashSet<_>>();
+            assert_eq!(event_kinds, expect_event_kinds);
+
+            let generic_activity_len = 5125;
+            let incremental_hashing_len = 1844;
+            let query_len = 1877;
+            let artifact_size_len = 24;
+            assert_eq!(
+                grouped_events["GenericActivity"].len(),
+                generic_activity_len
+            );
+            assert_eq!(
+                grouped_events["IncrementalResultHashing"].len(),
+                incremental_hashing_len
+            );
+            assert_eq!(grouped_events["Query"].len(), query_len);
+            assert_eq!(grouped_events["ArtifactSize"].len(), artifact_size_len);
+
+            assert_eq!(
+                grouped_events["GenericActivity"][generic_activity_len / 2].label,
+                "metadata_decode_entry_item_attrs"
+            );
+            assert_eq!(
+                grouped_events["GenericActivity"][generic_activity_len / 2].duration(),
+                Some(Duration::from_nanos(376))
+            );
+
+            assert_eq!(
+                grouped_events["IncrementalResultHashing"][incremental_hashing_len - 1].label,
+                "crate_hash"
+            );
+            assert_eq!(
+                grouped_events["IncrementalResultHashing"][incremental_hashing_len - 1].duration(),
+                Some(Duration::from_nanos(461))
+            );
+
+            assert_eq!(grouped_events["Query"][0].label, "registered_tools");
+            assert_eq!(
+                grouped_events["Query"][0].duration(),
+                Some(Duration::from_nanos(45077))
+            );
+
+            assert_eq!(
+                grouped_events["ArtifactSize"][0].label,
+                "codegen_unit_size_estimate"
+            );
+            assert_eq!(grouped_events["ArtifactSize"][0].duration(), None);
+            assert_eq!(grouped_events["ArtifactSize"][0].integer(), Some(3));
         }
 
         fn read_data_and_version(file_path: &str) -> (Vec<u8>, u32) {
