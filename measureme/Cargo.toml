@@ -1,6 +1,6 @@
 [package]
 name = "measureme"
-version = "10.1.2"
+version = "11.0.0"
 authors = ["Wesley Wiser <wwiser@gmail.com>", "Michael Woerister <michaelwoerister@posteo>"]
 edition = "2018"
 description = "Support crate for rustc's self-profiling feature"

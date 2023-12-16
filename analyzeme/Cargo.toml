@@ -1,6 +1,6 @@
 [package]
 name = "analyzeme"
-version = "10.1.2"
+version = "11.0.0"
 authors = ["Wesley Wiser <wwiser@gmail.com>", "Michael Woerister <michaelwoerister@posteo>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -14,7 +14,13 @@ serde = { version = "1.0", features = ["derive"] }
 
 # Depending on older versions of this crate allows us to keep supporting older
 # file formats.
+
+# File format: v7
 analyzeme_9_2_0 = { package = "analyzeme", git = "https://github.com/rust-lang/measureme", tag = "9.2.0" }
+
+# File format: v8
+decodeme_10_1_2 = { package = "decodeme", git = "https://github.com/rust-lang/measureme", tag = "10.1.2" }
+measureme_10_1_2 = { package = "measureme", git = "https://github.com/rust-lang/measureme", tag = "10.1.2" }
 
 [dev-dependencies]
 flate2 = "1.0"

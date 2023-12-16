@@ -1,6 +1,6 @@
 [package]
 name = "mmedit"
-version = "10.1.2"
+version = "11.0.0"
 edition = "2018"
 
 [dependencies]

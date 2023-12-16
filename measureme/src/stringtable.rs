@@ -74,18 +74,18 @@ use std::{error::Error, sync::Arc};
 /// that maps virtual `StringId`s to addresses.
 #[derive(Clone, Copy, Eq, PartialEq, Debug, Hash)]
 #[repr(C)]
-pub struct StringId(u32);
+pub struct StringId(u64);
 
 impl StringId {
     pub const INVALID: StringId = StringId(INVALID_STRING_ID);
 
     #[inline]
-    pub fn new(id: u32) -> StringId {
+    pub fn new(id: u64) -> StringId {
         StringId(id)
     }
 
     #[inline]
-    pub fn new_virtual(id: u32) -> StringId {
+    pub fn new_virtual(id: u64) -> StringId {
         assert!(id <= MAX_USER_VIRTUAL_STRING_ID);
         StringId(id)
     }
@@ -96,7 +96,7 @@ impl StringId {
     }
 
     #[inline]
-    pub fn as_u32(self) -> u32 {
+    pub fn as_u64(self) -> u64 {
         self.0
     }
 
@@ -115,18 +115,18 @@ impl StringId {
 // See module-level documentation for more information on the encoding.
 pub const TERMINATOR: u8 = 0xFF;
 pub const STRING_REF_TAG: u8 = 0xFE;
-pub const STRING_REF_ENCODED_SIZE: usize = 5;
+pub const STRING_REF_ENCODED_SIZE: usize = 9;
 
 /// The maximum id value a virtual string may be.
-const MAX_USER_VIRTUAL_STRING_ID: u32 = 100_000_000;
+const MAX_USER_VIRTUAL_STRING_ID: u64 = 100_000_000;
 
 /// The id of the profile metadata string entry.
-pub const METADATA_STRING_ID: u32 = MAX_USER_VIRTUAL_STRING_ID + 1;
+pub const METADATA_STRING_ID: u64 = MAX_USER_VIRTUAL_STRING_ID + 1;
 
 /// Some random string ID that we make sure cannot be generated or assigned to.
-const INVALID_STRING_ID: u32 = METADATA_STRING_ID + 1;
+const INVALID_STRING_ID: u64 = METADATA_STRING_ID + 1;
 
-pub const FIRST_REGULAR_STRING_ID: u32 = INVALID_STRING_ID + 1;
+pub const FIRST_REGULAR_STRING_ID: u64 = INVALID_STRING_ID + 1;
 
 /// Write-only version of the string table
 pub struct StringTableBuilder {
@@ -180,14 +180,14 @@ impl<'s> StringComponent<'s> {
                 &mut bytes[s.len()..]
             }
             StringComponent::Ref(string_id) => {
-                // The code below assumes we use a 5-byte encoding for string
+                // The code below assumes we use a 9-byte encoding for string
                 // refs, where the first byte is STRING_REF_TAG and the
-                // following 4 bytes are a little-endian u32 string ID value.
-                assert!(STRING_REF_ENCODED_SIZE == 5);
+                // following 8 bytes are a little-endian u64 string ID value.
+                assert!(STRING_REF_ENCODED_SIZE == 9);
 
                 bytes[0] = STRING_REF_TAG;
-                bytes[1..5].copy_from_slice(&string_id.0.to_le_bytes());
-                &mut bytes[5..]
+                bytes[1..9].copy_from_slice(&string_id.0.to_le_bytes());
+                &mut bytes[9..]
             }
         }
     }
@@ -248,9 +248,9 @@ impl_serializable_string_for_fixed_size!(15);
 impl_serializable_string_for_fixed_size!(16);
 
 fn serialize_index_entry(sink: &SerializationSink, id: StringId, addr: Addr) {
-    sink.write_atomic(8, |bytes| {
-        bytes[0..4].copy_from_slice(&id.0.to_le_bytes());
-        bytes[4..8].copy_from_slice(&addr.0.to_le_bytes());
+    sink.write_atomic(16, |bytes| {
+        bytes[0..8].copy_from_slice(&id.0.to_le_bytes());
+        bytes[8..16].copy_from_slice(&addr.0.to_le_bytes());
     });
 }
 
@@ -289,8 +289,8 @@ impl StringTableBuilder {
         //       multiple StringIds to the same addr, so we don't have to repeat
         //       the `concrete_id` over and over.
 
-        type MappingEntry = [u32; 2];
-        assert!(std::mem::size_of::<MappingEntry>() == 8);
+        type MappingEntry = [u64; 2];
+        assert!(std::mem::size_of::<MappingEntry>() == 16);
 
         let to_addr_le = concrete_id.to_addr().0.to_le();
 

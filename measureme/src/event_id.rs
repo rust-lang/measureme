@@ -33,24 +33,24 @@ impl EventId {
     }
 
     #[inline]
-    pub fn as_u32(self) -> u32 {
-        self.0.as_u32()
+    pub fn as_u64(self) -> u64 {
+        self.0.as_u64()
     }
 
     #[inline]
-    pub fn from_label(label: StringId) -> EventId {
+    pub fn from_label(label: StringId) -> Self {
         EventId(label)
     }
 
     #[inline]
-    pub fn from_virtual(virtual_id: StringId) -> EventId {
+    pub fn from_virtual(virtual_id: StringId) -> Self {
         EventId(virtual_id)
     }
 
-    /// Create an EventId from a raw u32 value. Only used internally for
+    /// Create an EventId from a raw u64 value. Only used internally for
     /// deserialization.
     #[inline]
-    pub fn from_u32(raw_id: u32) -> EventId {
+    pub fn from_u64(raw_id: u64) -> Self {
         EventId(StringId::new(raw_id))
     }
 }

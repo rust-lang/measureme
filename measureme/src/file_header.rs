@@ -5,7 +5,7 @@ use std::convert::TryInto;
 use std::error::Error;
 use std::path::Path;
 
-pub const CURRENT_FILE_FORMAT_VERSION: u32 = 8;
+pub const CURRENT_FILE_FORMAT_VERSION: u32 = 9;
 
 pub const FILE_MAGIC_TOP_LEVEL: &[u8; 4] = b"MMPD";
 pub const FILE_MAGIC_EVENT_STREAM: &[u8; 4] = b"MMES";
