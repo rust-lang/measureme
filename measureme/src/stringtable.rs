@@ -80,12 +80,13 @@ impl StringId {
     pub const INVALID: StringId = StringId(INVALID_STRING_ID);
 
     #[inline]
-    pub fn new(id: u64) -> StringId {
-        StringId(id)
+    pub fn new(id: impl Into<u64>) -> StringId {
+        StringId(id.into())
     }
 
     #[inline]
-    pub fn new_virtual(id: u64) -> StringId {
+    pub fn new_virtual(id: impl Into<u64>) -> StringId {
+        let id = id.into();
         assert!(id <= MAX_USER_VIRTUAL_STRING_ID);
         StringId(id)
     }

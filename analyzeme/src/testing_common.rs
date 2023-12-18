@@ -42,7 +42,7 @@ fn generate_profiling_data(
 ) -> Vec<Event<'static>> {
     let profiler = Arc::new(Profiler::new(Path::new(filestem)).unwrap());
 
-    let event_id_virtual = EventId::from_label(StringId::new_virtual(42));
+    let event_id_virtual = EventId::from_label(StringId::new_virtual(42u64));
     let event_id_builder = EventIdBuilder::new(&profiler);
 
     let event_ids: Vec<(StringId, EventId)> = vec![
