@@ -154,12 +154,12 @@ impl RawEvent {
         {
             // We always emit data as little endian, which we have to do
             // manually on big endian targets.
-            bytes[0..4].copy_from_slice(&self.event_kind.as_u32().to_le_bytes());
-            bytes[4..8].copy_from_slice(&self.event_id.as_u32().to_le_bytes());
-            bytes[8..12].copy_from_slice(&self.thread_id.to_le_bytes());
-            bytes[12..16].copy_from_slice(&self.payload1_lower.to_le_bytes());
-            bytes[16..20].copy_from_slice(&self.payload2_lower.to_le_bytes());
-            bytes[20..24].copy_from_slice(&self.payloads_upper.to_le_bytes());
+            bytes[0..8].copy_from_slice(&self.event_kind.as_u64().to_le_bytes());
+            bytes[8..16].copy_from_slice(&self.event_id.as_u64().to_le_bytes());
+            bytes[16..20].copy_from_slice(&self.thread_id.to_le_bytes());
+            bytes[20..24].copy_from_slice(&self.payload1_lower.to_le_bytes());
+            bytes[24..28].copy_from_slice(&self.payload2_lower.to_le_bytes());
+            bytes[28..32].copy_from_slice(&self.payloads_upper.to_le_bytes());
         }
     }
 
@@ -183,12 +183,12 @@ impl RawEvent {
         #[cfg(target_endian = "big")]
         {
             RawEvent {
-                event_kind: StringId::new(u32::from_le_bytes(bytes[0..4].try_into().unwrap())),
-                event_id: EventId::from_u32(u32::from_le_bytes(bytes[4..8].try_into().unwrap())),
-                thread_id: u32::from_le_bytes(bytes[8..12].try_into().unwrap()),
-                payload1_lower: u32::from_le_bytes(bytes[12..16].try_into().unwrap()),
-                payload2_lower: u32::from_le_bytes(bytes[16..20].try_into().unwrap()),
-                payloads_upper: u32::from_le_bytes(bytes[20..24].try_into().unwrap()),
+                event_kind: StringId::new(u64::from_le_bytes(bytes[0..8].try_into().unwrap())),
+                event_id: EventId::from_u64(u64::from_le_bytes(bytes[8..16].try_into().unwrap())),
+                thread_id: u32::from_le_bytes(bytes[16..20].try_into().unwrap()),
+                payload1_lower: u32::from_le_bytes(bytes[20..24].try_into().unwrap()),
+                payload2_lower: u32::from_le_bytes(bytes[24..28].try_into().unwrap()),
+                payloads_upper: u32::from_le_bytes(bytes[28..32].try_into().unwrap()),
             }
         }
     }
