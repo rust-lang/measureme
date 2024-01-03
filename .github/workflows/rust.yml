@@ -18,6 +18,9 @@ jobs:
     strategy:
       matrix:
         rust_channel: [ stable, beta, nightly ]
+        include:
+          - rust_channel: nightly
+            check_cfg: '-Zcheck-cfg'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -28,9 +31,9 @@ jobs:
         # compiles on big endian.
         targets: powerpc64-unknown-linux-gnu
     - name: Build
-      run: cargo build --verbose --all
+      run: cargo build --verbose --all ${{ matrix.check_cfg }}
     - name: Run tests
-      run: cargo test --verbose --all
+      run: cargo test --verbose --all ${{ matrix.check_cfg }}
     - name: Docs
       run: cargo doc --verbose --all
     - name: Check big endian
