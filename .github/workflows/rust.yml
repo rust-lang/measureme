@@ -14,80 +14,27 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build_stable:
-
+  build:
+    strategy:
+      matrix:
+        rust_channel: [ stable, beta, nightly ]
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: stable
+        toolchain: ${{ matrix.rust_channel }}
+        # Add a big endian target so we can check that everything at least
+        # compiles on big endian.
+        targets: powerpc64-unknown-linux-gnu
     - name: Build
       run: cargo build --verbose --all
     - name: Run tests
       run: cargo test --verbose --all
     - name: Docs
       run: cargo doc --verbose --all
-
-  build_beta:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: beta
-        override: true
-    - uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: --verbose --all
-    - uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --verbose --all
-    - uses: actions-rs/cargo@v1
-      with:
-        command: doc
-        args: --verbose --all
-
-  build_nightly:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: nightly
-        override: true
-    - uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: --verbose --all -Zcheck-cfg
-    - uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --verbose --all -Zcheck-cfg
-    - uses: actions-rs/cargo@v1
-      with:
-        command: doc
-        args: --verbose --all
-
-  check_big_endian:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        target: powerpc64-unknown-linux-gnu
-        override: true
-    - uses: actions-rs/cargo@v1
-      with:
-        command: check
-        args: --verbose --lib --bins --tests
+    - name: Check big endian
+      run: cargo check --target powerpc64-unknown-linux-gnu --verbose --all
 
   # These jobs doesn't actually test anything, but they're only used to tell
   # bors the build completed, as there is no practical way to detect when a
@@ -97,7 +44,7 @@ jobs:
   end-success:
     name: bors build finished
     runs-on: ubuntu-latest
-    needs: [build_stable, build_beta, build_nightly, check_big_endian]
+    needs: [build]
     if: github.event.pusher.name == 'bors' && success()
     steps:
       - name: mark the job as a success
@@ -106,7 +53,7 @@ jobs:
   end-failure:
     name: bors build finished
     runs-on: ubuntu-latest
-    needs: [build_stable, build_beta, build_nightly, check_big_endian]
+    needs: [build]
     if: github.event.pusher.name == 'bors' && (failure() || cancelled())
     steps:
       - name: mark the job as a failure
