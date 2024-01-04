@@ -1,8 +1,15 @@
 # Changelog
 
+## [11.0.1] - 2024-01-XX
+
+### Changed
+
+- `measureme`: Fix compilation error and regression tests for big endian platforms ([GH-220])
+
 ## [11.0.0] - 2023-12-14
 
 ### Changed
+
 - `measureme`: Update StringId and Addr sizes from u32 to u64 ([GH-216])
 - `analyzeme`: v9 file format, which uses larger events ([GH-216])
 
@@ -239,3 +246,4 @@
 [GH-209]: https://github.com/rust-lang/measureme/pull/209
 [GH-211]: https://github.com/rust-lang/measureme/pull/211
 [GH-216]: https://github.com/rust-lang/measureme/pull/216
+[GH-220]: https://github.com/rust-lang/measureme/pull/220
