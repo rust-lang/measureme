@@ -14,11 +14,10 @@ jobs:
     - uses: actions/checkout@v4
       with:
         ref: stable
-    - uses: dtolnay/rust-toolchain@stable
-      with:
-        toolchain: nightly
+    - name: Set up Rust toolchain
+      run: rustup toolchain install --no-self-update --profile minimal nightly
     - name: Build
-      run: cargo build --all
+      run: cargo +nightly build --all
     - name: Generate self-profile
       run: RUSTFLAGS="-Zself-profile" cargo +nightly build --bin crox
     - name: Check crox

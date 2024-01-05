@@ -17,25 +17,26 @@ jobs:
   build:
     strategy:
       matrix:
-        rust_channel: [ stable, beta, nightly ]
+        rust: [ stable, beta, nightly ]
         include:
-          - rust_channel: nightly
+          - rust: nightly
             check_cfg: '-Zcheck-cfg'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: dtolnay/rust-toolchain@stable
-      with:
-        toolchain: ${{ matrix.rust_channel }}
+    - name: Set up Rust toolchain
+      run: |
+        rustup toolchain install --no-self-update --profile minimal ${{ matrix.rust }}
+        rustup default ${{ matrix.rust }}
         # Add a big endian target so we can check that everything at least
         # compiles on big endian.
-        targets: powerpc64-unknown-linux-gnu
+        rustup target add --toolchain ${{ matrix.rust }} powerpc64-unknown-linux-gnu
     - name: Build
       run: cargo build --verbose --all ${{ matrix.check_cfg }}
     - name: Run tests
       run: cargo test --verbose --all ${{ matrix.check_cfg }}
     - name: Docs
-      run: cargo doc --verbose --all
+      run: cargo doc --verbose --no-deps
     - name: Check big endian
       run: cargo check --target powerpc64-unknown-linux-gnu --verbose --all
 
