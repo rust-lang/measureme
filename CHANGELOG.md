@@ -1,10 +1,14 @@
 # Changelog
 
-## [11.0.1] - 2024-01-XX
+## [11.0.1] - 2024-01-11
 
 ### Changed
 
 - `measureme`: Fix compilation error and regression tests for big endian platforms ([GH-220])
+
+### Added
+
+- Add GitHub Workflow for publishing measureme ([GH-221])
 
 ## [11.0.0] - 2023-12-14
 
@@ -247,3 +251,4 @@
 [GH-211]: https://github.com/rust-lang/measureme/pull/211
 [GH-216]: https://github.com/rust-lang/measureme/pull/216
 [GH-220]: https://github.com/rust-lang/measureme/pull/220
+[GH-221]: https://github.com/rust-lang/measureme/pull/221
