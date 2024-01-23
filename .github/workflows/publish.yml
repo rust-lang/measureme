@@ -1,0 +1,17 @@
+name: Publish
+on:
+  release:
+    types: [created]
+
+jobs:
+  publish:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust (rustup)
+        run: rustup update stable && rustup default stable
+      - name: Publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish -p measureme

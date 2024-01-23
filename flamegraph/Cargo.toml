@@ -1,7 +1,10 @@
 [package]
 name = "flamegraph"
-version = "11.0.0"
-authors = ["Wesley Wiser <wwiser@gmail.com>", "Michael Woerister <michaelwoerister@posteo>"]
+version = "11.0.1"
+authors = [
+    "Wesley Wiser <wwiser@gmail.com>",
+    "Michael Woerister <michaelwoerister@posteo>",
+]
 edition = "2018"
 license = "MIT OR Apache-2.0"
 
@@ -9,4 +12,4 @@ license = "MIT OR Apache-2.0"
 measureme = { path = "../measureme" }
 analyzeme = { path = "../analyzeme" }
 clap = { version = "3.2", features = ["derive"] }
-inferno = { version="0.9.1", default-features = false }
+inferno = { version = "0.11", default-features = false }
