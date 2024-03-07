@@ -25,10 +25,10 @@ struct DiffOpt {
     base: PathBuf,
     change: PathBuf,
 
-    #[clap(short = 'e', long = "exclude")]
+    #[arg(short = 'e', long = "exclude")]
     exclude: Vec<String>,
 
-    #[clap(long = "json")]
+    #[arg(long = "json")]
     json: bool,
 }
 
@@ -37,25 +37,25 @@ struct SummarizeOpt {
     file_prefix: PathBuf,
 
     /// Writes the analysis to a json file next to <file_prefix> instead of stdout
-    #[clap(long = "json")]
+    #[arg(long = "json")]
     json: bool,
 
     /// Filter the output to items whose self-time is greater than this value
-    #[clap(short = 'p', long = "percent-above", default_value = "0.0")]
+    #[arg(short = 'p', long = "percent-above", default_value = "0.0")]
     percent_above: f64,
 }
 
 #[derive(Parser, Debug)]
 enum Opt {
     /// Processes a set of trace files with identical events and analyze variance
-    #[clap(name = "aggregate")]
+    #[command(name = "aggregate")]
     Aggregate(AggregateOpt),
 
-    #[clap(name = "diff")]
+    #[command(name = "diff")]
     Diff(DiffOpt),
 
     /// Processes trace files and produces a summary
-    #[clap(name = "summarize")]
+    #[command(name = "summarize")]
     Summarize(SummarizeOpt),
 }
 

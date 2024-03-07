@@ -6,4 +6,4 @@ edition = "2018"
 [dependencies]
 measureme = { path = "../measureme" }
 decodeme = { path = "../decodeme" }
-clap = { version = "3.2", features = ["derive"] }
+clap = { version = "4.5.0", features = ["derive"] }

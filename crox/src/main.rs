@@ -44,16 +44,16 @@ struct Event {
 
 #[derive(Parser, Debug)]
 struct Opt {
-    #[clap(required_unless_present = "dir")]
+    #[arg(required_unless_present = "dir")]
     file_prefix: Vec<PathBuf>,
     /// all event trace files in dir will be merged to one chrome_profiler.json file
-    #[clap(long = "dir")]
+    #[arg(long = "dir")]
     dir: Option<PathBuf>,
     /// collapse threads without overlapping events
-    #[clap(long = "collapse-threads")]
+    #[arg(long = "collapse-threads")]
     collapse_threads: bool,
     /// filter out events with shorter duration (in microseconds)
-    #[clap(long = "minimum-duration")]
+    #[arg(long = "minimum-duration")]
     minimum_duration: Option<u128>,
 }
 
