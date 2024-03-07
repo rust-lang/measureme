@@ -2,7 +2,6 @@ use crate::{Event, EventPayload, ProfilingData, Timestamp};
 use measureme::{EventId, EventIdBuilder, Profiler, StringId};
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
-use std::default::Default;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::SystemTime;
