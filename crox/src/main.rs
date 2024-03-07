@@ -44,7 +44,7 @@ struct Event {
 
 #[derive(Parser, Debug)]
 struct Opt {
-    #[clap(required_unless = "dir")]
+    #[clap(required_unless_present = "dir")]
     file_prefix: Vec<PathBuf>,
     /// all event trace files in dir will be merged to one chrome_profiler.json file
     #[clap(long = "dir")]
@@ -135,7 +135,7 @@ fn get_args(full_event: &analyzeme::Event<'_>) -> Option<FxHashMap<String, Strin
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
 
     let chrome_file = BufWriter::new(fs::File::create("chrome_profiler.json")?);
     let mut serializer = serde_json::Serializer::new(chrome_file);

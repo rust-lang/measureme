@@ -13,7 +13,7 @@ struct Opt {
 }
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
 
     let profiling_data = ProfilingData::new(&opt.file_prefix)?;
 
