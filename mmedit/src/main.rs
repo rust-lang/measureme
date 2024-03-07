@@ -12,7 +12,7 @@ struct TruncateOpt {
 #[derive(Parser, Debug)]
 enum Opt {
     /// Truncate to a single page per tag
-    #[clap(name = "truncate")]
+    #[command(name = "truncate")]
     Truncate(TruncateOpt),
 }
 

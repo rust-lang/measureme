@@ -9,7 +9,7 @@ struct Opt {
     file_prefix: PathBuf,
 
     /// Filter to events which occured on the specified thread id
-    #[clap(short = 't', long = "thread-id")]
+    #[arg(short = 't', long = "thread-id")]
     thread_id: Option<u32>,
 }
 
