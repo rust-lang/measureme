@@ -312,7 +312,7 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
 }
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
 
     match opt {
         Opt::Summarize(opt) => summarize(opt),

@@ -61,7 +61,7 @@ fn truncate(file_contents: &[u8]) -> Result<Vec<u8>, Box<dyn Error + Send + Sync
 }
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
 
     match opt {
         Opt::Truncate(opt) => {
