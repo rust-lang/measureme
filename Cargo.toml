@@ -12,3 +12,6 @@ members = [
     "mmedit",
     "version_checker",
 ]
+
+[workspace.package]
+license = "MIT OR Apache-2.0"

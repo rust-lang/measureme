@@ -3,6 +3,7 @@ name = "crox"
 version = "11.0.1"
 authors = ["Wesley Wiser <wwiser@gmail.com>"]
 edition = "2018"
+license.workspace = true
 
 [dependencies]
 measureme = { path = "../measureme" }
