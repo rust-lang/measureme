@@ -6,7 +6,7 @@ authors = [
     "Michael Woerister <michaelwoerister@posteo>",
 ]
 edition = "2018"
-license = "MIT OR Apache-2.0"
+license.workspace = true
 
 [dependencies]
 measureme = { path = "../measureme" }

@@ -2,6 +2,7 @@
 name = "mmedit"
 version = "11.0.1"
 edition = "2018"
+license.workspace = true
 
 [dependencies]
 measureme = { path = "../measureme" }

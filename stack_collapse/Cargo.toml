@@ -3,7 +3,7 @@ name = "stack_collapse"
 version = "11.0.1"
 authors = ["Wesley Wiser <wwiser@gmail.com>", "Michael Woerister <michaelwoerister@posteo>"]
 edition = "2018"
-license = "MIT OR Apache-2.0"
+license.workspace = true
 
 [dependencies]
 measureme = { path = "../measureme" }
