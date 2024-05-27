@@ -1,5 +1,6 @@
 [package]
 name = "summarize"
+description = "Produces a human readable summary of `measureme` profiling data"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

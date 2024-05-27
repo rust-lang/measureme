@@ -1,5 +1,6 @@
 [package]
 name = "flamegraph"
+description = "Reads `measureme` profiling data and outputs Flame Graph"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

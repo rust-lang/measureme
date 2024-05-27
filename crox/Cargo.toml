@@ -1,5 +1,6 @@
 [package]
 name = "crox"
+description = "Turns `measureme` profiling data into files that can be visualized by the Chromium performance tools"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
