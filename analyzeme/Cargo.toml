@@ -8,8 +8,8 @@ repository.workspace = true
 
 [dependencies]
 decodeme = { path = "../decodeme" }
-memchr = "2"
 measureme = { path = "../measureme" }
+memchr = "2"
 rustc-hash = "1.0.1"
 serde = { version = "1.0", features = ["derive"] }
 
