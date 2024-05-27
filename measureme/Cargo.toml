@@ -1,7 +1,7 @@
 [package]
 name = "measureme"
 version.workspace = true
-authors = ["Wesley Wiser <wwiser@gmail.com>", "Michael Woerister <michaelwoerister@posteo>"]
+authors.workspace = true
 edition.workspace = true
 description = "Support crate for rustc's self-profiling feature"
 license.workspace = true
