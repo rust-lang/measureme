@@ -5,7 +5,7 @@ authors = ["Wesley Wiser <wwiser@gmail.com>", "Michael Woerister <michaelwoerist
 edition.workspace = true
 description = "Support crate for rustc's self-profiling feature"
 license.workspace = true
-repository = "https://github.com/rust-lang/measureme"
+repository.workspace = true
 
 [dependencies]
 log = "0.4"

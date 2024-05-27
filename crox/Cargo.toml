@@ -4,6 +4,7 @@ version.workspace = true
 authors = ["Wesley Wiser <wwiser@gmail.com>"]
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 
 [dependencies]
 measureme = { path = "../measureme" }

@@ -4,6 +4,7 @@ version.workspace = true
 authors = ["Wesley Wiser <wwiser@gmail.com>", "Michael Woerister <michaelwoerister@posteo>"]
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 
 [dependencies]
 analyzeme = { path = "../analyzeme" }
