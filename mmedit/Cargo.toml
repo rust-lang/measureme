@@ -1,7 +1,7 @@
 [package]
 name = "mmedit"
-version = "11.0.1"
-edition = "2018"
+version.workspace = true
+edition.workspace = true
 license.workspace = true
 
 [dependencies]

@@ -1,8 +1,8 @@
 [package]
 name = "version_checker"
-version = "11.0.1"
+version.workspace = true
 authors = ["Michael Woerister <michaelwoerister@posteo>"]
-edition = "2018"
+edition.workspace = true
 license.workspace = true
 
 [dependencies]

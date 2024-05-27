@@ -1,8 +1,8 @@
 [package]
 name = "measureme"
-version = "11.0.1"
+version.workspace = true
 authors = ["Wesley Wiser <wwiser@gmail.com>", "Michael Woerister <michaelwoerister@posteo>"]
-edition = "2018"
+edition.workspace = true
 description = "Support crate for rustc's self-profiling feature"
 license.workspace = true
 repository = "https://github.com/rust-lang/measureme"
