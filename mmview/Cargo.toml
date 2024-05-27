@@ -7,6 +7,6 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-analyzeme = { path = "../analyzeme" }
-clap = { version = "4.5.0", features = ["derive"] }
-measureme = { path = "../measureme" }
+analyzeme.workspace = true
+clap.workspace = true
+measureme.workspace = true

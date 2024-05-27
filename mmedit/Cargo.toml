@@ -7,6 +7,6 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-clap = { version = "4.5.0", features = ["derive"] }
-decodeme = { path = "../decodeme" }
-measureme = { path = "../measureme" }
+clap.workspace = true
+decodeme.workspace = true
+measureme.workspace = true

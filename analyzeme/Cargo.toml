@@ -7,21 +7,21 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-decodeme = { path = "../decodeme" }
-measureme = { path = "../measureme" }
-memchr = "2"
-rustc-hash = "1.0.1"
-serde = { version = "1.0", features = ["derive"] }
+decodeme.workspace = true
+measureme.workspace = true
+memchr.workspace = true
+rustc-hash.workspace = true
+serde.workspace = true
 
 # Depending on older versions of this crate allows us to keep supporting older
 # file formats.
 
 # File format: v7
-analyzeme_9_2_0 = { package = "analyzeme", git = "https://github.com/rust-lang/measureme", tag = "9.2.0" }
+analyzeme_9_2_0.workspace = true
 
 # File format: v8
-decodeme_10_1_2 = { package = "decodeme", git = "https://github.com/rust-lang/measureme", tag = "10.1.2" }
-measureme_10_1_2 = { package = "measureme", git = "https://github.com/rust-lang/measureme", tag = "10.1.2" }
+decodeme_10_1_2.workspace = true
+measureme_10_1_2.workspace = true
 
 [dev-dependencies]
-flate2 = "1.0"
+flate2.workspace = true

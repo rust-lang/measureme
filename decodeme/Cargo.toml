@@ -9,8 +9,8 @@ repository.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-measureme = { path = "../measureme" }
-memchr = "2"
-rustc-hash = "1.0.1"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+measureme.workspace = true
+memchr.workspace = true
+rustc-hash.workspace = true
+serde.workspace = true
+serde_json.workspace = true
