@@ -1,5 +1,6 @@
 [package]
 name = "stack_collapse"
+description = "Reads `measureme` profiling data and outputs folded stack traces compatible with the Flame Graph tools"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

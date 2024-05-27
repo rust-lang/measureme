@@ -1,5 +1,6 @@
 [package]
 name = "decodeme"
+description = "Decoding definitions of the profiling event data from `measureme`"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

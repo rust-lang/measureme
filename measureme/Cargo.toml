@@ -1,9 +1,9 @@
 [package]
 name = "measureme"
+description = "Support crate for rustc's self-profiling feature"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
-description = "Support crate for rustc's self-profiling feature"
 license.workspace = true
 repository.workspace = true
 
