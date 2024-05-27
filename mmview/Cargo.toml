@@ -8,5 +8,5 @@ repository.workspace = true
 
 [dependencies]
 analyzeme = { path = "../analyzeme" }
-measureme = { path = "../measureme" }
 clap = { version = "4.5.0", features = ["derive"] }
+measureme = { path = "../measureme" }
