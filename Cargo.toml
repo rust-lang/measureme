@@ -10,7 +10,6 @@ members = [
     "stack_collapse",
     "summarize",
     "mmedit",
-    "version_checker",
 ]
 
 [workspace.package]
