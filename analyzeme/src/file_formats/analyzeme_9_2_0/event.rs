@@ -1,7 +1,6 @@
 use super::timestamp::Timestamp;
 use memchr::memchr;
 use std::borrow::Cow;
-use std::time::Duration;
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct Event<'a> {
@@ -13,31 +12,6 @@ pub struct Event<'a> {
 }
 
 impl<'a> Event<'a> {
-    /// Returns true if the time interval of `self` completely contains the
-    /// time interval of `other`.
-    pub fn contains(&self, other: &Event<'_>) -> bool {
-        match self.timestamp {
-            Timestamp::Interval {
-                start: self_start,
-                end: self_end,
-            } => match other.timestamp {
-                Timestamp::Interval {
-                    start: other_start,
-                    end: other_end,
-                } => self_start <= other_start && other_end <= self_end,
-                Timestamp::Instant(other_t) => self_start <= other_t && other_t <= self_end,
-            },
-            Timestamp::Instant(_) => false,
-        }
-    }
-
-    pub fn duration(&self) -> Option<Duration> {
-        match self.timestamp {
-            Timestamp::Interval { start, end } => end.duration_since(start).ok(),
-            Timestamp::Instant(_) => None,
-        }
-    }
-
     pub(crate) fn parse_event_id(event_id: Cow<'a, str>) -> (Cow<'a, str>, Vec<Cow<'a, str>>) {
         let event_id = match event_id {
             Cow::Owned(s) => Cow::Owned(s.into_bytes()),
@@ -140,38 +114,5 @@ impl<'a> Parser<'a> {
             }
             Cow::Borrowed(s) => Cow::Borrowed(std::str::from_utf8(&s[start..end]).unwrap()),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::borrow::Cow;
-
-    #[test]
-    fn parse_event_id_no_args() {
-        let (label, args) = Event::parse_event_id(Cow::from("foo"));
-
-        assert_eq!(label, "foo");
-        assert!(args.is_empty());
-    }
-
-    #[test]
-    fn parse_event_id_one_arg() {
-        let (label, args) = Event::parse_event_id(Cow::from("foo\x1emy_arg"));
-
-        assert_eq!(label, "foo");
-        assert_eq!(args, vec![Cow::from("my_arg")]);
-    }
-
-    #[test]
-    fn parse_event_id_n_args() {
-        let (label, args) = Event::parse_event_id(Cow::from("foo\x1earg1\x1earg2\x1earg3"));
-
-        assert_eq!(label, "foo");
-        assert_eq!(
-            args,
-            vec![Cow::from("arg1"), Cow::from("arg2"), Cow::from("arg3")]
-        );
     }
 }

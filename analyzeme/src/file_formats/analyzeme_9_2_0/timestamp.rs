@@ -18,32 +18,4 @@ impl Timestamp {
             Timestamp::Interval { start, end }
         }
     }
-
-    pub fn contains(&self, t: SystemTime) -> bool {
-        match *self {
-            Timestamp::Interval { start, end } => t >= start && t < end,
-            Timestamp::Instant(_) => false,
-        }
-    }
-
-    pub fn is_instant(&self) -> bool {
-        match *self {
-            Timestamp::Interval { .. } => false,
-            Timestamp::Instant(_) => true,
-        }
-    }
-
-    pub fn start(&self) -> SystemTime {
-        match *self {
-            Timestamp::Interval { start, .. } => start,
-            Timestamp::Instant(t) => t,
-        }
-    }
-
-    pub fn end(&self) -> SystemTime {
-        match *self {
-            Timestamp::Interval { end, .. } => end,
-            Timestamp::Instant(t) => t,
-        }
-    }
 }
