@@ -32,20 +32,12 @@
 //!
 //! [`Counter`]: counters::Counter
 
-pub mod counters;
 pub mod event_id;
 pub mod file_header;
-mod profiler;
 mod raw_event;
 mod serialization;
 pub mod stringtable;
 
-pub mod rustc;
-
-pub use self::event_id::{EventId, EventIdBuilder};
-pub use self::profiler::{DetachedTiming, Profiler, TimingGuard};
-pub use self::raw_event::{RawEvent, MAX_INTERVAL_VALUE, MAX_SINGLE_VALUE};
-pub use self::serialization::{
-    split_streams, Addr, PageTag, SerializationSink, SerializationSinkBuilder,
-};
-pub use self::stringtable::{SerializableString, StringComponent, StringId, StringTableBuilder};
+pub use self::raw_event::RawEvent;
+pub use self::serialization::{split_streams, Addr, PageTag};
+pub use self::stringtable::StringId;

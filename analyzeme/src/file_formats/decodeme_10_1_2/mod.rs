@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::{
     error::Error,
     mem,
@@ -20,7 +19,6 @@ pub mod stringtable;
 // These re-exports allow us to use some types from the measureme version tied to this
 // version of decodeme, with explicitly mentioning that measureme version in downstream
 // Cargo.tomls.
-pub use super::measureme_10_1_2::file_header::CURRENT_FILE_FORMAT_VERSION;
 pub use super::measureme_10_1_2::file_header::FILE_HEADER_SIZE;
 pub use super::measureme_10_1_2::file_header::FILE_MAGIC_TOP_LEVEL;
 pub use super::measureme_10_1_2::PageTag;
@@ -45,50 +43,6 @@ pub struct Metadata {
     pub start_time: SystemTime,
     pub process_id: u32,
     pub cmd: String,
-}
-
-#[must_use]
-pub fn read_file_header(
-    bytes: &[u8],
-    expected_magic: &[u8; 4],
-    diagnostic_file_path: Option<&Path>,
-    stream_tag: &str,
-) -> Result<u32, Box<dyn Error + Send + Sync>> {
-    // The implementation here relies on FILE_HEADER_SIZE to have the value 8.
-    // Let's make sure this assumption cannot be violated without being noticed.
-    assert_eq!(FILE_HEADER_SIZE, 8);
-
-    let diagnostic_file_path = diagnostic_file_path.unwrap_or(Path::new("<in-memory>"));
-
-    if bytes.len() < FILE_HEADER_SIZE {
-        let msg = format!(
-            "Error reading {} stream in file `{}`: Expected file to contain at least `{:?}` bytes but found `{:?}` bytes",
-            stream_tag,
-            diagnostic_file_path.display(),
-            FILE_HEADER_SIZE,
-            bytes.len()
-        );
-
-        return Err(From::from(msg));
-    }
-
-    let actual_magic = &bytes[0..4];
-
-    if actual_magic != expected_magic {
-        let msg = format!(
-            "Error reading {} stream in file `{}`: Expected file magic `{:?}` but found `{:?}`",
-            stream_tag,
-            diagnostic_file_path.display(),
-            expected_magic,
-            actual_magic
-        );
-
-        return Err(From::from(msg));
-    }
-
-    let file_format_version = u32::from_le_bytes(bytes[4..8].try_into().unwrap());
-
-    Ok(file_format_version)
 }
 
 const RAW_EVENT_SIZE: usize = std::mem::size_of::<RawEvent>();

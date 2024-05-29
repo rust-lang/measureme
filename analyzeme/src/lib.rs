@@ -10,9 +10,6 @@
 //! To retrieve an `Iterator` of all of the events in the file,
 //! call the [`ProfilingData::iter()`] method.
 
-#[macro_use]
-extern crate log;
-
 mod analysis;
 mod file_formats;
 mod profiling_data;

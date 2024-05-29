@@ -12,26 +12,9 @@ pub const FILE_MAGIC_EVENT_STREAM: &[u8; 4] = b"MMES";
 pub const FILE_MAGIC_STRINGTABLE_DATA: &[u8; 4] = b"MMSD";
 pub const FILE_MAGIC_STRINGTABLE_INDEX: &[u8; 4] = b"MMSI";
 
-pub const FILE_EXTENSION: &str = "mm_profdata";
-
 /// The size of the file header in bytes. Note that functions in this module
 /// rely on this size to be `8`.
 pub const FILE_HEADER_SIZE: usize = 8;
-
-pub fn write_file_header(
-    s: &mut dyn std::io::Write,
-    file_magic: &[u8; 4],
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // The implementation here relies on FILE_HEADER_SIZE to have the value 8.
-    // Let's make sure this assumption cannot be violated without being noticed.
-    assert_eq!(FILE_HEADER_SIZE, 8);
-
-    s.write_all(file_magic).map_err(Box::new)?;
-    s.write_all(&CURRENT_FILE_FORMAT_VERSION.to_le_bytes())
-        .map_err(Box::new)?;
-
-    Ok(())
-}
 
 #[must_use]
 pub fn verify_file_header(
@@ -91,55 +74,4 @@ pub fn verify_file_header(
 
 pub fn strip_file_header(data: &[u8]) -> &[u8] {
     &data[FILE_HEADER_SIZE..]
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use super::super::{PageTag, SerializationSinkBuilder};
-
-    #[test]
-    fn roundtrip() {
-        let data_sink = SerializationSinkBuilder::new_in_memory().new_sink(PageTag::Events);
-
-        write_file_header(&mut data_sink.as_std_write(), FILE_MAGIC_EVENT_STREAM).unwrap();
-
-        let data = data_sink.into_bytes();
-
-        verify_file_header(&data, FILE_MAGIC_EVENT_STREAM, None, "test").unwrap();
-    }
-
-    #[test]
-    fn invalid_magic() {
-        let data_sink = SerializationSinkBuilder::new_in_memory().new_sink(PageTag::Events);
-        write_file_header(&mut data_sink.as_std_write(), FILE_MAGIC_STRINGTABLE_DATA).unwrap();
-        let mut data = data_sink.into_bytes();
-
-        // Invalidate the filemagic
-        data[2] = 0;
-        assert!(verify_file_header(&data, FILE_MAGIC_STRINGTABLE_DATA, None, "test").is_err());
-    }
-
-    #[test]
-    fn other_version() {
-        let data_sink = SerializationSinkBuilder::new_in_memory().new_sink(PageTag::Events);
-
-        write_file_header(&mut data_sink.as_std_write(), FILE_MAGIC_STRINGTABLE_INDEX).unwrap();
-
-        let mut data = data_sink.into_bytes();
-
-        // Change version
-        data[4] = 0xFF;
-        data[5] = 0xFF;
-        data[6] = 0xFF;
-        data[7] = 0xFF;
-        assert!(verify_file_header(&data, FILE_MAGIC_STRINGTABLE_INDEX, None, "test").is_err());
-    }
-
-    #[test]
-    fn empty_file() {
-        let data: [u8; 0] = [];
-
-        assert!(verify_file_header(&data, FILE_MAGIC_STRINGTABLE_DATA, None, "test").is_err());
-    }
 }
