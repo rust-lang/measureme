@@ -28,12 +28,12 @@ flate2 = "1.0"
 inferno = { version = "0.11", default-features = false }
 log = "0.4"
 measureme = { path = "measureme" }
-measureme_9_2_0 = { package = "measureme", git = "https://github.com/rust-lang/measureme", tag = "9.2.0" }
 measureme_10_1_2 = { package = "measureme", git = "https://github.com/rust-lang/measureme", tag = "10.1.2" }
 memchr = "2"
 memmap2 = "0.2.1"
 parking_lot = "0.12.0"
 perf-event-open-sys = "3.0.0"
+perf-event-open-sys_v1 = { package = "perf-event-open-sys", version = "1" }
 prettytable-rs = "0.10"
 rustc-hash = "1.0.1"
 serde = { version = "1.0", features = ["derive"] }

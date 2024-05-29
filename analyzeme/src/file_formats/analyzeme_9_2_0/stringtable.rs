@@ -1,7 +1,7 @@
 //! See module-level documentation `measureme_9_2_0::stringtable`.
 
-use measureme_9_2_0::stringtable::{METADATA_STRING_ID, TERMINATOR};
-use measureme_9_2_0::{
+use super::measureme_9_2_0::stringtable::{METADATA_STRING_ID, TERMINATOR};
+use super::measureme_9_2_0::{
     file_header::{
         strip_file_header, verify_file_header, FILE_MAGIC_STRINGTABLE_DATA,
         FILE_MAGIC_STRINGTABLE_INDEX,
@@ -9,7 +9,7 @@ use measureme_9_2_0::{
     stringtable::STRING_REF_ENCODED_SIZE,
     stringtable::STRING_REF_TAG,
 };
-use measureme_9_2_0::{Addr, StringId};
+use super::measureme_9_2_0::{Addr, StringId};
 use memchr::{memchr, memchr2};
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
@@ -208,7 +208,7 @@ impl StringTable {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use measureme_9_2_0::{PageTag, SerializationSinkBuilder, StringComponent, StringTableBuilder};
+    use super::super::measureme_9_2_0::{PageTag, SerializationSinkBuilder, StringComponent, StringTableBuilder};
     use std::sync::Arc;
 
     #[test]

@@ -28,5 +28,6 @@ pub use self::timestamp::Timestamp;
 // These are re-exported just for being used in v10.0.0 when supporting
 // old file formats. Starting in v10.0.0 these re-exports will become
 // part of the `decodeme` crate.
-pub use measureme_9_2_0::file_header::CURRENT_FILE_FORMAT_VERSION;
-pub use measureme_9_2_0::RawEvent;
+pub use super::measureme_9_2_0::file_header::CURRENT_FILE_FORMAT_VERSION;
+pub use super::measureme_9_2_0::RawEvent;
+use super::measureme_9_2_0;

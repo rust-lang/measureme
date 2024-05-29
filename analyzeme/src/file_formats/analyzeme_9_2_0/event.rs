@@ -75,7 +75,7 @@ struct Parser<'a> {
     pos: usize,
 }
 
-const SEPARATOR_BYTE: u8 = measureme_9_2_0::event_id::SEPARATOR_BYTE.as_bytes()[0];
+const SEPARATOR_BYTE: u8 = super::measureme_9_2_0::event_id::SEPARATOR_BYTE.as_bytes()[0];
 
 impl<'a> Parser<'a> {
     fn new(full_text: Cow<'a, [u8]>) -> Parser<'a> {

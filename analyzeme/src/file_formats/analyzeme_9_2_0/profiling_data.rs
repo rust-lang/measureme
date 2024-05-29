@@ -2,11 +2,11 @@ use super::event::Event;
 use super::lightweight_event::LightweightEvent;
 use super::timestamp::Timestamp;
 use super::StringTable;
-use measureme_9_2_0::file_header::{
+use super::measureme_9_2_0::file_header::{
     verify_file_header, write_file_header, FILE_EXTENSION, FILE_HEADER_SIZE,
     FILE_MAGIC_EVENT_STREAM, FILE_MAGIC_TOP_LEVEL,
 };
-use measureme_9_2_0::{
+use super::measureme_9_2_0::{
     EventId, PageTag, RawEvent, SerializationSink, SerializationSinkBuilder, StringTableBuilder,
 };
 use serde::{Deserialize, Deserializer};
@@ -53,7 +53,7 @@ impl ProfilingData {
 
             verify_file_header(&data, FILE_MAGIC_TOP_LEVEL, Some(&paged_path), "top-level")?;
 
-            let mut split_data = measureme_9_2_0::split_streams(&data[FILE_HEADER_SIZE..]);
+            let mut split_data = super::measureme_9_2_0::split_streams(&data[FILE_HEADER_SIZE..]);
 
             let string_data = split_data.remove(&PageTag::StringData).unwrap();
             let index_data = split_data.remove(&PageTag::StringIndex).unwrap();
@@ -85,7 +85,7 @@ impl ProfilingData {
     pub fn from_paged_buffer(data: Vec<u8>) -> Result<ProfilingData, Box<dyn Error + Send + Sync>> {
         verify_file_header(&data, FILE_MAGIC_TOP_LEVEL, None, "top-level")?;
 
-        let mut split_data = measureme_9_2_0::split_streams(&data[FILE_HEADER_SIZE..]);
+        let mut split_data = super::measureme_9_2_0::split_streams(&data[FILE_HEADER_SIZE..]);
 
         let string_data = split_data.remove(&PageTag::StringData).unwrap();
         let index_data = split_data.remove(&PageTag::StringIndex).unwrap();

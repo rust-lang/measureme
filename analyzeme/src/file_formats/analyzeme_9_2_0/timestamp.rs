@@ -1,4 +1,4 @@
-use measureme_9_2_0::RawEvent;
+use super::measureme_9_2_0::RawEvent;
 use std::time::{Duration, SystemTime};
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]

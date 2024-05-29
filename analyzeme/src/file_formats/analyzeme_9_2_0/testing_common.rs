@@ -1,6 +1,6 @@
 use super::timestamp::Timestamp;
 use super::{Event, ProfilingData};
-use measureme_9_2_0::{EventId, EventIdBuilder, Profiler, StringId};
+use super::measureme_9_2_0::{EventId, EventIdBuilder, Profiler, StringId};
 use rustc_hash::FxHashMap;
 use std::borrow::Cow;
 use std::default::Default;
