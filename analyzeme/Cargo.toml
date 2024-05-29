@@ -27,10 +27,7 @@ measureme_10_1_2.workspace = true
 
 [target.'cfg(all(target_arch = "x86_64", target_os = "linux"))'.dependencies]
 memmap2.workspace = true
-perf-event-open-sys_v1.workspace = true
+perf-event-open-sys.workspace = true
 
 [dev-dependencies]
 flate2.workspace = true
-
-[features]
-nightly = []

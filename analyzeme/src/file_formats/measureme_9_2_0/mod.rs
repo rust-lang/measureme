@@ -33,7 +33,6 @@
 //!     to it
 //!
 //! [`Counter`]: counters::Counter
-#![cfg_attr(feature = "nightly", feature(asm))]
 
 pub mod counters;
 pub mod event_id;
