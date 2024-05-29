@@ -28,7 +28,6 @@ flate2 = "1.0"
 inferno = { version = "0.11", default-features = false }
 log = "0.4"
 measureme = { path = "measureme" }
-measureme_10_1_2 = { package = "measureme", git = "https://github.com/rust-lang/measureme", tag = "10.1.2" }
 memchr = "2"
 memmap2 = "0.2.1"
 parking_lot = "0.12.0"

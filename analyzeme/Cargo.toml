@@ -23,7 +23,6 @@ smallvec.workspace = true
 
 # File format: v8
 decodeme_10_1_2.workspace = true
-measureme_10_1_2.workspace = true
 
 [target.'cfg(all(target_arch = "x86_64", target_os = "linux"))'.dependencies]
 memmap2.workspace = true

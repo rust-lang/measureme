@@ -17,7 +17,7 @@ use decodeme_10_1_2::lightweight_event::LightweightEvent as OldLightweightEvent;
 pub use decodeme_10_1_2::EventDecoder;
 use decodeme_10_1_2::Metadata as OldMetadata;
 
-pub const FILE_FORMAT: u32 = measureme_10_1_2::file_header::CURRENT_FILE_FORMAT_VERSION;
+pub const FILE_FORMAT: u32 = super::measureme_10_1_2::file_header::CURRENT_FILE_FORMAT_VERSION;
 
 // NOTE: These are functionally a hand-rolled "impl From<Old> -> New", but
 // given orphan rules, it seems undesirable to spread version-specific
