@@ -21,7 +21,6 @@ repository = "https://github.com/rust-lang/measureme"
 
 [workspace.dependencies]
 analyzeme = { path = "analyzeme" }
-analyzeme_9_2_0 = { package = "analyzeme", git = "https://github.com/rust-lang/measureme", tag = "9.2.0" }
 clap = { version = "4.5.0", features = ["derive"] }
 decodeme = { path = "decodeme" }
 decodeme_10_1_2 = { package = "decodeme", git = "https://github.com/rust-lang/measureme", tag = "10.1.2" }
@@ -29,6 +28,7 @@ flate2 = "1.0"
 inferno = { version = "0.11", default-features = false }
 log = "0.4"
 measureme = { path = "measureme" }
+measureme_9_2_0 = { package = "measureme", git = "https://github.com/rust-lang/measureme", tag = "9.2.0" }
 measureme_10_1_2 = { package = "measureme", git = "https://github.com/rust-lang/measureme", tag = "10.1.2" }
 memchr = "2"
 memmap2 = "0.2.1"

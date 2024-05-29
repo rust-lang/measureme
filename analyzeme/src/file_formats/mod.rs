@@ -1,6 +1,9 @@
 use decodeme::{event::Event, lightweight_event::LightweightEvent, Metadata};
 use std::fmt::Debug;
 
+// File format: v7
+mod analyzeme_9_2_0;
+
 pub mod v7;
 pub mod v8;
 pub mod v9;

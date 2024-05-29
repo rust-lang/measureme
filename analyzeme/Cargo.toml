@@ -13,12 +13,13 @@ measureme.workspace = true
 memchr.workspace = true
 rustc-hash.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 
 # Depending on older versions of this crate allows us to keep supporting older
 # file formats.
 
 # File format: v7
-analyzeme_9_2_0.workspace = true
+measureme_9_2_0.workspace = true
 
 # File format: v8
 decodeme_10_1_2.workspace = true
