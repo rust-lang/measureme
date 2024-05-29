@@ -9,18 +9,11 @@ repository.workspace = true
 
 [dependencies]
 decodeme.workspace = true
-log.workspace = true
 measureme.workspace = true
 memchr.workspace = true
-parking_lot.workspace = true
 rustc-hash.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-smallvec.workspace = true
-
-[target.'cfg(all(target_arch = "x86_64", target_os = "linux"))'.dependencies]
-memmap2.workspace = true
-perf-event-open-sys.workspace = true
 
 [dev-dependencies]
 flate2.workspace = true
