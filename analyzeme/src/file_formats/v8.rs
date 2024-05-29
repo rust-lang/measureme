@@ -11,11 +11,11 @@
 
 use crate::{Event, EventPayload, LightweightEvent, Timestamp};
 use decodeme::Metadata;
-use decodeme_10_1_2::event_payload::EventPayload as OldEventPayload;
-use decodeme_10_1_2::event_payload::Timestamp as OldTimestamp;
-use decodeme_10_1_2::lightweight_event::LightweightEvent as OldLightweightEvent;
-pub use decodeme_10_1_2::EventDecoder;
-use decodeme_10_1_2::Metadata as OldMetadata;
+use super::decodeme_10_1_2::event_payload::EventPayload as OldEventPayload;
+use super::decodeme_10_1_2::event_payload::Timestamp as OldTimestamp;
+use super::decodeme_10_1_2::lightweight_event::LightweightEvent as OldLightweightEvent;
+pub use super::decodeme_10_1_2::EventDecoder;
+use super::decodeme_10_1_2::Metadata as OldMetadata;
 
 pub const FILE_FORMAT: u32 = super::measureme_10_1_2::file_header::CURRENT_FILE_FORMAT_VERSION;
 

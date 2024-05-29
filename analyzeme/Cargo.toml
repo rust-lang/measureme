@@ -18,12 +18,6 @@ serde.workspace = true
 serde_json.workspace = true
 smallvec.workspace = true
 
-# Depending on older versions of this crate allows us to keep supporting older
-# file formats.
-
-# File format: v8
-decodeme_10_1_2.workspace = true
-
 [target.'cfg(all(target_arch = "x86_64", target_os = "linux"))'.dependencies]
 memmap2.workspace = true
 perf-event-open-sys.workspace = true

@@ -9,6 +9,7 @@ mod analyzeme_9_2_0;
 mod measureme_9_2_0;
 
 // File format: v8
+mod decodeme_10_1_2;
 mod measureme_10_1_2;
 
 pub mod v7;
