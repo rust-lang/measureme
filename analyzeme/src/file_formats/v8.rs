@@ -11,13 +11,13 @@
 
 use crate::{Event, EventPayload, LightweightEvent, Timestamp};
 use decodeme::Metadata;
-use decodeme_10_1_2::event_payload::EventPayload as OldEventPayload;
-use decodeme_10_1_2::event_payload::Timestamp as OldTimestamp;
-use decodeme_10_1_2::lightweight_event::LightweightEvent as OldLightweightEvent;
-pub use decodeme_10_1_2::EventDecoder;
-use decodeme_10_1_2::Metadata as OldMetadata;
+use decodeme_10::event_payload::EventPayload as OldEventPayload;
+use decodeme_10::event_payload::Timestamp as OldTimestamp;
+use decodeme_10::lightweight_event::LightweightEvent as OldLightweightEvent;
+pub use decodeme_10::EventDecoder;
+use decodeme_10::Metadata as OldMetadata;
 
-pub const FILE_FORMAT: u32 = measureme_10_1_2::file_header::CURRENT_FILE_FORMAT_VERSION;
+pub const FILE_FORMAT: u32 = measureme_10::file_header::CURRENT_FILE_FORMAT_VERSION;
 
 // NOTE: These are functionally a hand-rolled "impl From<Old> -> New", but
 // given orphan rules, it seems undesirable to spread version-specific

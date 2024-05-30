@@ -18,8 +18,8 @@ serde.workspace = true
 # file formats.
 
 # File format: v8
-decodeme_10_1_2.workspace = true
-measureme_10_1_2.workspace = true
+decodeme_10.workspace = true
+measureme_10.workspace = true
 
 [dev-dependencies]
 flate2.workspace = true
