@@ -1,7 +1,6 @@
 use decodeme::{event::Event, lightweight_event::LightweightEvent, Metadata};
 use std::fmt::Debug;
 
-pub mod v7;
 pub mod v8;
 pub mod v9;
 

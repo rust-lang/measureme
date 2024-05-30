@@ -17,9 +17,6 @@ serde.workspace = true
 # Depending on older versions of this crate allows us to keep supporting older
 # file formats.
 
-# File format: v7
-analyzeme_9_2_0.workspace = true
-
 # File format: v8
 decodeme_10_1_2.workspace = true
 measureme_10_1_2.workspace = true

@@ -60,7 +60,6 @@ impl ProfilingData {
         )?;
 
         let event_decoder: Box<dyn file_formats::EventDecoder> = match file_format_version {
-            file_formats::v7::FILE_FORMAT => Box::new(file_formats::v7::EventDecoder::new(data)?),
             file_formats::v8::FILE_FORMAT => Box::new(file_formats::v8::EventDecoder::new(
                 data,
                 diagnostic_file_path,
@@ -538,61 +537,6 @@ mod tests {
         use super::*;
         use std::collections::{HashMap, HashSet};
         use std::io::Read;
-
-        #[test]
-        fn can_read_v7_profdata_files() {
-            let (data, file_format_version) =
-                read_data_and_version("tests/profdata/v7.mm_profdata.gz");
-            assert_eq!(file_format_version, file_formats::v7::FILE_FORMAT);
-            let profiling_data = ProfilingData::from_paged_buffer(data, None)
-                .expect("Creating the profiling data failed");
-            let grouped_events = group_events(&profiling_data);
-            let event_kinds = grouped_events
-                .keys()
-                .map(|k| k.as_str())
-                .collect::<HashSet<_>>();
-            let expect_event_kinds = vec!["GenericActivity", "IncrementalResultHashing", "Query"]
-                .into_iter()
-                .collect::<HashSet<_>>();
-            assert_eq!(event_kinds, expect_event_kinds);
-
-            let generic_activity_len = 6425;
-            let incremental_hashing_len = 2237;
-            let query_len = 2260;
-            assert_eq!(
-                grouped_events["GenericActivity"].len(),
-                generic_activity_len
-            );
-            assert_eq!(
-                grouped_events["IncrementalResultHashing"].len(),
-                incremental_hashing_len
-            );
-            assert_eq!(grouped_events["Query"].len(), query_len);
-
-            assert_eq!(
-                &*grouped_events["GenericActivity"][generic_activity_len / 2].label,
-                "incr_comp_encode_dep_graph"
-            );
-            assert_eq!(
-                grouped_events["GenericActivity"][generic_activity_len / 2].duration(),
-                Some(Duration::from_nanos(200))
-            );
-
-            assert_eq!(
-                &*grouped_events["IncrementalResultHashing"][incremental_hashing_len - 1].label,
-                "item_children"
-            );
-            assert_eq!(
-                grouped_events["IncrementalResultHashing"][incremental_hashing_len - 1].duration(),
-                Some(Duration::from_nanos(300))
-            );
-
-            assert_eq!(&*grouped_events["Query"][0].label, "hir_crate");
-            assert_eq!(
-                grouped_events["Query"][0].duration(),
-                Some(Duration::from_nanos(16800))
-            );
-        }
 
         #[test]
         fn can_read_v8_profdata_files() {
