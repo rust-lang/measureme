@@ -13,21 +13,21 @@ members = [
 ]
 
 [workspace.package]
-version = "11.0.1"
+version = "12.0.0"
 authors = ["Wesley Wiser <wwiser@gmail.com>", "Michael Woerister <michaelwoerister@posteo>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/rust-lang/measureme"
 
 [workspace.dependencies]
-analyzeme = { path = "analyzeme" }
+analyzeme = { version = "12.0.0", path = "analyzeme" }
 clap = { version = "4.5.0", features = ["derive"] }
-decodeme = { path = "decodeme" }
+decodeme = { version = "12.0.0", path = "decodeme" }
 decodeme_10 = { version = "10.1.3", package = "decodeme" }
 flate2 = "1.0"
 inferno = { version = "0.11", default-features = false }
 log = "0.4"
-measureme = { path = "measureme" }
+measureme = { version = "12.0.0", path = "measureme" }
 measureme_10 = { version = "10.1.3", package = "measureme" }
 memchr = "2"
 memmap2 = "0.2.1"
