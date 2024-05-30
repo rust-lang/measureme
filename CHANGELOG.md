@@ -1,5 +1,12 @@
 # Changelog
 
+## [10.1.3] - 2024-05-30
+
+### Changed
+
+- `decodeme`: Include software license information in Cargo.toml and `.crate` tarball ([GH-231])
+- `measureme`: Include software license information in Cargo.toml and `.crate` tarball ([GH-231])
+
 ## [10.1.2] - 2023-12-14
 
 ### Changed
@@ -161,6 +168,7 @@
 
 ## [0.2.0] - 2019-04-10
 
+[10.1.3]: https://github.com/rust-lang/measureme/releases/tag/10.1.3
 [10.1.2]: https://github.com/rust-lang/measureme/releases/tag/10.1.2
 [10.1.1]: https://github.com/rust-lang/measureme/releases/tag/10.1.1
 [10.1.0]: https://github.com/rust-lang/measureme/releases/tag/10.1.0
@@ -232,3 +240,4 @@
 [GH-208]: https://github.com/rust-lang/measureme/pull/208
 [GH-209]: https://github.com/rust-lang/measureme/pull/209
 [GH-211]: https://github.com/rust-lang/measureme/pull/211
+[GH-231]: https://github.com/rust-lang/measureme/pull/231
