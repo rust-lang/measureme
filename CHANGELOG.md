@@ -1,5 +1,19 @@
 # Changelog
 
+## [12.0.0] - 2024-05-31
+
+### Added
+
+- Add GitHub Workflow for publishing analyzeme and decodeme ([GH-234])
+
+### Changed
+
+- Remove bors CI config ([GH-225])
+- Update clap from v3 to v4 ([GH-226])
+- Share license information across the entire workspace ([GH-227])
+- Use workspace inheritance as much as possible ([GH-228])
+- `analyzeme`: Drop support of v7 profdata file format ([GH-232])
+
 ## [11.0.1] - 2024-01-11
 
 ### Changed
@@ -16,6 +30,13 @@
 
 - `measureme`: Update StringId and Addr sizes from u32 to u64 ([GH-216])
 - `analyzeme`: v9 file format, which uses larger events ([GH-216])
+
+## [10.1.3] - 2024-05-30
+
+### Changed
+
+- `decodeme`: Include software license information in Cargo.toml and `.crate` tarball ([GH-231])
+- `measureme`: Include software license information in Cargo.toml and `.crate` tarball ([GH-231])
 
 ## [10.1.2] - 2023-12-14
 
@@ -178,6 +199,10 @@
 
 ## [0.2.0] - 2019-04-10
 
+[12.0.0]: https://github.com/rust-lang/measureme/releases/tag/12.0.0
+[11.0.1]: https://github.com/rust-lang/measureme/releases/tag/11.0.1
+[11.0.0]: https://github.com/rust-lang/measureme/releases/tag/11.0.0
+[10.1.3]: https://github.com/rust-lang/measureme/releases/tag/10.1.3
 [10.1.2]: https://github.com/rust-lang/measureme/releases/tag/10.1.2
 [10.1.1]: https://github.com/rust-lang/measureme/releases/tag/10.1.1
 [10.1.0]: https://github.com/rust-lang/measureme/releases/tag/10.1.0
@@ -252,3 +277,9 @@
 [GH-216]: https://github.com/rust-lang/measureme/pull/216
 [GH-220]: https://github.com/rust-lang/measureme/pull/220
 [GH-221]: https://github.com/rust-lang/measureme/pull/221
+[GH-225]: https://github.com/rust-lang/measureme/pull/225
+[GH-226]: https://github.com/rust-lang/measureme/pull/226
+[GH-227]: https://github.com/rust-lang/measureme/pull/227
+[GH-228]: https://github.com/rust-lang/measureme/pull/228
+[GH-232]: https://github.com/rust-lang/measureme/pull/232
+[GH-234]: https://github.com/rust-lang/measureme/pull/234
