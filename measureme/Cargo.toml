@@ -18,4 +18,4 @@ nightly = []
 
 [target.'cfg(all(target_arch = "x86_64", target_os = "linux"))'.dependencies]
 memmap2.workspace = true
-perf-event-open-sys.workspace = true
+perf-event-open-sys2.workspace = true
