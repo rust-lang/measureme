@@ -115,13 +115,13 @@ impl EventDecoder {
 
         let string_data = split_data
             .remove(&PageTag::StringData)
-            .expect("Invalid file: No string data found");
+            .ok_or("Invalid file: No string data found")?;
         let index_data = split_data
             .remove(&PageTag::StringIndex)
-            .expect("Invalid file: No string index data found");
+            .ok_or("Invalid file: No string index data found")?;
         let event_data = split_data
             .remove(&PageTag::Events)
-            .expect("Invalid file: No event data found");
+            .ok_or("Invalid file: No event data found")?;
 
         Self::from_separate_buffers(string_data, index_data, event_data, diagnostic_file_path)
     }
