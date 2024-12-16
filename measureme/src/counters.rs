@@ -303,7 +303,7 @@ const BUG_REPORT_MSG: &str =
     "please report this to https://github.com/rust-lang/measureme/issues/new";
 
 /// Linux x86_64 implementation based on `perf_event_open` and `rdpmc`.
-#[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+#[cfg(all(target_arch = "x86_64", target_os = "linux", not(target_env = "ohos")))]
 mod hw {
     use memmap2::{Mmap, MmapOptions};
     use perf_event_open_sys::{bindings::*, perf_event_open};
@@ -349,10 +349,12 @@ mod hw {
             type_: perf_type_id,
             hw_id: u32,
         ) -> Result<Self, Box<dyn Error + Send + Sync>> {
-            let mut attrs = perf_event_attr::default();
-            attrs.size = mem::size_of::<perf_event_attr>().try_into().unwrap();
-            attrs.type_ = type_;
-            attrs.config = hw_id.into();
+            let mut attrs = perf_event_attr {
+                size: mem::size_of::<perf_event_attr>().try_into().unwrap(),
+                type_,
+                config: hw_id.into(),
+                ..perf_event_attr::default()
+            };
 
             // Only record same-thread, any CPUs, and only userspace (no kernel/hypervisor).
             // NOTE(eddyb) `pid = 0`, despite talking about "process id", means
@@ -933,7 +935,7 @@ mod hw {
     }
 }
 
-#[cfg(not(all(target_arch = "x86_64", target_os = "linux")))]
+#[cfg(not(all(target_arch = "x86_64", target_os = "linux", not(target_env = "ohos"))))]
 mod hw {
     use std::error::Error;
 
@@ -990,6 +992,10 @@ mod hw {
 
             if cfg!(not(target_os = "linux")) {
                 add_error("only supported OS is Linux");
+            }
+
+            if cfg!(target_env = "ohos") {
+                add_error("unsupported OHOS environment");
             }
 
             Err(msg.into())

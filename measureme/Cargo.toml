@@ -16,6 +16,6 @@ smallvec.workspace = true
 [features]
 nightly = []
 
-[target.'cfg(all(target_arch = "x86_64", target_os = "linux"))'.dependencies]
+[target.'cfg(all(target_arch = "x86_64", target_os = "linux", not(target_env = "ohos")))'.dependencies]
 memmap2.workspace = true
-perf-event-open-sys2.workspace = true
+perf-event-open-sys.workspace = true
