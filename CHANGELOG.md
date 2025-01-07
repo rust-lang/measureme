@@ -1,5 +1,12 @@
 # Changelog
 
+## [12.0.1] - 2025-01-07
+
+### Changed
+
+- `measureme`: Configure out ohos target's dependecies to avoid compilation crashes ([GH-238])
+- `analyzeme`: Do not panic on missing page tags ([GH-239])
+
 ## [12.0.0] - 2024-05-31
 
 ### Added
@@ -199,6 +206,7 @@
 
 ## [0.2.0] - 2019-04-10
 
+[12.0.1]: https://github.com/rust-lang/measureme/releases/tag/12.0.1
 [12.0.0]: https://github.com/rust-lang/measureme/releases/tag/12.0.0
 [11.0.1]: https://github.com/rust-lang/measureme/releases/tag/11.0.1
 [11.0.0]: https://github.com/rust-lang/measureme/releases/tag/11.0.0
@@ -283,3 +291,5 @@
 [GH-228]: https://github.com/rust-lang/measureme/pull/228
 [GH-232]: https://github.com/rust-lang/measureme/pull/232
 [GH-234]: https://github.com/rust-lang/measureme/pull/234
+[GH-238]: https://github.com/rust-lang/measureme/pull/238
+[GH-239]: https://github.com/rust-lang/measureme/pull/239
