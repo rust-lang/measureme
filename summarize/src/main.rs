@@ -120,6 +120,17 @@ fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
         "Incremental hashing time",
     ));
 
+    let label_max_width = (results.query_data.iter())
+        .map(|q| q.label.len())
+        .max()
+        .unwrap_or(0);
+    fn pad(s: &str, max: usize) -> String {
+        let Some(pad) = max.checked_sub(s.len()) else {
+            return s.to_string();
+        };
+
+        format!("{s}{:.<pad$}", " ")
+    }
     for query_data in results.query_data {
         let exclude = opt.exclude.iter().any(|e| query_data.label.contains(e));
         if exclude {
@@ -127,7 +138,7 @@ fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
         }
 
         table.add_row(row![
-            query_data.label,
+            pad(&query_data.label, label_max_width),
             format!("{:.2?}", query_data.self_time),
             format!("{:+.2}%", query_data.self_time_change),
             format!("{:.2?}", query_data.time),
@@ -250,16 +261,15 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
     let total_time = results.total_time.as_nanos() as f64;
     let mut percent_total_time: f64 = 0.0;
 
-    let mut label_max_width = (results.query_data.iter())
+    let label_max_width = (results.query_data.iter())
         .map(|q| q.label.len())
         .max()
         .unwrap_or(0);
     fn pad(s: &str, max: usize) -> String {
-        if s.len() >= max {
+        let Some(pad) = max.checked_sub(s.len()) else {
             return s.to_string();
-        }
+        };
 
-        let pad = max.saturating_sub(s.len());
         format!("{s}{:.<pad$}", " ")
     }
     for query_data in results.query_data {
