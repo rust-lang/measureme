@@ -106,8 +106,9 @@ fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
     }
 
     let mut table = Table::new();
+    table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
 
-    table.add_row(row!(
+    table.set_titles(row!(
         "Item",
         "Self Time",
         "Self Time Change",
@@ -156,8 +157,9 @@ fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
     println!("Total cpu time: {:?}", results.total_time);
 
     let mut table = Table::new();
+    table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
 
-    table.add_row(row!("Item", "Artifact Size Change",));
+    table.set_titles(row!("Item", "Artifact Size Change",));
 
     for artifact_size in results.artifact_sizes {
         let exclude = opt.exclude.iter().any(|e| artifact_size.label.contains(e));
