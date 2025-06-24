@@ -5,7 +5,7 @@ use analyzeme::AnalysisResults;
 use analyzeme::ProfilingData;
 use std::error::Error;
 use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io::{BufReader, BufWriter, Write};
 use std::{path::PathBuf, time::Duration};
 
 use clap::Parser;
@@ -142,7 +142,11 @@ fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
 
     table.printstd();
 
-    println!("Total cpu time: {:?}", results.total_time);
+    _ = writeln!(
+        std::io::stdout(),
+        "Total cpu time: {:?}",
+        results.total_time
+    );
 
     let mut table = Table::new();
 
@@ -286,10 +290,15 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
 
     table.printstd();
 
-    println!("Total cpu time: {:?}", results.total_time);
+    _ = writeln!(
+        std::io::stdout(),
+        "Total cpu time: {:?}",
+        results.total_time
+    );
 
     if percent_above != 0.0 {
-        println!(
+        _ = writeln!(
+            std::io::stdout(),
             "Filtered results account for {:.3}% of total time.",
             percent_total_time
         );
