@@ -142,11 +142,15 @@ fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
 
     table.printstd();
 
-    _ = writeln!(
+    let res = writeln!(
         std::io::stdout(),
         "Total cpu time: {:?}",
         results.total_time
     );
+    if res.is_err() {
+        // there's something wrong with stdout - give up on writing more
+        std::process::exit(1);
+    }
 
     let mut table = Table::new();
 
@@ -290,18 +294,26 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
 
     table.printstd();
 
-    _ = writeln!(
+    let res = writeln!(
         std::io::stdout(),
         "Total cpu time: {:?}",
         results.total_time
     );
+    if res.is_err() {
+        // there's something wrong with stdout - give up on writing more
+        std::process::exit(1);
+    }
 
     if percent_above != 0.0 {
-        _ = writeln!(
+        let res = writeln!(
             std::io::stdout(),
             "Filtered results account for {:.3}% of total time.",
             percent_total_time
         );
+        if res.is_err() {
+            // there's something wrong with stdout - give up on writing more
+            std::process::exit(1);
+        }
     }
 
     let mut table = Table::new();
