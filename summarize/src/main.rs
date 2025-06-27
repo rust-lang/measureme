@@ -94,6 +94,17 @@ fn aggregate(opt: AggregateOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
     Ok(())
 }
 
+fn write_stdout(fmt_args: std::fmt::Arguments) -> Result<(), Box<dyn Error + Send + Sync>> {
+    std::io::stdout().write_fmt(fmt_args).map_err(|e| {
+        if matches!(e.kind(), std::io::ErrorKind::BrokenPipe) {
+            // Broken pipes are somewhat expected, exit without writing anything else.
+            std::process::exit(0);
+        }
+
+        format!("failed writing to stdout: {e}").into()
+    })
+}
+
 fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
     let base = process_results(&opt.base)?;
     let change = process_results(&opt.change)?;
@@ -142,15 +153,7 @@ fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
 
     table.printstd();
 
-    let res = writeln!(
-        std::io::stdout(),
-        "Total cpu time: {:?}",
-        results.total_time
-    );
-    if res.is_err() {
-        // there's something wrong with stdout - give up on writing more
-        std::process::exit(1);
-    }
+    write_stdout(format_args!("Total cpu time: {:?}\n", results.total_time))?;
 
     let mut table = Table::new();
 
@@ -294,26 +297,13 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
 
     table.printstd();
 
-    let res = writeln!(
-        std::io::stdout(),
-        "Total cpu time: {:?}",
-        results.total_time
-    );
-    if res.is_err() {
-        // there's something wrong with stdout - give up on writing more
-        std::process::exit(1);
-    }
+    write_stdout(format_args!("Total cpu time: {:?}\n", results.total_time))?;
 
     if percent_above != 0.0 {
-        let res = writeln!(
-            std::io::stdout(),
-            "Filtered results account for {:.3}% of total time.",
+        write_stdout(format_args!(
+            "Filtered results account for {:.3}% of total time.\n",
             percent_total_time
-        );
-        if res.is_err() {
-            // there's something wrong with stdout - give up on writing more
-            std::process::exit(1);
-        }
+        ))?;
     }
 
     let mut table = Table::new();
