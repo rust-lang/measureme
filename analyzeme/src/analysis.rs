@@ -1,9 +1,9 @@
 use crate::{Event, EventPayload, ProfilingData, Timestamp};
 use measureme::rustc::*;
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap};
 use std::time::Duration;
 use std::time::SystemTime;
 
@@ -133,12 +133,19 @@ impl ProfilingData {
             }
         };
 
+        // Remember if we found a `QUERY_CACHE_HIT_COUNT_EVENT_KIND` event at the end of the event
+        // log for a given query. If yes, we need to avoid incrementing the query cache counts
+        // if we encounter `QUERY_CACHE_HIT_EVENT_KIND`, to avoid double counting.
+        let mut query_cache_hit_counts_found: FxHashSet<String> = Default::default();
+
         for current_event in self.iter_full().rev() {
             match current_event.payload {
                 EventPayload::Timestamp(Timestamp::Instant(_)) => {
                     if &current_event.event_kind[..] == QUERY_CACHE_HIT_EVENT_KIND {
                         record_event_data(&current_event.label, &|data| {
-                            data.number_of_cache_hits += 1;
+                            if !query_cache_hit_counts_found.contains(current_event.label.as_ref()) {
+                                data.number_of_cache_hits += 1;
+                            }
                             data.invocation_count += 1;
                         });
                     }
@@ -254,12 +261,23 @@ impl ProfilingData {
                     thread.stack.push(current_event)
                 }
                 EventPayload::Integer(value) => {
-                    if current_event.event_kind == ARTIFACT_SIZE_EVENT_KIND {
-                        // Dedup artifact size events according to their label
-                        artifact_sizes
-                            .entry(current_event.label.clone())
-                            .or_insert_with(|| ArtifactSize::new(current_event.label.into_owned()))
-                            .add_value(value);
+                    match current_event.event_kind.as_ref() {
+                        ARTIFACT_SIZE_EVENT_KIND => {
+                            // Dedup artifact size events according to their label
+                            artifact_sizes
+                                .entry(current_event.label.clone())
+                                .or_insert_with(|| ArtifactSize::new(current_event.label.into_owned()))
+                                .add_value(value);
+                        }
+                        // Aggregated query cache hit counts
+                        QUERY_CACHE_HIT_COUNT_EVENT_KIND => {
+                            record_event_data(&current_event.label, &|data| {
+                                assert_eq!(data.number_of_cache_hits, 0);
+                                data.number_of_cache_hits = value as usize;
+                            });
+                            query_cache_hit_counts_found.insert(current_event.label.into_owned());
+                        }
+                        _ => {}
                     }
                 }
             }
