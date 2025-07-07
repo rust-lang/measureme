@@ -66,3 +66,13 @@ It contains two main modes:
 `decodeme` holds the decoding definitions of the profiling event data from `measureme`.
 
 [Learn more](./decodeme/README.md)
+
+## How to make a release
+
+1) Bump version of `measureme`, `decodeme` and `analyzeme` crates in the root `Cargo.toml` file
+   - Update both `workspace.version` and `workspace.dependencies.[analyzeme/decodeme/measureme].version`
+2) Update changelog with latest changes
+   - You can use `https://github.com/rust-lang/measureme/compare/<last-released-tag>...master` to see what has changed since the last released tag
+3) Merge a PR with the changes above (e.g. https://github.com/rust-lang/measureme/pull/240)
+4) Create a git tag based on the merged PR, and push it
+5) Create a GitHub release manually based on that tag, CI will then take care of publishing the crates
