@@ -106,8 +106,9 @@ fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
     }
 
     let mut table = Table::new();
+    table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
 
-    table.add_row(row!(
+    table.set_titles(row!(
         "Item",
         "Self Time",
         "Self Time Change",
@@ -120,6 +121,17 @@ fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
         "Incremental hashing time",
     ));
 
+    let label_max_width = (results.query_data.iter())
+        .map(|q| q.label.len())
+        .max()
+        .unwrap_or(0);
+    fn pad(s: &str, max: usize) -> String {
+        let Some(pad) = max.checked_sub(s.len()) else {
+            return s.to_string();
+        };
+
+        format!("{s}{:.<pad$}", " ")
+    }
     for query_data in results.query_data {
         let exclude = opt.exclude.iter().any(|e| query_data.label.contains(e));
         if exclude {
@@ -127,7 +139,7 @@ fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
         }
 
         table.add_row(row![
-            query_data.label,
+            pad(&query_data.label, label_max_width),
             format!("{:.2?}", query_data.self_time),
             format!("{:+.2}%", query_data.self_time_change),
             format!("{:.2?}", query_data.time),
@@ -145,8 +157,9 @@ fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
     println!("Total cpu time: {:?}", results.total_time);
 
     let mut table = Table::new();
+    table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
 
-    table.add_row(row!("Item", "Artifact Size Change",));
+    table.set_titles(row!("Item", "Artifact Size Change",));
 
     for artifact_size in results.artifact_sizes {
         let exclude = opt.exclude.iter().any(|e| artifact_size.label.contains(e));
@@ -192,6 +205,7 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
         .sort_by(|l, r| r.self_time.cmp(&l.self_time));
 
     let mut table = Table::new();
+    table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
 
     let mut has_cache_hits = false;
     let mut has_blocked_time = false;
@@ -244,11 +258,22 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
             .collect()
     }
 
-    table.add_row(Row::new(filter_cells(columns)));
+    table.set_titles(Row::new(filter_cells(columns)));
 
     let total_time = results.total_time.as_nanos() as f64;
     let mut percent_total_time: f64 = 0.0;
 
+    let label_max_width = (results.query_data.iter())
+        .map(|q| q.label.len())
+        .max()
+        .unwrap_or(0);
+    fn pad(s: &str, max: usize) -> String {
+        let Some(pad) = max.checked_sub(s.len()) else {
+            return s.to_string();
+        };
+
+        format!("{s}{:.<pad$}", " ")
+    }
     for query_data in results.query_data {
         let curr_percent = (query_data.self_time.as_nanos() as f64) / total_time * 100.0;
         if curr_percent < percent_above {
@@ -260,7 +285,7 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
         // Don't show the cache hits, blocked time or incremental load time columns unless there is
         // data to show.
         table.add_row(Row::new(filter_cells(&[
-            (&query_data.label, true),
+            (&pad(&query_data.label, label_max_width), true),
             (&format!("{:.2?}", query_data.self_time), true),
             (&format!("{:.3}", curr_percent), true),
             (&format!("{:.2?}", query_data.time), true),
@@ -296,8 +321,9 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
     }
 
     let mut table = Table::new();
+    table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
 
-    table.add_row(row!("Item", "Artifact Size",));
+    table.set_titles(row!("Item", "Artifact Size"));
 
     for artifact_size in results.artifact_sizes {
         table.add_row(row![
