@@ -272,8 +272,11 @@ impl ProfilingData {
                         // Aggregated query cache hit counts
                         QUERY_CACHE_HIT_COUNT_EVENT_KIND => {
                             record_event_data(&current_event.label, &|data| {
-                                assert_eq!(data.number_of_cache_hits, 0);
-                                data.number_of_cache_hits = value as usize;
+                                // rustc produces aggregated cache hits per **query invocation**,
+                                // so a query + specific instances of arguments.
+                                // We need to deduplicate the aggregated counts here to sum them up
+                                // for individual queries, according to the event label.
+                                data.number_of_cache_hits += value as usize;
                             });
                             query_cache_hit_counts_found.insert(current_event.label.into_owned());
                         }
