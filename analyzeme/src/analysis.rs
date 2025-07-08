@@ -146,7 +146,6 @@ impl ProfilingData {
                             if !query_cache_hit_counts_found.contains(current_event.label.as_ref()) {
                                 data.number_of_cache_hits += 1;
                             }
-                            data.invocation_count += 1;
                         });
                     }
                 }
@@ -219,7 +218,9 @@ impl ProfilingData {
                                 data.self_time += current_event_duration;
                                 data.time += current_event_duration;
                                 data.blocked_time += current_event_duration;
-                                data.invocation_count += 1;
+                                // We don't increment invocation_count here, because the query
+                                // was actually a cache hit, just a blocked one.
+                                // Rustc also records a cache hit when this happens.
                             });
                         }
 
@@ -272,8 +273,11 @@ impl ProfilingData {
                         // Aggregated query cache hit counts
                         QUERY_CACHE_HIT_COUNT_EVENT_KIND => {
                             record_event_data(&current_event.label, &|data| {
-                                assert_eq!(data.number_of_cache_hits, 0);
-                                data.number_of_cache_hits = value as usize;
+                                // rustc produces aggregated cache hits per **query invocation**,
+                                // so a query + specific instances of arguments.
+                                // We need to deduplicate the aggregated counts here to sum them up
+                                // for individual queries, according to the event label.
+                                data.number_of_cache_hits += value as usize;
                             });
                             query_cache_hit_counts_found.insert(current_event.label.into_owned());
                         }
@@ -327,6 +331,9 @@ pub struct QueryData {
     pub self_time: Duration,
     pub number_of_cache_misses: usize,
     pub number_of_cache_hits: usize,
+    /// How many times was the query/event actually executed (without a cache hit).
+    /// Note that for queries, this should correspond to `number_of_cache_misses`, however
+    /// for other types of activities we don't actually count cache misses.
     pub invocation_count: usize,
     pub blocked_time: Duration,
     pub incremental_load_time: Duration,
