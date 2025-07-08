@@ -3,6 +3,11 @@ on:
   release:
     types: [created]
   workflow_dispatch:
+    inputs:
+      crate:
+        description: 'Specific crate to publish (optional - if not provided, publishes entire workspace)'
+        required: false
+        type: string
 
 jobs:
   publish:
@@ -22,5 +27,9 @@ jobs:
       - name: Publish to crates.io
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
-        run:
-          cargo +nightly publish -Zpackage-workspace --workspace
+        run: |
+          if [ -n "${{ github.event.inputs.crate }}" ]; then
+            cargo publish -p ${{ github.event.inputs.crate }}
+          else
+            cargo +nightly publish -Zpackage-workspace --workspace
+          fi
