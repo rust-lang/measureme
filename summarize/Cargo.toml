@@ -6,6 +6,7 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+publish = false
 
 [dependencies]
 analyzeme.workspace = true

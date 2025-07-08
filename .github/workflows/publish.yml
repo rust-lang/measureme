@@ -2,20 +2,22 @@ name: Publish
 on:
   release:
     types: [created]
+  workflow_dispatch:
 
 jobs:
   publish:
     name: Publish to crates.io
     runs-on: ubuntu-latest
+    environment: publish
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust (rustup)
-        run: rustup update stable && rustup default stable
-      - name: Publish
+        run: rustup update nightly && rustup default nightly
+      - name: Authenticate with crates.io
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: Publish to crates.io
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: |
-          # Note: Order is important. Leaf packages need to be published first.
-          cargo publish -p measureme
-          cargo publish -p decodeme
-          cargo publish -p analyzeme
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run:
+          cargo +nightly publish -Zpackage-workspace --workspace
