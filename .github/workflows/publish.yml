@@ -11,12 +11,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust (rustup)
-        run: rustup update stable && rustup default stable
+        run: rustup update nightly && rustup default nightly
       - name: Publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: |
-          # Note: Order is important. Leaf packages need to be published first.
-          cargo publish -p measureme
-          cargo publish -p decodeme
-          cargo publish -p analyzeme
+        run:
+          cargo +nightly publish -Zpackage-workspace --workspace
