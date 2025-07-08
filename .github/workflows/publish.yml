@@ -9,6 +9,9 @@ jobs:
     name: Publish to crates.io
     runs-on: ubuntu-latest
     environment: publish
+    permissions:
+      # Required for OIDC token exchange
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust (rustup)
