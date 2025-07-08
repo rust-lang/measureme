@@ -8,6 +8,7 @@ jobs:
   publish:
     name: Publish to crates.io
     runs-on: ubuntu-latest
+    environment: publish
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust (rustup)
