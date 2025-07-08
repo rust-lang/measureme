@@ -1,5 +1,9 @@
 # Changelog
 
+## [12.0.3] - 2025-07-08
+
+- `analyzeme`: Fix reading of aggregated query cache hit counts ([GH-252])
+
 ## [12.0.2] - 2025-07-07
 
 - `analyzeme`: Add support for reading aggregated query cache hit counts ([GH-244]) 
@@ -298,3 +302,4 @@
 [GH-238]: https://github.com/rust-lang/measureme/pull/238
 [GH-239]: https://github.com/rust-lang/measureme/pull/239
 [GH-244]: https://github.com/rust-lang/measureme/pull/244
+[GH-252]: https://github.com/rust-lang/measureme/pull/252
