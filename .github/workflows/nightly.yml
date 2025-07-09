@@ -1,6 +1,5 @@
-# This workflow checks that we can handle the self-profile output of the nightly compiler
-# from the measureme's stable branch.
-name: Check stable branch with nightly compiler
+# This workflow checks that we can handle the self-profile output of the nightly compiler.
+name: Check nightly compiler compatibility
 
 on:
   schedule:
@@ -8,12 +7,10 @@ on:
     - cron: '30 6 * * *'
 
 jobs:
-  check-stable:
+  check:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-      with:
-        ref: stable
     - name: Set up Rust toolchain
       run: rustup toolchain install --no-self-update --profile minimal nightly
     - name: Build
