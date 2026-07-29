@@ -31,7 +31,6 @@
 //!     to it
 //!
 //! [`Counter`]: counters::Counter
-#![deny(warnings)]
 
 #[macro_use]
 extern crate log;
