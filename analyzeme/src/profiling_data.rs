@@ -685,7 +685,7 @@ mod tests {
             (data, file_format_version)
         }
 
-        fn group_events(profiling_data: &ProfilingData) -> HashMap<String, Vec<Event>> {
+        fn group_events(profiling_data: &ProfilingData) -> HashMap<String, Vec<Event<'_>>> {
             let events = profiling_data.iter_full().collect::<Vec<_>>();
             assert_eq!(events.len(), profiling_data.num_events());
 
