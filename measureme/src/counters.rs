@@ -689,8 +689,8 @@ mod hw {
     impl CpuModel {
         /// Detect the model of the current CPU using `cpuid`.
         pub(super) fn detect() -> Result<Self, Box<dyn Error + Send + Sync>> {
-            let cpuid0 = unsafe { std::arch::x86_64::__cpuid(0) };
-            let cpuid1 = unsafe { std::arch::x86_64::__cpuid(1) };
+            let cpuid0 = std::arch::x86_64::__cpuid(0);
+            let cpuid1 = std::arch::x86_64::__cpuid(1);
             let mut vendor = [0; 12];
             vendor[0..4].copy_from_slice(&cpuid0.ebx.to_le_bytes());
             vendor[4..8].copy_from_slice(&cpuid0.edx.to_le_bytes());
