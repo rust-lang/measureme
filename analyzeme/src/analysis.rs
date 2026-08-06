@@ -3,7 +3,7 @@ use measureme::rustc::*;
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use std::collections::{BTreeMap};
+use std::collections::BTreeMap;
 use std::time::Duration;
 use std::time::SystemTime;
 
@@ -143,7 +143,8 @@ impl ProfilingData {
                 EventPayload::Timestamp(Timestamp::Instant(_)) => {
                     if &current_event.event_kind[..] == QUERY_CACHE_HIT_EVENT_KIND {
                         record_event_data(&current_event.label, &|data| {
-                            if !query_cache_hit_counts_found.contains(current_event.label.as_ref()) {
+                            if !query_cache_hit_counts_found.contains(current_event.label.as_ref())
+                            {
                                 data.number_of_cache_hits += 1;
                             }
                         });
@@ -267,7 +268,9 @@ impl ProfilingData {
                             // Dedup artifact size events according to their label
                             artifact_sizes
                                 .entry(current_event.label.clone())
-                                .or_insert_with(|| ArtifactSize::new(current_event.label.into_owned()))
+                                .or_insert_with(|| {
+                                    ArtifactSize::new(current_event.label.into_owned())
+                                })
                                 .add_value(value);
                         }
                         // Aggregated query cache hit counts
