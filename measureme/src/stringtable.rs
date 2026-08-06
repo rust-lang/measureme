@@ -215,7 +215,7 @@ impl<'a> SerializableString for [StringComponent<'a>] {
 }
 
 macro_rules! impl_serializable_string_for_fixed_size {
-    ($n:expr) => {
+    ($n:expr_2021) => {
         impl<'a> SerializableString for [StringComponent<'a>; $n] {
             #[inline(always)]
             fn serialized_size(&self) -> usize {
