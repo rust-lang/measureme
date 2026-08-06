@@ -468,7 +468,7 @@ mod tests {
     // Creates two roundtrip tests, one using `SerializationSink::write_atomic`
     // and one using `SerializationSink::write_bytes_atomic`.
     macro_rules! mk_roundtrip_test {
-        ($name:ident, $chunk_size:expr_2021, $chunk_count:expr_2021) => {
+        ($name:ident, $chunk_size:expr, $chunk_count:expr) => {
             mod $name {
                 use super::*;
 
