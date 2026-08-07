@@ -726,7 +726,7 @@ mod hw {
                 "AuthenticAMD" => {
                     use self::AmdGen::*;
 
-                    let (gen, name) = match (family, model) {
+                    let (generation, name) = match (family, model) {
                         (0..=14, _) | (19, _) => {
                             return Err(format!(
                                 "impossible AMD64 CPU detected (Family {} Model {}); {}",
@@ -791,7 +791,7 @@ mod hw {
                     // kernels, so a more reliable approach is to execute some atomics
                     // and look at the `SpecLockMapCommit` (`r0825:u`) Zen counter,
                     // which only reliably remains `0` when `SpecLockMap` is disabled.
-                    if matches!(gen, Zen | UnknownMaybeZenLike) {
+                    if matches!(generation, Zen | UnknownMaybeZenLike) {
                         if let Ok(spec_lock_map_commit) =
                             Counter::with_type_and_hw_id(PERF_TYPE_RAW, 0x08_25)
                         {
@@ -833,13 +833,13 @@ mod hw {
                         }
                     }
 
-                    Ok(CpuModel::Amd(gen))
+                    Ok(CpuModel::Amd(generation))
                 }
 
                 "GenuineIntel" => {
                     use self::IntelGen::*;
 
-                    let (gen, name) = match (family, model) {
+                    let (generation, name) = match (family, model) {
                         // No need to name these, they're unsupported anyway.
                         (0..=5, _) => (PreBridge, ""),
                         (15, _) => (PreBridge, "Netburst"),
@@ -899,7 +899,7 @@ mod hw {
                         info!("CpuModel::detect: known Intel CPU: {}", name);
                     }
 
-                    Ok(CpuModel::Intel(gen))
+                    Ok(CpuModel::Intel(generation))
                 }
 
                 _ => Err(format!(
