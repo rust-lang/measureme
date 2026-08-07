@@ -172,9 +172,9 @@ impl QueryDataDiff {
         QueryDataDiff {
             label: data.label.clone(),
             time: data.time.into(),
-            time_change: std::f64::INFINITY,
+            time_change: f64::INFINITY,
             self_time: data.self_time.into(),
-            self_time_change: std::f64::INFINITY,
+            self_time_change: f64::INFINITY,
             number_of_cache_misses: data.number_of_cache_misses as i64,
             number_of_cache_hits: data.number_of_cache_hits as i64,
             invocation_count: data.invocation_count as i64,
