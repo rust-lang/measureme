@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `measureme`: Add the `ResidentSetSize` event kind ([GH-NNN])
+- `analyzeme`, `summarize`: Aggregate and print resident set size samples ([GH-NNN])
+
 ## [12.0.3] - 2025-07-08
 
 - `analyzeme`: Fix reading of aggregated query cache hit counts ([GH-252])
@@ -302,4 +309,5 @@
 [GH-238]: https://github.com/rust-lang/measureme/pull/238
 [GH-239]: https://github.com/rust-lang/measureme/pull/239
 [GH-244]: https://github.com/rust-lang/measureme/pull/244
+[GH-NNN]: https://github.com/rust-lang/measureme/pull/NNN
 [GH-252]: https://github.com/rust-lang/measureme/pull/252

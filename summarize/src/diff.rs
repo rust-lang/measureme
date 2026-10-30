@@ -1,4 +1,4 @@
-use analyzeme::{AnalysisResults, ArtifactSize, QueryData};
+use analyzeme::{AnalysisResults, ArtifactSize, QueryData, ResidentSetSize};
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -10,22 +10,15 @@ use std::time::Duration;
 pub struct DiffResults {
     pub query_data: Vec<QueryDataDiff>,
     pub artifact_sizes: Vec<ArtifactSizeDiff>,
+    #[serde(default)]
+    pub resident_set_sizes: Vec<ResidentSetSizeDiff>,
     pub total_time: SignedDuration,
 }
 
-fn build_query_lookup(query_data: &[QueryData]) -> FxHashMap<&str, usize> {
-    let mut lookup = FxHashMap::with_capacity_and_hasher(query_data.len(), Default::default());
-    for (i, data) in query_data.iter().enumerate() {
-        lookup.insert(&data.label[..], i);
-    }
-
-    lookup
-}
-
-fn build_artifact_lookup(artifact_sizes: &[ArtifactSize]) -> FxHashMap<&str, usize> {
-    let mut lookup = FxHashMap::with_capacity_and_hasher(artifact_sizes.len(), Default::default());
-    for (i, data) in artifact_sizes.iter().enumerate() {
-        lookup.insert(&data.label[..], i);
+fn build_label_lookup<'a, T>(items: &'a [T], label: fn(&T) -> &str) -> FxHashMap<&'a str, usize> {
+    let mut lookup = FxHashMap::with_capacity_and_hasher(items.len(), Default::default());
+    for (i, item) in items.iter().enumerate() {
+        lookup.insert(label(item), i);
     }
 
     lookup
@@ -37,8 +30,8 @@ pub fn calculate_diff(base: AnalysisResults, change: AnalysisResults) -> DiffRes
         d.into()
     }
 
-    let base_data = build_query_lookup(&base.query_data);
-    let change_data = build_query_lookup(&change.query_data);
+    let base_data = build_label_lookup(&base.query_data, |q| &q.label);
+    let change_data = build_label_lookup(&change.query_data, |q| &q.label);
 
     let mut all_labels = FxHashSet::with_capacity_and_hasher(
         base.query_data.len() + change.query_data.len(),
@@ -65,8 +58,8 @@ pub fn calculate_diff(base: AnalysisResults, change: AnalysisResults) -> DiffRes
 
     query_data.sort_by(|l, r| r.self_time.duration.cmp(&l.self_time.duration));
 
-    let base_data = build_artifact_lookup(&base.artifact_sizes);
-    let change_data = build_artifact_lookup(&change.artifact_sizes);
+    let base_data = build_label_lookup(&base.artifact_sizes, |a| &a.label);
+    let change_data = build_label_lookup(&change.artifact_sizes, |a| &a.label);
     let all_labels = base
         .artifact_sizes
         .iter()
@@ -89,9 +82,34 @@ pub fn calculate_diff(base: AnalysisResults, change: AnalysisResults) -> DiffRes
         .collect();
     artifact_sizes.sort_by(|l, r| r.size_change.cmp(&l.size_change));
 
+    let base_data = build_label_lookup(&base.resident_set_sizes, |r| &r.label);
+    let change_data = build_label_lookup(&change.resident_set_sizes, |r| &r.label);
+    let all_labels = base
+        .resident_set_sizes
+        .iter()
+        .chain(&change.resident_set_sizes)
+        .map(|r| r.label.as_str())
+        .collect::<HashSet<_>>();
+    let mut resident_set_sizes: Vec<_> = all_labels
+        .iter()
+        .map(|l| {
+            let b = base_data.get(l).map(|i| &base.resident_set_sizes[*i]);
+            let c = change_data.get(l).map(|i| &change.resident_set_sizes[*i]);
+
+            match (b, c) {
+                (Some(b), Some(c)) => ResidentSetSizeDiff::sub(c, b),
+                (Some(b), None) => ResidentSetSizeDiff::invert_resident_set_size(b),
+                (None, Some(c)) => ResidentSetSizeDiff::resident_set_size_as_diff(c),
+                (None, None) => unreachable!(),
+            }
+        })
+        .collect();
+    resident_set_sizes.sort_by(|l, r| r.max_change.cmp(&l.max_change));
+
     DiffResults {
         query_data,
         artifact_sizes,
+        resident_set_sizes,
         total_time: sd(change.total_time) - sd(base.total_time),
     }
 }
@@ -213,6 +231,44 @@ impl ArtifactSizeDiff {
     }
 }
 
+/// The diff between two `ResidentSetSize` values, in bytes
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+pub struct ResidentSetSizeDiff {
+    pub label: String,
+    pub start_change: i64,
+    pub end_change: i64,
+    pub max_change: i64,
+}
+
+impl ResidentSetSizeDiff {
+    pub fn invert_resident_set_size(rss: &ResidentSetSize) -> ResidentSetSizeDiff {
+        ResidentSetSizeDiff {
+            label: rss.label.clone(),
+            start_change: -(rss.start as i64),
+            end_change: -(rss.end as i64),
+            max_change: -(rss.max as i64),
+        }
+    }
+
+    pub fn resident_set_size_as_diff(rss: &ResidentSetSize) -> ResidentSetSizeDiff {
+        ResidentSetSizeDiff {
+            label: rss.label.clone(),
+            start_change: rss.start as i64,
+            end_change: rss.end as i64,
+            max_change: rss.max as i64,
+        }
+    }
+
+    fn sub(lhs: &ResidentSetSize, rhs: &ResidentSetSize) -> ResidentSetSizeDiff {
+        ResidentSetSizeDiff {
+            label: lhs.label.clone(),
+            start_change: lhs.start as i64 - rhs.start as i64,
+            end_change: lhs.end as i64 - rhs.end as i64,
+            max_change: lhs.max as i64 - rhs.max as i64,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Copy, Eq, PartialEq)]
 pub struct SignedDuration {
     pub duration: Duration,
@@ -279,8 +335,55 @@ impl fmt::Debug for SignedDuration {
 
 #[cfg(test)]
 mod test {
-    use super::SignedDuration;
+    use super::{ResidentSetSizeDiff, SignedDuration};
+    use analyzeme::ResidentSetSize;
     use std::time::Duration;
+
+    fn rss(label: &str, start: u64, end: u64, max: u64) -> ResidentSetSize {
+        ResidentSetSize {
+            label: label.to_string(),
+            start,
+            end,
+            max,
+            sample_count: 2,
+        }
+    }
+
+    #[test]
+    fn resident_set_size_diff() {
+        let base = rss("pass", 100, 300, 350);
+        let change = rss("pass", 120, 250, 400);
+
+        assert_eq!(
+            ResidentSetSizeDiff::sub(&change, &base),
+            ResidentSetSizeDiff {
+                label: "pass".to_string(),
+                start_change: 20,
+                end_change: -50,
+                max_change: 50,
+            }
+        );
+
+        assert_eq!(
+            ResidentSetSizeDiff::invert_resident_set_size(&base),
+            ResidentSetSizeDiff {
+                label: "pass".to_string(),
+                start_change: -100,
+                end_change: -300,
+                max_change: -350,
+            }
+        );
+
+        assert_eq!(
+            ResidentSetSizeDiff::resident_set_size_as_diff(&change),
+            ResidentSetSizeDiff {
+                label: "pass".to_string(),
+                start_change: 120,
+                end_change: 250,
+                max_change: 400,
+            }
+        );
+    }
 
     #[test]
     fn op_subtract() {

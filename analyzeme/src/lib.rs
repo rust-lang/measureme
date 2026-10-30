@@ -18,7 +18,7 @@ pub mod testing_common;
 
 pub use crate::profiling_data::{ProfilingData, ProfilingDataBuilder};
 pub use crate::stack_collapse::collapse_stacks;
-pub use analysis::{AnalysisResults, ArtifactSize, QueryData};
+pub use analysis::{AnalysisResults, ArtifactSize, QueryData, ResidentSetSize};
 pub use decodeme::event::Event;
 pub use decodeme::event_payload::{EventPayload, Timestamp};
 pub use decodeme::lightweight_event::LightweightEvent;
