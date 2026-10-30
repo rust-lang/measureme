@@ -4,8 +4,8 @@
 
 ### Added
 
-- `measureme`: Add the `ResidentSetSize` event kind ([GH-NNN])
-- `analyzeme`, `summarize`: Aggregate and print resident set size samples ([GH-NNN])
+- `measureme`: Add the `ResidentSetSize` event kind ([GH-262])
+- `analyzeme`, `summarize`: Aggregate and print resident set size samples ([GH-262])
 
 ## [12.0.3] - 2025-07-08
 
@@ -309,5 +309,5 @@
 [GH-238]: https://github.com/rust-lang/measureme/pull/238
 [GH-239]: https://github.com/rust-lang/measureme/pull/239
 [GH-244]: https://github.com/rust-lang/measureme/pull/244
-[GH-NNN]: https://github.com/rust-lang/measureme/pull/NNN
+[GH-262]: https://github.com/rust-lang/measureme/pull/262
 [GH-252]: https://github.com/rust-lang/measureme/pull/252
