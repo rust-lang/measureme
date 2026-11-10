@@ -121,6 +121,7 @@ impl ProfilingData {
 
         let mut query_data = FxHashMap::<String, QueryData>::default();
         let mut artifact_sizes = BTreeMap::<Cow<'_, str>, ArtifactSize>::default();
+        let mut resident_set_sizes = BTreeMap::<Cow<'_, str>, ResidentSetSize>::default();
         let mut threads = FxHashMap::<_, PerThreadState<'_>>::default();
 
         let mut record_event_data = |label: &Cow<'_, str>, f: &dyn Fn(&mut QueryData)| {
@@ -273,6 +274,16 @@ impl ProfilingData {
                                 })
                                 .add_value(value);
                         }
+                        RESIDENT_SET_SIZE_EVENT_KIND => {
+                            // Events are walked in reverse, so the first sample we see
+                            // for a label is the last one in the trace.
+                            resident_set_sizes
+                                .entry(current_event.label.clone())
+                                .or_insert_with(|| {
+                                    ResidentSetSize::new(current_event.label.into_owned())
+                                })
+                                .add_sample(value);
+                        }
                         // Aggregated query cache hit counts
                         QUERY_CACHE_HIT_COUNT_EVENT_KIND => {
                             record_event_data(&current_event.label, &|data| {
@@ -298,6 +309,7 @@ impl ProfilingData {
         AnalysisResults {
             query_data: query_data.drain().map(|(_, value)| value).collect(),
             artifact_sizes: artifact_sizes.into_values().collect(),
+            resident_set_sizes: resident_set_sizes.into_values().collect(),
             total_time,
         }
     }
@@ -308,6 +320,10 @@ impl ProfilingData {
 pub struct AnalysisResults {
     pub query_data: Vec<QueryData>,
     pub artifact_sizes: Vec<ArtifactSize>,
+    /// Resident set size samples, aggregated per label. Older serialized results do
+    /// not contain this field, so it defaults to empty.
+    #[serde(default)]
+    pub resident_set_sizes: Vec<ResidentSetSize>,
     pub total_time: Duration,
 }
 
@@ -322,6 +338,13 @@ impl AnalysisResults {
         self.artifact_sizes
             .iter()
             .find(|qd| qd.label == label)
+            .unwrap()
+    }
+
+    pub fn resident_set_size_by_label(&self, label: &str) -> &ResidentSetSize {
+        self.resident_set_sizes
+            .iter()
+            .find(|rss| rss.label == label)
             .unwrap()
     }
 }
@@ -365,6 +388,47 @@ impl ArtifactSize {
 
     pub(crate) fn add_value(&mut self, value: u64) {
         self.value += value;
+    }
+}
+
+/// Resident set size samples recorded under one label, in bytes.
+///
+/// rustc records a sample when an activity starts and another when it ends. For an
+/// activity that runs once, `start` and `end` are exactly those two samples. For an
+/// activity that runs several times, `start` is the sample from the first run and
+/// `end` the sample from the last run, so `end - start` is the net change over all
+/// runs and `max` is the peak.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ResidentSetSize {
+    pub label: String,
+    /// The first sample in the trace.
+    pub start: u64,
+    /// The last sample in the trace.
+    pub end: u64,
+    pub max: u64,
+    pub sample_count: usize,
+}
+
+impl ResidentSetSize {
+    pub fn new(label: String) -> Self {
+        Self {
+            label,
+            start: 0,
+            end: 0,
+            max: 0,
+            sample_count: 0,
+        }
+    }
+
+    /// Adds a sample. Samples must be added in reverse trace order, which is the
+    /// order `perform_analysis` walks the events in.
+    pub(crate) fn add_sample(&mut self, value: u64) {
+        if self.sample_count == 0 {
+            self.end = value;
+        }
+        self.start = value;
+        self.max = self.max.max(value);
+        self.sample_count += 1;
     }
 }
 
@@ -682,5 +746,52 @@ mod tests {
         assert_eq!(results.artifact_size_by_label("artifact1").label, "artifact1");
         assert_eq!(results.artifact_size_by_label("artifact2").value, 50);
         assert_eq!(results.artifact_size_by_label("artifact2").label, "artifact2");
+    }
+
+    #[test]
+    fn resident_set_sizes() {
+        let mut b = ProfilingDataBuilder::new();
+
+        // Two runs of `pass1`: 100 -> 300, then 250 -> 400.
+        b.integer(RESIDENT_SET_SIZE_EVENT_KIND, "pass1", 1, 100);
+        b.integer(RESIDENT_SET_SIZE_EVENT_KIND, "pass1", 1, 300);
+        b.integer(RESIDENT_SET_SIZE_EVENT_KIND, "pass2", 1, 300);
+        b.integer(RESIDENT_SET_SIZE_EVENT_KIND, "pass2", 1, 200);
+        b.integer(RESIDENT_SET_SIZE_EVENT_KIND, "pass1", 2, 250);
+        b.integer(RESIDENT_SET_SIZE_EVENT_KIND, "pass1", 2, 400);
+        b.integer(ARTIFACT_SIZE_EVENT_KIND, "artifact1", 1, 50);
+        b.integer("OTHER_EVENT", "other_id", 1, 50);
+
+        let results = b.into_profiling_data().perform_analysis();
+
+        assert_eq!(results.resident_set_sizes.len(), 2);
+
+        let pass1 = results.resident_set_size_by_label("pass1");
+        assert_eq!(pass1.label, "pass1");
+        assert_eq!(pass1.start, 100);
+        assert_eq!(pass1.end, 400);
+        assert_eq!(pass1.max, 400);
+        assert_eq!(pass1.sample_count, 4);
+
+        let pass2 = results.resident_set_size_by_label("pass2");
+        assert_eq!(pass2.start, 300);
+        assert_eq!(pass2.end, 200);
+        assert_eq!(pass2.max, 300);
+        assert_eq!(pass2.sample_count, 2);
+
+        // Other integer events are not affected.
+        assert_eq!(results.artifact_sizes.len(), 1);
+        assert_eq!(results.artifact_size_by_label("artifact1").value, 50);
+    }
+
+    #[test]
+    fn analysis_results_without_resident_set_sizes() {
+        // Results serialized before `resident_set_sizes` existed must still load.
+        let json = r#"{"query_data":[],"artifact_sizes":[],"total_time":{"secs":1,"nanos":0}}"#;
+
+        let results: AnalysisResults = serde_json::from_str(json).unwrap();
+
+        assert!(results.resident_set_sizes.is_empty());
+        assert_eq!(results.total_time, Duration::from_secs(1));
     }
 }

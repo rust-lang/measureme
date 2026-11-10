@@ -81,6 +81,15 @@ fn write_results_json(
     Ok(())
 }
 
+/// Formats a byte count as megabytes, the unit `-Z time-passes` uses for RSS.
+fn format_mb(bytes: u64) -> String {
+    format!("{:.2} MB", bytes as f64 / 1_000_000.0)
+}
+
+fn format_mb_signed(bytes: i64) -> String {
+    format!("{:+.2} MB", bytes as f64 / 1_000_000.0)
+}
+
 fn aggregate(opt: AggregateOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
     let profiles = opt
         .files
@@ -174,6 +183,34 @@ fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
     }
 
     table.printstd();
+
+    if !results.resident_set_sizes.is_empty() {
+        let mut table = Table::new();
+        table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+
+        table.set_titles(row!(
+            "Item",
+            "RSS start change",
+            "RSS end change",
+            "Max RSS change",
+        ));
+
+        for rss in results.resident_set_sizes {
+            let exclude = opt.exclude.iter().any(|e| rss.label.contains(e));
+            if exclude {
+                continue;
+            }
+
+            table.add_row(row![
+                rss.label,
+                format_mb_signed(rss.start_change),
+                format_mb_signed(rss.end_change),
+                format_mb_signed(rss.max_change),
+            ]);
+        }
+
+        table.printstd();
+    }
 
     Ok(())
 }
@@ -333,6 +370,33 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
     }
 
     table.printstd();
+
+    if !results.resident_set_sizes.is_empty() {
+        results.resident_set_sizes.sort_by(|l, r| r.max.cmp(&l.max));
+
+        let mut table = Table::new();
+        table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+
+        table.set_titles(row!(
+            "Item",
+            "RSS start",
+            "RSS end",
+            "RSS change",
+            "Max RSS",
+        ));
+
+        for rss in results.resident_set_sizes {
+            table.add_row(row![
+                rss.label,
+                format_mb(rss.start),
+                format_mb(rss.end),
+                format_mb_signed(rss.end as i64 - rss.start as i64),
+                format_mb(rss.max),
+            ]);
+        }
+
+        table.printstd();
+    }
 
     Ok(())
 }
