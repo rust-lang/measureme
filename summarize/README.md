@@ -127,6 +127,7 @@ summarize the information for that event.
 
  * The `Item` column contains the name of the event.
  * The `Self time` column contains the total time used by events of this type.
+ * The `Time` column contains the total time used by events of this type including children functions.
  * The `% of total time` column contains how large a percentage `Self time` is of the
    total runtime of the compiler.
  * The `Item count` column describes the number of times that event has occurred.
