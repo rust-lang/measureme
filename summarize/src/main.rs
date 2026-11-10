@@ -5,7 +5,7 @@ use analyzeme::AnalysisResults;
 use analyzeme::ProfilingData;
 use std::error::Error;
 use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io::{BufReader, BufWriter, Write};
 use std::{path::PathBuf, time::Duration};
 
 use clap::Parser;
@@ -94,6 +94,17 @@ fn aggregate(opt: AggregateOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
     Ok(())
 }
 
+fn write_stdout(fmt_args: std::fmt::Arguments) -> Result<(), Box<dyn Error + Send + Sync>> {
+    std::io::stdout().write_fmt(fmt_args).map_err(|e| {
+        if matches!(e.kind(), std::io::ErrorKind::BrokenPipe) {
+            // Broken pipes are somewhat expected, exit without writing anything else.
+            std::process::exit(0);
+        }
+
+        format!("failed writing to stdout: {e}").into()
+    })
+}
+
 fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
     let base = process_results(&opt.base)?;
     let change = process_results(&opt.change)?;
@@ -154,7 +165,7 @@ fn diff(opt: DiffOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
 
     table.printstd();
 
-    println!("Total cpu time: {:?}", results.total_time);
+    write_stdout(format_args!("Total cpu time: {:?}\n", results.total_time))?;
 
     let mut table = Table::new();
     table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
@@ -311,13 +322,13 @@ fn summarize(opt: SummarizeOpt) -> Result<(), Box<dyn Error + Send + Sync>> {
 
     table.printstd();
 
-    println!("Total cpu time: {:?}", results.total_time);
+    write_stdout(format_args!("Total cpu time: {:?}\n", results.total_time))?;
 
     if percent_above != 0.0 {
-        println!(
-            "Filtered results account for {:.3}% of total time.",
+        write_stdout(format_args!(
+            "Filtered results account for {:.3}% of total time.\n",
             percent_total_time
-        );
+        ))?;
     }
 
     let mut table = Table::new();
